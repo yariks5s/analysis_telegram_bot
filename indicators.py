@@ -78,6 +78,9 @@ def detect_order_blocks(df, volume_threshold=1.5, body_percentage=0.5, breakout_
 
     return order_blocks
 
+
+### NOTE: Need to check if it works correctly, I am not sure it work 100% fine
+
 def detect_fvgs(df):
     """
     Detect Fair Value Gaps (FVGs) in price action and check if they are covered later.
