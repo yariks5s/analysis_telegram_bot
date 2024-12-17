@@ -6,7 +6,7 @@ import logging
 from telegram import Update
 from telegram.ext import CommandHandler, CallbackContext, ApplicationBuilder
 
-from helpers import calculate_macd, calculate_rsi, input_sanity_check, VALID_INTERVALS, logger
+from helpers import input_sanity_check
 from plot_build_helpers import plot_price_chart
 from data_fetching_instruments import fetch_ohlc_data
 
@@ -35,6 +35,7 @@ async def send_crypto_chart(update: Update, context: CallbackContext):
         symbol = res[0]
         hours = res[1]
         interval = res[2]
+        liq_lev_tolerance = res[3]
 
     limit = min(hours, 200)  # Ensure limit respects Bybit's constraints
     await update.message.reply_text(f"Fetching {symbol} price data for the last {hours} periods with interval {interval}, please wait...")
@@ -45,7 +46,7 @@ async def send_crypto_chart(update: Update, context: CallbackContext):
         return
 
     # Plot the chart with detected order blocks
-    chart_path = plot_price_chart(df, symbol)
+    chart_path = plot_price_chart(df, liq_lev_tolerance)
     if chart_path is None:
         await update.message.reply_text("Error generating the chart. Please try again.")
         return

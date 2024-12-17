@@ -1,4 +1,5 @@
 from helpers import logger
+import pandas as pd
 
 # def detect_order_blocks(df):
 #     """
@@ -119,3 +120,61 @@ def detect_fvgs(df):
                 break
 
     return fvgs
+
+
+### NOTE: Instead of support and resistance levels we can do just a liquidity levels
+
+def detect_support_resistance_levels(df: pd.DataFrame, window: int = 50, tolerance: float = 0.05):
+    """
+    Identifies support and resistance levels within a given range of candlesticks.
+
+    Parameters:
+        df (pd.DataFrame): OHLC data (Open, High, Low, Close).
+        window (int): The number of recent candlesticks to analyze (between 50 and 200).
+        tolerance (float): The tolerance for grouping nearby levels (default is 0.2%).
+
+    Returns:
+        Tuple[List[float], List[float]]: Lists of support and resistance levels.
+    """
+    # Ensure the window size does not exceed the DataFrame size
+    recent_df = df.tail(window)
+
+    support_levels = []
+    resistance_levels = []
+
+    # Iterate through the candlesticks (excluding the first and last ones)
+    for i in range(1, len(recent_df) - 1):
+        low = recent_df['Low'].iloc[i]
+        high = recent_df['High'].iloc[i]
+
+        # Check for local minima (support)
+        if low < recent_df['Low'].iloc[i - 1] and low < recent_df['Low'].iloc[i + 1]:
+            support_levels.append(low)
+
+        # Check for local maxima (resistance)
+        if high > recent_df['High'].iloc[i - 1] and high > recent_df['High'].iloc[i + 1]:
+            resistance_levels.append(high)
+
+    # Function to group nearby levels
+    def group_levels(levels):
+        """
+        Groups levels that are within a defined tolerance range.
+
+        Parameters:
+            levels (list): List of levels (support or resistance).
+
+        Returns:
+            list: Grouped levels.
+        """
+        grouped_levels = []
+        for level in sorted(levels):
+            # Add the level if no similar level exists in the group
+            if not grouped_levels or abs(level - grouped_levels[-1]) > tolerance * level:
+                grouped_levels.append(level)
+        return grouped_levels
+
+    # Group support and resistance levels
+    support_levels = group_levels(support_levels)
+    resistance_levels = group_levels(resistance_levels)
+
+    return (support_levels, resistance_levels)

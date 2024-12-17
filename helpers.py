@@ -40,6 +40,7 @@ async def input_sanity_check(args, update) -> tuple:
     symbol = "BTCUSDT"
     hours = 24
     interval = "1h"
+    liq_lev_tolerance=0
 
     if len(args) >= 1:
         symbol = args[0].upper()
@@ -54,9 +55,14 @@ async def input_sanity_check(args, update) -> tuple:
         if interval not in VALID_INTERVALS:
             await update.message.reply_text(f"Invalid interval specified. Valid intervals are: {', '.join(VALID_INTERVALS.keys())}")
             return tuple()
+    if len(args) >= 4:
+        liq_lev_tolerance = float(args[3])
+        if liq_lev_tolerance < 0 or liq_lev_tolerance > 1:
+            await update.message.reply_text(f"Invalid liquidity level tolerance specified. It should be a number between 0 and 1")
+            return tuple()
 
     if hours < 1 or hours > 200:
-        await update.message.reply_text("Hours must be between 1 and 200 (due to API limits).")
+        await update.message.reply_text("Amount of intervals must be between 1 and 200 (due to API limits).")
         return tuple()
 
-    return (symbol, hours, interval)
+    return (symbol, hours, interval, liq_lev_tolerance)
