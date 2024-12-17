@@ -1,35 +1,6 @@
 from helpers import logger
 import pandas as pd
 
-# def detect_order_blocks(df):
-#     """
-#     Detect order blocks based on bullish or bearish breakouts.
-
-#     Parameters:
-#         df (pd.DataFrame): A DataFrame containing OHLCV data with columns ['Open', 'High', 'Low', 'Close'].
-
-#     Returns:
-#         list: A list of tuples representing order blocks, where each tuple is:
-#               (index, high, low, type)
-#               - index: Index of the order block candle
-#               - high: High of the candle
-#               - low: Low of the candle
-#               - type: 'bullish' or 'bearish'
-#     """
-#     order_blocks = []
-
-#     for i in range(1, len(df) - 2):  # Avoid the first and last two candles
-#         # Bearish Order Block
-#         if df['Close'][i] < df['Open'][i]:  # Bearish candle
-#             if df['Close'][i + 1] > df['High'][i]:  # Bullish breakout
-#                 order_blocks.append((i, df['High'][i], df['Low'][i], 'bearish'))
-
-#         # Bullish Order Block
-#         elif df['Close'][i] > df['Open'][i]:  # Bullish candle
-#             if df['Close'][i + 1] < df['Low'][i]:  # Bearish breakout
-#                 order_blocks.append((i, df['High'][i], df['Low'][i], 'bullish'))
-
-#     return order_blocks
 
 def detect_order_blocks(df, volume_threshold=1.5, body_percentage=0.5, breakout_factor=1.01):
     """
