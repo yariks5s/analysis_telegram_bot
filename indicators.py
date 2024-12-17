@@ -79,8 +79,6 @@ def detect_order_blocks(df, volume_threshold=1.5, body_percentage=0.5, breakout_
     return order_blocks
 
 
-### NOTE: Need to check if it works correctly, I am not sure it work 100% fine
-
 def detect_fvgs(df):
     """
     Detect Fair Value Gaps (FVGs) in price action and check if they are covered later.
@@ -101,8 +99,6 @@ def detect_fvgs(df):
     fvgs = []
 
     for i in range(2, len(df)):
-        logger.info(f"df['Low'][i]: {df['Low'][i]}, df['High'][i - 1]: {df['High'][i - 2]}")
-
         # Bullish FVG
         if df['Low'][i] > df['High'][i - 2]:  # Gap up
             fvgs.append((i - 2, i, df['High'][i - 2], df['Low'][i], 'bullish', False))
@@ -115,10 +111,10 @@ def detect_fvgs(df):
     for idx, (start_idx, end_idx, start_price, end_price, fvg_type, _) in enumerate(fvgs):
         for j in range(end_idx + 1, len(df)):
             # Check if the gap is covered
-            if fvg_type == 'bullish' and df['Low'][j] <= start_price:
+            if fvg_type == 'bullish' and df['Low'][j] <= end_price:
                 fvgs[idx] = (start_idx, end_idx, start_price, end_price, fvg_type, True)
                 break
-            elif fvg_type == 'bearish' and df['High'][j] >= end_price:
+            elif fvg_type == 'bearish' and df['High'][j] >= start_price:
                 fvgs[idx] = (start_idx, end_idx, start_price, end_price, fvg_type, True)
                 break
 
