@@ -20,9 +20,9 @@ load_dotenv()
 
 async def send_crypto_chart(update: Update, context: CallbackContext):
     """
-    Telegram handler to fetch OHLC data for a user-specified crypto pair, time period, and interval,
+    Telegram handler to fetch OHLC data for a user-specified crypto pair, time period, interval, and liquidity level detection tolerance
     plot the candlestick chart, and send it back to the user.
-    Usage: /chart <symbol> <hours> <interval>, e.g. /chart BTCUSDT 42 15m
+    Usage: /chart <symbol> <hours> <interval> <tolerance>, e.g. /chart BTCUSDT 42 15m 0.03
     """
     chat_id = update.effective_chat.id
     args = context.args

@@ -10,7 +10,7 @@ from indicators import detect_order_blocks, detect_fvgs, detect_support_resistan
 
 def plot_price_chart(df: pd.DataFrame, liq_lev_tolerance: float):
     """
-    Generate a candlestick chart with detected order blocks, FVGs, and support/resistance levels as horizontal rectangles.
+    Generate a candlestick chart with detected order blocks, FVGs, and support/resistance levels as horizontal lines.
     """
 
     order_blocks = detect_order_blocks(df)
