@@ -1,3 +1,5 @@
+<img width="872" alt="image" src="https://github.com/user-attachments/assets/98c74f20-6201-48bc-8134-38e004c9f0d0" />
+
 Todo:
 - Create the Breaker Block indicator
 [Maybe other indicators will be useful]
