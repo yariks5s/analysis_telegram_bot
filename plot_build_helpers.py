@@ -86,7 +86,8 @@ def add_fvgs(ax, fvgs):
                 y=[start_price, end_price],
                 x1=start_idx,
                 x2=end_idx,
-                color='blue' if start_price < end_price else 'orange',
+                # color='blue' if start_price < end_price else 'orange',
+                color='blue',
                 alpha=0.2,
                 label="FVG",
             )
