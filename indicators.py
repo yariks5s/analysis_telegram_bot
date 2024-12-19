@@ -1,7 +1,9 @@
-from helpers import logger
 import pandas as pd
 
-from indicator_classes import OrderBlock, FVG, LiquidityLevel, BreakerBlock
+from IndicatorUtils.order_block_utils import OrderBlock, OrderBlocks
+from IndicatorUtils.fvg_utils import FVG, FVGs
+from IndicatorUtils.liquidity_level_utils import LiquidityLevel, LiquidityLevels
+from IndicatorUtils.breaker_block_utils import BreakerBlock, BreakerBlocks
 
 def detect_order_blocks(df: pd.DataFrame, volume_threshold=1.5, body_percentage=0.5, breakout_factor=1.01):
     """
@@ -21,7 +23,7 @@ def detect_order_blocks(df: pd.DataFrame, volume_threshold=1.5, body_percentage=
               - low: Low of the candle
               - type: 'bullish' or 'bearish'
     """
-    order_blocks = []
+    order_blocks = OrderBlocks()
     avg_volume = df['Volume'].mean()
 
     for i in range(1, len(df) - 3):
@@ -41,9 +43,9 @@ def detect_order_blocks(df: pd.DataFrame, volume_threshold=1.5, body_percentage=
 
         # Detect order blocks
         if close < open_price and df['Close'][i + 1] > high * breakout_factor:
-            order_blocks.append(OrderBlock('bearish', i, high, low))
+            order_blocks.add(OrderBlock('bearish', i, high, low))
         elif close > open_price and df['Close'][i + 1] < low * breakout_factor:
-            order_blocks.append(OrderBlock('bullish', i, high, low))
+            order_blocks.add(OrderBlock('bullish', i, high, low))
 
     return order_blocks
 
@@ -65,7 +67,7 @@ def detect_fvgs(df: pd.DataFrame):
               - type: 'bullish' or 'bearish'
               - covered: Boolean indicating whether the FVG was later covered
     """
-    fvgs = []
+    fvgs = FVGs()
 
     for i in range(2, len(df)):
         # Bullish FVG
@@ -76,7 +78,7 @@ def detect_fvgs(df: pd.DataFrame):
                    is_covered = True 
                    break
 
-            fvgs.append(FVG(i - 2, i, df['High'][i - 2], df['Low'][i], 'bullish', is_covered))
+            fvgs.add(FVG(i - 2, i, df['High'][i - 2], df['Low'][i], 'bullish', is_covered))
 
         # Bearish FVG
         elif df['High'][i] < df['Low'][i - 2]:
@@ -86,7 +88,7 @@ def detect_fvgs(df: pd.DataFrame):
                    is_covered = True 
                    break
 
-            fvgs.append(FVG(i - 2, i, df['Low'][i - 2], df['High'][i], 'bearish', is_covered))
+            fvgs.add(FVG(i - 2, i, df['Low'][i - 2], df['High'][i], 'bearish', is_covered))
 
     return fvgs
 
@@ -107,28 +109,28 @@ def detect_support_resistance_levels(df: pd.DataFrame, window: int = 50, toleran
     """
     # Ensure the window size does not exceed the DataFrame size
     recent_df = df.tail(window)
-    levels = []
+    levels = LiquidityLevels()
 
     for i in range(1, len(recent_df) - 1):
         low, high = recent_df['Low'].iloc[i], recent_df['High'].iloc[i]
 
         # Local minima as support
         if low < recent_df['Low'].iloc[i - 1] and low < recent_df['Low'].iloc[i + 1]:
-            levels.append(LiquidityLevel('support', low))
+            levels.add(LiquidityLevel('support', low))
 
         # Local maxima as resistance
         if high > recent_df['High'].iloc[i - 1] and high > recent_df['High'].iloc[i + 1]:
-            levels.append(LiquidityLevel('resistance', high))
+            levels.add(LiquidityLevel('resistance', high))
 
     # Group levels
-    grouped_levels = []
-    for level in levels:
-        if not grouped_levels or abs(level.price - grouped_levels[-1].price) > tolerance * level.price:
-            grouped_levels.append(level)
+    grouped_levels = LiquidityLevels()
+    for level in levels.list:
+        if not grouped_levels or abs(level.price - grouped_levels.list[-1].price) > tolerance * level.price:
+            grouped_levels.add(level)
 
     return grouped_levels
 
-def detect_breaker_blocks(df: pd.DataFrame, liquidity_levels: list):
+def detect_breaker_blocks(df: pd.DataFrame, liquidity_levels: LiquidityLevels):
     """
     Detect breaker blocks based on liquidity sweeps and reversals.
 
@@ -139,17 +141,17 @@ def detect_breaker_blocks(df: pd.DataFrame, liquidity_levels: list):
     Returns:
         list: A list of BreakerBlock objects.
     """
-    breaker_blocks = []
+    breaker_blocks = BreakerBlocks()
 
     # Iterate over each candle
     for i in range(2, len(df)):
         low, high, close = df['Low'].iloc[i], df['High'].iloc[i], df['Close'].iloc[i]
 
         # Check for bullish and bearish breaker blocks
-        for level in liquidity_levels:
+        for level in liquidity_levels.list:
             # Bullish breaker: sweeps support and reverses upward
             if level.is_support() and low < level.price and close > level.price:
-                breaker_blocks.append(BreakerBlock(
+                breaker_blocks.add(BreakerBlock(
                     block_type='bullish',
                     index=i,
                     zone=(low, high)
@@ -157,7 +159,7 @@ def detect_breaker_blocks(df: pd.DataFrame, liquidity_levels: list):
 
             # Bearish breaker: sweeps resistance and reverses downward
             elif level.is_resistance() and high > level.price and close < level.price:
-                breaker_blocks.append(BreakerBlock(
+                breaker_blocks.add(BreakerBlock(
                     block_type='bearish',
                     index=i,
                     zone=(low, high)

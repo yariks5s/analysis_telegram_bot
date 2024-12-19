@@ -1,7 +1,7 @@
 import pandas as pd
-import logging
 
-logger = logging.getLogger(__name__)
+from data_fetching_instruments import fetch_ohlc_data, analyze_data
+from utils import VALID_INTERVALS
 
 def calculate_macd(data: pd.DataFrame):
     """
@@ -23,17 +23,6 @@ def calculate_rsi(data: pd.DataFrame, period: int = 14):
     rs = gain / loss
     rsi = 100 - (100 / (1 + rs))
     return rsi
-
-VALID_INTERVALS = {
-    "1m": "1",  # 1 minute
-    "5m": "5",  # 5 minutes
-    "15m": "15",  # 15 minutes
-    "30m": "30",  # 30 minutes
-    "1h": "60",  # 1 hour
-    "4h": "240",  # 4 hours
-    "1d": "D",  # 1 day
-    "1w": "W",  # 1 week
-}
 
 async def input_sanity_check(args, update) -> tuple:
     # Default values
@@ -66,3 +55,27 @@ async def input_sanity_check(args, update) -> tuple:
         return tuple()
 
     return (symbol, hours, interval, liq_lev_tolerance)
+
+async def check_and_analyze(update, context):
+    args = context.args
+
+    res = await input_sanity_check(args, update)
+
+    if (not res):
+        return
+    else:
+        symbol = res[0]
+        hours = res[1]
+        interval = res[2]
+        liq_lev_tolerance = res[3]
+
+    limit = min(hours, 200)
+    await update.message.reply_text(f"Fetching {symbol} price data for the last {hours} periods with interval {interval}, please wait...")
+    
+    df = fetch_ohlc_data(symbol, limit, interval)
+    if df is None or df.empty:
+        await update.message.reply_text(f"Error fetching data for {symbol}. Please check the pair and try again.")
+        return
+
+    indicators = analyze_data(df, liq_lev_tolerance)
+    return (indicators, df)

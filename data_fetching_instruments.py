@@ -3,7 +3,9 @@ from datetime import datetime
 
 import requests
 
-from helpers import VALID_INTERVALS, logger
+from utils import VALID_INTERVALS, logger
+from indicators import detect_order_blocks, detect_fvgs, detect_support_resistance_levels, detect_breaker_blocks
+from IndicatorUtils.indicators import Indicators
 
 def fetch_ohlc_data(symbol: str, limit: int, interval: str):
     """
@@ -69,3 +71,27 @@ def fetch_ohlc_data(symbol: str, limit: int, interval: str):
     except Exception as e:
         logger.error(f"Error while fetching data: {e}")
         return None
+    
+def analyze_data(df: pd.DataFrame, liq_lev_tolerance: float):
+    indicators = Indicators()
+    order_blocks = detect_order_blocks(df)
+    fvgs = detect_fvgs(df)
+
+    if not liq_lev_tolerance:
+        liq_lev_tolerance = 0.02
+
+    liquidity_levels = detect_support_resistance_levels(df, window=len(df), tolerance=liq_lev_tolerance)
+
+    breaker_blocks = detect_breaker_blocks(df, liquidity_levels)
+
+    logger.info(f"Detected Order Blocks: {order_blocks}")
+    logger.info(f"Detected FVGs: {fvgs}")
+    logger.info(f"Detected Liquidity Levels: {liquidity_levels}")
+    logger.info(f"Detected Breaker Blocks: {breaker_blocks}")
+
+    indicators.order_blocks = order_blocks
+    indicators.fvgs = fvgs
+    indicators.liquidity_levels = liquidity_levels
+    indicators.breaker_blocks = breaker_blocks
+
+    return indicators

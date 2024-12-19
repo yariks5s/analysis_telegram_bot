@@ -6,9 +6,8 @@ import logging
 from telegram import Update
 from telegram.ext import CommandHandler, CallbackContext, ApplicationBuilder
 
-from helpers import input_sanity_check
+from helpers import check_and_analyze
 from plot_build_helpers import plot_price_chart
-from data_fetching_instruments import fetch_ohlc_data
 
 # Configure logging
 logging.basicConfig(
@@ -25,28 +24,10 @@ async def send_crypto_chart(update: Update, context: CallbackContext):
     Usage: /chart <symbol> <hours> <interval> <tolerance>, e.g. /chart BTCUSDT 42 15m 0.03
     """
     chat_id = update.effective_chat.id
-    args = context.args
-
-    res = await input_sanity_check(args, update)
-
-    if (not res):
-        return
-    else:
-        symbol = res[0]
-        hours = res[1]
-        interval = res[2]
-        liq_lev_tolerance = res[3]
-
-    limit = min(hours, 200)  # Ensure limit respects Bybit's constraints
-    await update.message.reply_text(f"Fetching {symbol} price data for the last {hours} periods with interval {interval}, please wait...")
-    
-    df = fetch_ohlc_data(symbol, limit, interval)
-    if df is None or df.empty:
-        await update.message.reply_text(f"Error fetching data for {symbol}. Please check the pair and try again.")
-        return
+    (indicators, df) = await check_and_analyze(update, context)
 
     # Plot the chart with detected order blocks
-    chart_path = plot_price_chart(df, liq_lev_tolerance)
+    chart_path = plot_price_chart(df, indicators)
     if chart_path is None:
         await update.message.reply_text("Error generating the chart. Please try again.")
         return
@@ -54,13 +35,27 @@ async def send_crypto_chart(update: Update, context: CallbackContext):
     # Send the chart to the user
     with open(chart_path, 'rb') as f:
         await context.bot.send_photo(chat_id=chat_id, photo=f)
+    
+    df = df.reset_index(drop=True)
 
+async def send_text_data(update: Update, context: CallbackContext):
+    """
+    Telegram handler to fetch OHLC data for a user-specified crypto pair, time period, interval, and liquidity level detection tolerance
+    plot the candlestick chart, and send it back to the user.
+    Usage: /text_result <symbol> <hours> <interval> <tolerance>, e.g. /text_result BTCUSDT 42 15m 0.03
+    """
+    (indicators, _) = await check_and_analyze(update, context)
+
+    await update.message.reply_text(str(indicators))
+    
+    df = df.reset_index(drop=True)
 
 if __name__ == "__main__":
     TOKEN = os.getenv('API_TELEGRAM_KEY')
 
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("chart", send_crypto_chart))
+    app.add_handler(CommandHandler("text_result", send_text_data))
 
     print("Bot is running...")
     app.run_polling()
