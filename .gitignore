@@ -2,3 +2,6 @@
 crypto_chart.png
 output.txt
 chatGPT_script.py
+/__pycache__
+/IndicatorUtils/__pycache__
+/tests/__pycache__
