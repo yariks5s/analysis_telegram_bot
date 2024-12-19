@@ -100,6 +100,106 @@ def analyze_data(df: pd.DataFrame, liq_lev_tolerance: float):
 
 
 
+message_handlers.py:
+
+from telegram import InlineKeyboardMarkup, InlineKeyboardButton
+
+from utils import user_selected_indicators
+
+def get_indicator_selection_keyboard(user_id):
+    """
+    Create an inline keyboard for selecting indicators with a checkmark for selected ones.
+    """
+    selected = user_selected_indicators.get(user_id, {
+        "order_blocks": False,
+        "fvgs": False,
+        "liquidity_levels": False,
+        "breaker_blocks": False,
+    })
+
+    # Add a checkmark if the indicator is selected
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                f"{'✔️ ' if selected['order_blocks'] else ''}Order Blocks", 
+                callback_data="indicator_order_blocks"
+            ),
+            InlineKeyboardButton(
+                f"{'✔️ ' if selected['fvgs'] else ''}FVGs", 
+                callback_data="indicator_fvgs"
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                f"{'✔️ ' if selected['liquidity_levels'] else ''}Liquidity Levels", 
+                callback_data="indicator_liquidity_levels"
+            ),
+            InlineKeyboardButton(
+                f"{'✔️ ' if selected['breaker_blocks'] else ''}Breaker Blocks", 
+                callback_data="indicator_breaker_blocks"
+            ),
+        ],
+        [InlineKeyboardButton("Done", callback_data="indicator_done")]
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+async def handle_indicator_selection(update, _):
+    """
+    Handle the user's selection of indicators and update the inline keyboard dynamically.
+    """
+    query = update.callback_query
+    await query.answer()
+
+    # Get user ID and initialize preferences
+    user_id = query.from_user.id
+    if user_id not in user_selected_indicators:
+        user_selected_indicators[user_id] = {
+            "order_blocks": False,
+            "fvgs": False,
+            "liquidity_levels": False,
+            "breaker_blocks": False,
+        }
+
+    # Update preferences based on selection
+    data = query.data
+    if data == "indicator_order_blocks":
+        user_selected_indicators[user_id]["order_blocks"] = not user_selected_indicators[user_id]["order_blocks"]
+    elif data == "indicator_fvgs":
+        user_selected_indicators[user_id]["fvgs"] = not user_selected_indicators[user_id]["fvgs"]
+    elif data == "indicator_liquidity_levels":
+        user_selected_indicators[user_id]["liquidity_levels"] = not user_selected_indicators[user_id]["liquidity_levels"]
+    elif data == "indicator_breaker_blocks":
+        user_selected_indicators[user_id]["breaker_blocks"] = not user_selected_indicators[user_id]["breaker_blocks"]
+    elif data == "indicator_done":
+        selected = user_selected_indicators[user_id]
+        await query.edit_message_text(
+            f"You selected: {', '.join([key for key, val in selected.items() if val]) or 'None'}"
+        )
+        return
+
+    # Update message with current selections and checkmarks
+    await query.edit_message_reply_markup(
+        reply_markup=get_indicator_selection_keyboard(user_id)
+    )
+
+async def select_indicators(update, _):
+    """
+    Start the process of selecting indicators.
+    """
+    user_id = update.effective_user.id
+    user_selected_indicators[user_id] = {
+        "order_blocks": False,
+        "fvgs": False,
+        "liquidity_levels": False,
+        "breaker_blocks": False,
+    }
+    await update.message.reply_text(
+        "Please choose the indicators you'd like to include:",
+        reply_markup=get_indicator_selection_keyboard(user_id)
+    )
+
+
+
 plot_build_helpers.py:
 
 import matplotlib.patches as mpatches
@@ -132,26 +232,31 @@ def plot_price_chart(df: pd.DataFrame, indicators):
     add_liquidity_levels(ax, indicators.liquidity_levels)
     add_breaker_blocks(ax, indicators.breaker_blocks)
 
-    add_legend(ax)
+    add_legend(ax, indicators)
 
     fig.subplots_adjust(left=0.05, right=0.95)
     fig.savefig('crypto_chart.png', bbox_inches='tight', pad_inches=0.1)
 
     return 'crypto_chart.png'
 
-def add_legend(ax):
-    red_patch = mlines.Line2D([], [], color='blue', marker='o', markersize=10, label='Bearish Order Block', linestyle='None')
-    green_patch = mlines.Line2D([], [], color='purple', marker='o', markersize=10, label='Bullish Order Block', linestyle='None')
+def add_legend(ax, indicators):
+    handles = []
+    if (indicators.order_blocks):
+        handles.append(mlines.Line2D([], [], color='blue', marker='o', markersize=10, label='Bearish Order Block', linestyle='None'))
+        handles.append(mlines.Line2D([], [], color='purple', marker='o', markersize=10, label='Bullish Order Block', linestyle='None'))
 
-    purple_patch = mpatches.Patch(color='purple', alpha=0.3, label='FVG')
+    if (indicators.fvgs):
+        handles.append(mpatches.Patch(color='purple', alpha=0.3, label='FVG'))
 
-    light_green_patch = mpatches.Patch(color='green', alpha=0.05, label='Bullish Breaker Block')
-    light_red_patch = mpatches.Patch(color='red', alpha=0.05, label='Bearish Breaker Block')
+    if (indicators.liquidity_levels):
+        handles.append(mpatches.Patch(color='green', alpha=0.05, label='Bullish Breaker Block'))
+        handles.append(mpatches.Patch(color='red', alpha=0.05, label='Bearish Breaker Block'))
 
-    red_dashed_line = mlines.Line2D([], [], color='red', linestyle='--', markersize=10, label='Resistance level')
-    green_dashed_line = mlines.Line2D([], [], color='green', linestyle='--', markersize=10, label='Support level')
+    if (indicators.breaker_blocks):
+        handles.append(mlines.Line2D([], [], color='red', linestyle='--', markersize=10, label='Resistance level'))
+        handles.append(mlines.Line2D([], [], color='green', linestyle='--', markersize=10, label='Support level'))
 
-    ax[0].legend(handles=[red_patch, green_patch, purple_patch, light_green_patch, light_red_patch, red_dashed_line, green_dashed_line], loc='upper left')
+    ax[0].legend(handles=handles, loc='upper left')
 
 def add_order_blocks(ax, order_blocks, df):
     for block in order_blocks.list:
@@ -450,6 +555,8 @@ Todo:
 - [x] **Easy**: Create every indicator output as classes
 - [x] **Easy**: Create a possibility to return non-visual (numeric) data
 - [ ] **Easy**: Add tests for this
+- [x] **Easy**: Create a possibility to enable/disable indicators
+- [ ] **Easy**: Add tests for this
 - [ ] Create a logic to find predictable movements, based on the created indicators
 - [ ] Add another tests for this
 - [ ] Find the most appropriate time interval for predictions
@@ -470,10 +577,12 @@ import logging
 
 # Telegram imports
 from telegram import Update
-from telegram.ext import CommandHandler, CallbackContext, ApplicationBuilder
+from telegram.ext import CommandHandler, CallbackContext, ApplicationBuilder, CallbackQueryHandler
 
+from utils import user_selected_indicators
 from helpers import check_and_analyze
 from plot_build_helpers import plot_price_chart
+from message_handlers import select_indicators, handle_indicator_selection
 
 # Configure logging
 logging.basicConfig(
@@ -485,15 +594,19 @@ load_dotenv()
 
 async def send_crypto_chart(update: Update, context: CallbackContext):
     """
-    Telegram handler to fetch OHLC data for a user-specified crypto pair, time period, interval, and liquidity level detection tolerance
-    plot the candlestick chart, and send it back to the user.
-    Usage: /chart <symbol> <hours> <interval> <tolerance>, e.g. /chart BTCUSDT 42 15m 0.03
+    Telegram handler to fetch OHLC data, analyze indicators, and send the chart back to the user.
     """
     chat_id = update.effective_chat.id
-    (indicators, df) = await check_and_analyze(update, context)
+    user_id = update.effective_user.id
 
-    # Plot the chart with detected order blocks
-    chart_path = plot_price_chart(df, indicators)
+    # Analyze data
+    (indicators, df) = await check_and_analyze(update, user_id, context)
+
+    # Filter indicators based on user selection
+    filtered_indicators = indicators.filter(user_selected_indicators[user_id])
+
+    # Plot chart
+    chart_path = plot_price_chart(df, filtered_indicators)
     if chart_path is None:
         await update.message.reply_text("Error generating the chart. Please try again.")
         return
@@ -510,9 +623,15 @@ async def send_text_data(update: Update, context: CallbackContext):
     plot the candlestick chart, and send it back to the user.
     Usage: /text_result <symbol> <hours> <interval> <tolerance>, e.g. /text_result BTCUSDT 42 15m 0.03
     """
-    (indicators, df) = await check_and_analyze(update, context)
+    user_id = update.effective_user.id
 
-    await update.message.reply_text(str(indicators))
+    # Analyze data
+    (indicators, df) = await check_and_analyze(update, user_id, context)
+
+    # Filter indicators based on user selection
+    filtered_indicators = indicators.filter(user_selected_indicators[user_id])
+
+    await update.message.reply_text(str(filtered_indicators))
     
     df = df.reset_index(drop=True)
 
@@ -522,6 +641,8 @@ if __name__ == "__main__":
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("chart", send_crypto_chart))
     app.add_handler(CommandHandler("text_result", send_text_data))
+    app.add_handler(CommandHandler("select_indicators", select_indicators))
+    app.add_handler(CallbackQueryHandler(handle_indicator_selection))
 
     print("Bot is running...")
     app.run_polling()
@@ -552,6 +673,9 @@ VALID_INTERVALS = {
     "1w": "W",  # 1 week
 }
 
+# Store user-selected indicators temporarily
+user_selected_indicators = {}
+
 
 
 .env:
@@ -564,7 +688,7 @@ helpers.py:
 import pandas as pd
 
 from data_fetching_instruments import fetch_ohlc_data, analyze_data
-from utils import VALID_INTERVALS
+from utils import VALID_INTERVALS, user_selected_indicators
 
 def calculate_macd(data: pd.DataFrame):
     """
@@ -619,18 +743,23 @@ async def input_sanity_check(args, update) -> tuple:
 
     return (symbol, hours, interval, liq_lev_tolerance)
 
-async def check_and_analyze(update, context):
+async def check_and_analyze(update, user_id, context):
     args = context.args
 
     res = await input_sanity_check(args, update)
 
     if (not res):
         return
-    else:
-        symbol = res[0]
-        hours = res[1]
-        interval = res[2]
-        liq_lev_tolerance = res[3]
+
+    # Check if user selected indicators
+    if user_id not in user_selected_indicators or not any(user_selected_indicators[user_id].values()):
+        await update.message.reply_text("Please select indicators using /select_indicators before requesting a chart.")
+        return
+
+    symbol = res[0]
+    hours = res[1]
+    interval = res[2]
+    liq_lev_tolerance = res[3]
 
     limit = min(hours, 200)
     await update.message.reply_text(f"Fetching {symbol} price data for the last {hours} periods with interval {interval}, please wait...")
@@ -749,6 +878,106 @@ def analyze_data(df: pd.DataFrame, liq_lev_tolerance: float):
 
 
 
+message_handlers.py:
+
+from telegram import InlineKeyboardMarkup, InlineKeyboardButton
+
+from utils import user_selected_indicators
+
+def get_indicator_selection_keyboard(user_id):
+    """
+    Create an inline keyboard for selecting indicators with a checkmark for selected ones.
+    """
+    selected = user_selected_indicators.get(user_id, {
+        "order_blocks": False,
+        "fvgs": False,
+        "liquidity_levels": False,
+        "breaker_blocks": False,
+    })
+
+    # Add a checkmark if the indicator is selected
+    keyboard = [
+        [
+            InlineKeyboardButton(
+                f"{'✔️ ' if selected['order_blocks'] else ''}Order Blocks", 
+                callback_data="indicator_order_blocks"
+            ),
+            InlineKeyboardButton(
+                f"{'✔️ ' if selected['fvgs'] else ''}FVGs", 
+                callback_data="indicator_fvgs"
+            ),
+        ],
+        [
+            InlineKeyboardButton(
+                f"{'✔️ ' if selected['liquidity_levels'] else ''}Liquidity Levels", 
+                callback_data="indicator_liquidity_levels"
+            ),
+            InlineKeyboardButton(
+                f"{'✔️ ' if selected['breaker_blocks'] else ''}Breaker Blocks", 
+                callback_data="indicator_breaker_blocks"
+            ),
+        ],
+        [InlineKeyboardButton("Done", callback_data="indicator_done")]
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+async def handle_indicator_selection(update, _):
+    """
+    Handle the user's selection of indicators and update the inline keyboard dynamically.
+    """
+    query = update.callback_query
+    await query.answer()
+
+    # Get user ID and initialize preferences
+    user_id = query.from_user.id
+    if user_id not in user_selected_indicators:
+        user_selected_indicators[user_id] = {
+            "order_blocks": False,
+            "fvgs": False,
+            "liquidity_levels": False,
+            "breaker_blocks": False,
+        }
+
+    # Update preferences based on selection
+    data = query.data
+    if data == "indicator_order_blocks":
+        user_selected_indicators[user_id]["order_blocks"] = not user_selected_indicators[user_id]["order_blocks"]
+    elif data == "indicator_fvgs":
+        user_selected_indicators[user_id]["fvgs"] = not user_selected_indicators[user_id]["fvgs"]
+    elif data == "indicator_liquidity_levels":
+        user_selected_indicators[user_id]["liquidity_levels"] = not user_selected_indicators[user_id]["liquidity_levels"]
+    elif data == "indicator_breaker_blocks":
+        user_selected_indicators[user_id]["breaker_blocks"] = not user_selected_indicators[user_id]["breaker_blocks"]
+    elif data == "indicator_done":
+        selected = user_selected_indicators[user_id]
+        await query.edit_message_text(
+            f"You selected: {', '.join([key for key, val in selected.items() if val]) or 'None'}"
+        )
+        return
+
+    # Update message with current selections and checkmarks
+    await query.edit_message_reply_markup(
+        reply_markup=get_indicator_selection_keyboard(user_id)
+    )
+
+async def select_indicators(update, _):
+    """
+    Start the process of selecting indicators.
+    """
+    user_id = update.effective_user.id
+    user_selected_indicators[user_id] = {
+        "order_blocks": False,
+        "fvgs": False,
+        "liquidity_levels": False,
+        "breaker_blocks": False,
+    }
+    await update.message.reply_text(
+        "Please choose the indicators you'd like to include:",
+        reply_markup=get_indicator_selection_keyboard(user_id)
+    )
+
+
+
 plot_build_helpers.py:
 
 import matplotlib.patches as mpatches
@@ -781,26 +1010,31 @@ def plot_price_chart(df: pd.DataFrame, indicators):
     add_liquidity_levels(ax, indicators.liquidity_levels)
     add_breaker_blocks(ax, indicators.breaker_blocks)
 
-    add_legend(ax)
+    add_legend(ax, indicators)
 
     fig.subplots_adjust(left=0.05, right=0.95)
     fig.savefig('crypto_chart.png', bbox_inches='tight', pad_inches=0.1)
 
     return 'crypto_chart.png'
 
-def add_legend(ax):
-    red_patch = mlines.Line2D([], [], color='blue', marker='o', markersize=10, label='Bearish Order Block', linestyle='None')
-    green_patch = mlines.Line2D([], [], color='purple', marker='o', markersize=10, label='Bullish Order Block', linestyle='None')
+def add_legend(ax, indicators):
+    handles = []
+    if (indicators.order_blocks):
+        handles.append(mlines.Line2D([], [], color='blue', marker='o', markersize=10, label='Bearish Order Block', linestyle='None'))
+        handles.append(mlines.Line2D([], [], color='purple', marker='o', markersize=10, label='Bullish Order Block', linestyle='None'))
 
-    purple_patch = mpatches.Patch(color='purple', alpha=0.3, label='FVG')
+    if (indicators.fvgs):
+        handles.append(mpatches.Patch(color='purple', alpha=0.3, label='FVG'))
 
-    light_green_patch = mpatches.Patch(color='green', alpha=0.05, label='Bullish Breaker Block')
-    light_red_patch = mpatches.Patch(color='red', alpha=0.05, label='Bearish Breaker Block')
+    if (indicators.liquidity_levels):
+        handles.append(mpatches.Patch(color='green', alpha=0.05, label='Bullish Breaker Block'))
+        handles.append(mpatches.Patch(color='red', alpha=0.05, label='Bearish Breaker Block'))
 
-    red_dashed_line = mlines.Line2D([], [], color='red', linestyle='--', markersize=10, label='Resistance level')
-    green_dashed_line = mlines.Line2D([], [], color='green', linestyle='--', markersize=10, label='Support level')
+    if (indicators.breaker_blocks):
+        handles.append(mlines.Line2D([], [], color='red', linestyle='--', markersize=10, label='Resistance level'))
+        handles.append(mlines.Line2D([], [], color='green', linestyle='--', markersize=10, label='Support level'))
 
-    ax[0].legend(handles=[red_patch, green_patch, purple_patch, light_green_patch, light_red_patch, red_dashed_line, green_dashed_line], loc='upper left')
+    ax[0].legend(handles=handles, loc='upper left')
 
 def add_order_blocks(ax, order_blocks, df):
     for block in order_blocks.list:
