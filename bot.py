@@ -4,10 +4,12 @@ import logging
 
 # Telegram imports
 from telegram import Update
-from telegram.ext import CommandHandler, CallbackContext, ApplicationBuilder
+from telegram.ext import CommandHandler, CallbackContext, ApplicationBuilder, CallbackQueryHandler
 
+from utils import user_selected_indicators
 from helpers import check_and_analyze
 from plot_build_helpers import plot_price_chart
+from message_handlers import select_indicators, handle_indicator_selection
 
 # Configure logging
 logging.basicConfig(
@@ -19,15 +21,19 @@ load_dotenv()
 
 async def send_crypto_chart(update: Update, context: CallbackContext):
     """
-    Telegram handler to fetch OHLC data for a user-specified crypto pair, time period, interval, and liquidity level detection tolerance
-    plot the candlestick chart, and send it back to the user.
-    Usage: /chart <symbol> <hours> <interval> <tolerance>, e.g. /chart BTCUSDT 42 15m 0.03
+    Telegram handler to fetch OHLC data, analyze indicators, and send the chart back to the user.
     """
     chat_id = update.effective_chat.id
-    (indicators, df) = await check_and_analyze(update, context)
+    user_id = update.effective_user.id
 
-    # Plot the chart with detected order blocks
-    chart_path = plot_price_chart(df, indicators)
+    # Analyze data
+    (indicators, df) = await check_and_analyze(update, user_id, context)
+
+    # Filter indicators based on user selection
+    filtered_indicators = indicators.filter(user_selected_indicators[user_id])
+
+    # Plot chart
+    chart_path = plot_price_chart(df, filtered_indicators)
     if chart_path is None:
         await update.message.reply_text("Error generating the chart. Please try again.")
         return
@@ -44,9 +50,15 @@ async def send_text_data(update: Update, context: CallbackContext):
     plot the candlestick chart, and send it back to the user.
     Usage: /text_result <symbol> <hours> <interval> <tolerance>, e.g. /text_result BTCUSDT 42 15m 0.03
     """
-    (indicators, df) = await check_and_analyze(update, context)
+    user_id = update.effective_user.id
 
-    await update.message.reply_text(str(indicators))
+    # Analyze data
+    (indicators, df) = await check_and_analyze(update, user_id, context)
+
+    # Filter indicators based on user selection
+    filtered_indicators = indicators.filter(user_selected_indicators[user_id])
+
+    await update.message.reply_text(str(filtered_indicators))
     
     df = df.reset_index(drop=True)
 
@@ -56,6 +68,8 @@ if __name__ == "__main__":
     app = ApplicationBuilder().token(TOKEN).build()
     app.add_handler(CommandHandler("chart", send_crypto_chart))
     app.add_handler(CommandHandler("text_result", send_text_data))
+    app.add_handler(CommandHandler("select_indicators", select_indicators))
+    app.add_handler(CallbackQueryHandler(handle_indicator_selection))
 
     print("Bot is running...")
     app.run_polling()

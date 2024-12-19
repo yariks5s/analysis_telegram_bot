@@ -43,3 +43,6 @@ class FVGs:
             return "\n" + "\n".join(str(fvg) for fvg in self.list if not fvg.covered)
         else:
             return "\nNone."
+
+    def __bool__(self):
+        return bool(self.list)

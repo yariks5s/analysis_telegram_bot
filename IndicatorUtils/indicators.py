@@ -24,3 +24,18 @@ class Indicators:
             f"**Liquidity Levels:**{self.liquidity_levels}\n\n"
             f"**Breaker Blocks:**{self.breaker_blocks}\n"
         )
+
+    def filter(self, selected):
+        """
+        Filter indicators based on user selection.
+        """
+        filtered = Indicators()
+        if selected.get("order_blocks"):
+            filtered.order_blocks = self.order_blocks
+        if selected.get("fvgs"):
+            filtered.fvgs = self.fvgs
+        if selected.get("liquidity_levels"):
+            filtered.liquidity_levels = self.liquidity_levels
+        if selected.get("breaker_blocks"):
+            filtered.breaker_blocks = self.breaker_blocks
+        return filtered

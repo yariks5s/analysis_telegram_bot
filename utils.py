@@ -12,3 +12,6 @@ VALID_INTERVALS = {
     "1d": "D",  # 1 day
     "1w": "W",  # 1 week
 }
+
+# Store user-selected indicators temporarily
+user_selected_indicators = {}

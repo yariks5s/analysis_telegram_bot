@@ -1,7 +1,7 @@
 import pandas as pd
 
 from data_fetching_instruments import fetch_ohlc_data, analyze_data
-from utils import VALID_INTERVALS
+from utils import VALID_INTERVALS, user_selected_indicators
 
 def calculate_macd(data: pd.DataFrame):
     """
@@ -56,18 +56,23 @@ async def input_sanity_check(args, update) -> tuple:
 
     return (symbol, hours, interval, liq_lev_tolerance)
 
-async def check_and_analyze(update, context):
+async def check_and_analyze(update, user_id, context):
     args = context.args
 
     res = await input_sanity_check(args, update)
 
     if (not res):
         return
-    else:
-        symbol = res[0]
-        hours = res[1]
-        interval = res[2]
-        liq_lev_tolerance = res[3]
+
+    # Check if user selected indicators
+    if user_id not in user_selected_indicators or not any(user_selected_indicators[user_id].values()):
+        await update.message.reply_text("Please select indicators using /select_indicators before requesting a chart.")
+        return
+
+    symbol = res[0]
+    hours = res[1]
+    interval = res[2]
+    liq_lev_tolerance = res[3]
 
     limit = min(hours, 200)
     await update.message.reply_text(f"Fetching {symbol} price data for the last {hours} periods with interval {interval}, please wait...")

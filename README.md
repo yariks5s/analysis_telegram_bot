@@ -6,6 +6,8 @@ Todo:
 - [x] **Easy**: Create every indicator output as classes
 - [x] **Easy**: Create a possibility to return non-visual (numeric) data
 - [ ] **Easy**: Add tests for this
+- [x] **Easy**: Create a possibility to enable/disable indicators
+- [ ] **Easy**: Add tests for this
 - [ ] Create a logic to find predictable movements, based on the created indicators
 - [ ] Add another tests for this
 - [ ] Find the most appropriate time interval for predictions

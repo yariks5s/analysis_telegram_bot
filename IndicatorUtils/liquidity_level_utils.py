@@ -36,3 +36,6 @@ class LiquidityLevels:
             return "\n" + "\n".join(str(level) for level in self.list)
         else:
             return "\nNone."
+
+    def __bool__(self):
+        return bool(self.list)

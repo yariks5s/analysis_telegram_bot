@@ -28,26 +28,31 @@ def plot_price_chart(df: pd.DataFrame, indicators):
     add_liquidity_levels(ax, indicators.liquidity_levels)
     add_breaker_blocks(ax, indicators.breaker_blocks)
 
-    add_legend(ax)
+    add_legend(ax, indicators)
 
     fig.subplots_adjust(left=0.05, right=0.95)
     fig.savefig('crypto_chart.png', bbox_inches='tight', pad_inches=0.1)
 
     return 'crypto_chart.png'
 
-def add_legend(ax):
-    red_patch = mlines.Line2D([], [], color='blue', marker='o', markersize=10, label='Bearish Order Block', linestyle='None')
-    green_patch = mlines.Line2D([], [], color='purple', marker='o', markersize=10, label='Bullish Order Block', linestyle='None')
+def add_legend(ax, indicators):
+    handles = []
+    if (indicators.order_blocks):
+        handles.append(mlines.Line2D([], [], color='blue', marker='o', markersize=10, label='Bearish Order Block', linestyle='None'))
+        handles.append(mlines.Line2D([], [], color='purple', marker='o', markersize=10, label='Bullish Order Block', linestyle='None'))
 
-    purple_patch = mpatches.Patch(color='purple', alpha=0.3, label='FVG')
+    if (indicators.fvgs):
+        handles.append(mpatches.Patch(color='purple', alpha=0.3, label='FVG'))
 
-    light_green_patch = mpatches.Patch(color='green', alpha=0.05, label='Bullish Breaker Block')
-    light_red_patch = mpatches.Patch(color='red', alpha=0.05, label='Bearish Breaker Block')
+    if (indicators.liquidity_levels):
+        handles.append(mpatches.Patch(color='green', alpha=0.05, label='Bullish Breaker Block'))
+        handles.append(mpatches.Patch(color='red', alpha=0.05, label='Bearish Breaker Block'))
 
-    red_dashed_line = mlines.Line2D([], [], color='red', linestyle='--', markersize=10, label='Resistance level')
-    green_dashed_line = mlines.Line2D([], [], color='green', linestyle='--', markersize=10, label='Support level')
+    if (indicators.breaker_blocks):
+        handles.append(mlines.Line2D([], [], color='red', linestyle='--', markersize=10, label='Resistance level'))
+        handles.append(mlines.Line2D([], [], color='green', linestyle='--', markersize=10, label='Support level'))
 
-    ax[0].legend(handles=[red_patch, green_patch, purple_patch, light_green_patch, light_red_patch, red_dashed_line, green_dashed_line], loc='upper left')
+    ax[0].legend(handles=handles, loc='upper left')
 
 def add_order_blocks(ax, order_blocks, df):
     for block in order_blocks.list:

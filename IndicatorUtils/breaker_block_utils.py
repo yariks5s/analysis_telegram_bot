@@ -46,3 +46,6 @@ class BreakerBlocks:
             return "\n" + "\n".join(str(block) for block in self.list)
         else:
             return "\nNone."
+
+    def __bool__(self):
+        return bool(self.list)
