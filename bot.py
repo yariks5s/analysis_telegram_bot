@@ -44,7 +44,7 @@ async def send_text_data(update: Update, context: CallbackContext):
     plot the candlestick chart, and send it back to the user.
     Usage: /text_result <symbol> <hours> <interval> <tolerance>, e.g. /text_result BTCUSDT 42 15m 0.03
     """
-    (indicators, _) = await check_and_analyze(update, context)
+    (indicators, df) = await check_and_analyze(update, context)
 
     await update.message.reply_text(str(indicators))
     
