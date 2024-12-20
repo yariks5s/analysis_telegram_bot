@@ -79,7 +79,7 @@ def analyze_data(df: pd.DataFrame, liq_lev_tolerance: float):
     fvgs = detect_fvgs(df)
 
     if not liq_lev_tolerance:
-        liq_lev_tolerance = 0.02
+        liq_lev_tolerance = 0.05
 
     liquidity_levels = detect_support_resistance_levels(df, window=len(df), tolerance=liq_lev_tolerance)
 
