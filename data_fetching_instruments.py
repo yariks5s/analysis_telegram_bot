@@ -7,6 +7,45 @@ from utils import VALID_INTERVALS, logger
 from indicators import detect_order_blocks, detect_fvgs, detect_support_resistance_levels, detect_breaker_blocks
 from IndicatorUtils.indicators import Indicators
 
+def fetch_from_json(data):
+    if data.get("retCode") != 0:
+        logger.error(f"API returned error: {data}")
+        return None
+
+    kline_data = data.get("result", {}).get("list", [])
+    if not kline_data:
+        logger.error("Empty kline_data from Bybit API.")
+        return None
+
+    dates, opens, highs, lows, closes, volumes = [], [], [], [], [], []
+
+    for entry in kline_data[::-1]:
+        ts_millis = int(entry[0])
+        open_price = float(entry[1])
+        high_price = float(entry[2])
+        low_price = float(entry[3])
+        close_price = float(entry[4])
+        volume = float(entry[5])
+
+        dt = datetime.utcfromtimestamp(ts_millis / 1000)
+
+        dates.append(dt)
+        opens.append(open_price)
+        highs.append(high_price)
+        lows.append(low_price)
+        closes.append(close_price)
+        volumes.append(volume)
+
+    df = pd.DataFrame({
+        'Open': opens,
+        'High': highs,
+        'Low': lows,
+        'Close': closes,
+        'Volume': volumes
+    }, index=pd.DatetimeIndex(dates))
+
+    return df
+
 def fetch_ohlc_data(symbol: str, limit: int, interval: str):
     """
     Fetch historical OHLCV data for a given crypto pair, time period, and interval.
@@ -28,45 +67,7 @@ def fetch_ohlc_data(symbol: str, limit: int, interval: str):
             logger.error(f"Non-200 response from API: {response.status_code}")
             return None
         
-        data = response.json()
-        
-        if data.get("retCode") != 0:
-            logger.error(f"API returned error: {data}")
-            return None
-        
-        kline_data = data.get("result", {}).get("list", [])
-        if not kline_data:
-            logger.error("Empty kline_data from Bybit API.")
-            return None
-        
-        dates, opens, highs, lows, closes, volumes = [], [], [], [], [], []
-        
-        for entry in kline_data[::-1]:
-            ts_millis = int(entry[0])
-            open_price = float(entry[1])
-            high_price = float(entry[2])
-            low_price = float(entry[3])
-            close_price = float(entry[4])
-            volume = float(entry[5])
-            
-            dt = datetime.utcfromtimestamp(ts_millis / 1000)
-            
-            dates.append(dt)
-            opens.append(open_price)
-            highs.append(high_price)
-            lows.append(low_price)
-            closes.append(close_price)
-            volumes.append(volume)
-        
-        df = pd.DataFrame({
-            'Open': opens,
-            'High': highs,
-            'Low': lows,
-            'Close': closes,
-            'Volume': volumes
-        }, index=pd.DatetimeIndex(dates))
-        
-        return df
+        return fetch_from_json(response.json())
     
     except Exception as e:
         logger.error(f"Error while fetching data: {e}")

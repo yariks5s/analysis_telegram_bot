@@ -27,7 +27,7 @@ async def send_crypto_chart(update: Update, context: CallbackContext):
     user_id = update.effective_user.id
 
     # Analyze data
-    (indicators, df) = await check_and_analyze(update, user_id, context)
+    (indicators, df) = await check_and_analyze(update, user_id, context.args)
 
     # Filter indicators based on user selection
     filtered_indicators = indicators.filter(user_selected_indicators[user_id])
@@ -53,7 +53,7 @@ async def send_text_data(update: Update, context: CallbackContext):
     user_id = update.effective_user.id
 
     # Analyze data
-    (indicators, df) = await check_and_analyze(update, user_id, context)
+    (indicators, df) = await check_and_analyze(update, user_id, context.args)
 
     # Filter indicators based on user selection
     filtered_indicators = indicators.filter(user_selected_indicators[user_id])

@@ -1,5 +1,4 @@
 import sys
-import pytest
 sys.path.append("/Users/yaroslav/cryptoBot")
 
 from plot_build_helpers import plot_price_chart
@@ -7,7 +6,6 @@ from IndicatorUtils.fvg_utils import FVGs
 from IndicatorUtils.breaker_block_utils import BreakerBlocks
 from IndicatorUtils.liquidity_level_utils import LiquidityLevels
 from IndicatorUtils.order_block_utils import OrderBlocks
-import pandas as pd
 
 
 from unittest.mock import Mock

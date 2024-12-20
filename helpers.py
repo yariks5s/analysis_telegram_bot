@@ -56,9 +56,7 @@ async def input_sanity_check(args, update) -> tuple:
 
     return (symbol, hours, interval, liq_lev_tolerance)
 
-async def check_and_analyze(update, user_id, context):
-    args = context.args
-
+async def check_and_analyze(update, user_id, args):
     res = await input_sanity_check(args, update)
 
     if (not res):
