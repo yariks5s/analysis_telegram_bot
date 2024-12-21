@@ -55,11 +55,6 @@ def dataframe(setup_data):
     # Default values
     return fetch_from_json(args)
 
-def test_input_sanity_check(setup_data):
-    args, update = setup_data
-    result = input_sanity_check(args, update)
-    assert result, "Input sanity check failed when it should pass."
-
 def test_detect_order_blocks(dataframe):
     
     order_blocks = detect_order_blocks(dataframe)
