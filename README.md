@@ -3,11 +3,11 @@
 Todo:
 - [x] Create the Breaker Block indicator
 [Maybe other indicators will be useful]
-- [x] **Easy**: Create every indicator output as classes
-- [x] **Easy**: Create a possibility to return non-visual (numeric) data
-- [x] **Easy**: Add tests for this
-- [x] **Easy**: Create a possibility to enable/disable indicators
-- [ ] **Easy**: Add tests for this
+- [x] Create every indicator output as classes
+- [x] Create a possibility to return non-visual (numeric) data
+- [x] Add tests for this
+- [x] Create a possibility to enable/disable indicators
+- [ ] Add tests for this
 - [x] Connect the bot to database (probably local), to store the user_ids and their preferences
 - [ ] Possibility to calculate indicators only on demand
 - [ ] Create a logic to find predictable movements, based on the created indicators
