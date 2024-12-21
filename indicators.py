@@ -27,8 +27,8 @@ def detect_order_blocks(df: pd.DataFrame, volume_threshold=1.5, body_percentage=
     avg_volume = df['Volume'].mean()
 
     for i in range(1, len(df) - 3):
-        high, low, close, open_price = df['High'][i], df['Low'][i], df['Close'][i], df['Open'][i]
-        volume = df['Volume'][i]
+        high, low, close, open_price = df['High'].iloc[i], df['Low'].iloc[i], df['Close'].iloc[i], df['Open'].iloc[i]
+        volume = df['Volume'].iloc[i]
 
         body_size = abs(close - open_price)
         range_size = high - low
@@ -42,9 +42,9 @@ def detect_order_blocks(df: pd.DataFrame, volume_threshold=1.5, body_percentage=
             continue
 
         # Detect order blocks
-        if close < open_price and df['Close'][i + 1] > high * breakout_factor:
+        if close < open_price and df['Close'].iloc[i + 1] > high * breakout_factor:
             order_blocks.add(OrderBlock('bearish', i, high, low))
-        elif close > open_price and df['Close'][i + 1] < low * breakout_factor:
+        elif close > open_price and df['Close'].iloc[i + 1] < low * breakout_factor:
             order_blocks.add(OrderBlock('bullish', i, high, low))
 
     return order_blocks
@@ -71,24 +71,24 @@ def detect_fvgs(df: pd.DataFrame):
 
     for i in range(2, len(df)):
         # Bullish FVG
-        if df['Low'][i] > df['High'][i - 2]:
+        if df['Low'].iloc[i] > df['High'].iloc[i - 2]:
             is_covered = False
             for j in range(i + 1, len(df)):
-                if df['Low'][j] <= df['Low'][i]:
+                if df['Low'].iloc[j] <= df['Low'].iloc[i]:
                    is_covered = True 
                    break
 
-            fvgs.add(FVG(i - 2, i, df['High'][i - 2], df['Low'][i], 'bullish', is_covered))
+            fvgs.add(FVG(i - 2, i, df['High'].iloc[i - 2], df['Low'].iloc[i], 'bullish', is_covered))
 
         # Bearish FVG
-        elif df['High'][i] < df['Low'][i - 2]:
+        elif df['High'].iloc[i] < df['Low'].iloc[i - 2]:
             is_covered = False
             for j in range(i + 1, len(df)):
-                if df['High'][j] >= df['High'][i]:
+                if df['High'].iloc[j] >= df['High'].iloc[i]:
                    is_covered = True 
                    break
 
-            fvgs.add(FVG(i - 2, i, df['Low'][i - 2], df['High'][i], 'bearish', is_covered))
+            fvgs.add(FVG(i - 2, i, df['Low'].iloc[i - 2], df['High'].iloc[i], 'bearish', is_covered))
 
     return fvgs
 
