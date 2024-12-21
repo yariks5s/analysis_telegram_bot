@@ -1,17 +1,12 @@
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 
-from utils import user_selected_indicators
+from database import get_user_preferences, update_user_preferences
 
 def get_indicator_selection_keyboard(user_id):
     """
     Create an inline keyboard for selecting indicators with a checkmark for selected ones.
     """
-    selected = user_selected_indicators.get(user_id, {
-        "order_blocks": False,
-        "fvgs": False,
-        "liquidity_levels": False,
-        "breaker_blocks": False,
-    })
+    selected = get_user_preferences(user_id)
 
     # Add a checkmark if the indicator is selected
     keyboard = [
@@ -48,30 +43,25 @@ async def handle_indicator_selection(update, _):
 
     # Get user ID and initialize preferences
     user_id = query.from_user.id
-    if user_id not in user_selected_indicators:
-        user_selected_indicators[user_id] = {
-            "order_blocks": False,
-            "fvgs": False,
-            "liquidity_levels": False,
-            "breaker_blocks": False,
-        }
+    preferences = get_user_preferences(user_id)
 
-    # Update preferences based on selection
+    # Update preferences based on user action
     data = query.data
     if data == "indicator_order_blocks":
-        user_selected_indicators[user_id]["order_blocks"] = not user_selected_indicators[user_id]["order_blocks"]
+        preferences["order_blocks"] = not preferences["order_blocks"]
     elif data == "indicator_fvgs":
-        user_selected_indicators[user_id]["fvgs"] = not user_selected_indicators[user_id]["fvgs"]
+        preferences["fvgs"] = not preferences["fvgs"]
     elif data == "indicator_liquidity_levels":
-        user_selected_indicators[user_id]["liquidity_levels"] = not user_selected_indicators[user_id]["liquidity_levels"]
+        preferences["liquidity_levels"] = not preferences["liquidity_levels"]
     elif data == "indicator_breaker_blocks":
-        user_selected_indicators[user_id]["breaker_blocks"] = not user_selected_indicators[user_id]["breaker_blocks"]
+        preferences["breaker_blocks"] = not preferences["breaker_blocks"]
     elif data == "indicator_done":
-        selected = user_selected_indicators[user_id]
-        await query.edit_message_text(
-            f"You selected: {', '.join([key for key, val in selected.items() if val]) or 'None'}"
-        )
+        selected = [key for key, val in preferences.items() if val]
+        await query.edit_message_text(f"You selected: {', '.join(selected) or 'None'}")
         return
+
+    # Save updated preferences in the database
+    update_user_preferences(user_id, preferences)
 
     # Update message with current selections and checkmarks
     await query.edit_message_reply_markup(
@@ -83,12 +73,6 @@ async def select_indicators(update, _):
     Start the process of selecting indicators.
     """
     user_id = update.effective_user.id
-    user_selected_indicators[user_id] = {
-        "order_blocks": False,
-        "fvgs": False,
-        "liquidity_levels": False,
-        "breaker_blocks": False,
-    }
     await update.message.reply_text(
         "Please choose the indicators you'd like to include:",
         reply_markup=get_indicator_selection_keyboard(user_id)

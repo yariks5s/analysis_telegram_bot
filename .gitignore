@@ -5,3 +5,4 @@ chatGPT_script.py
 /__pycache__
 /IndicatorUtils/__pycache__
 /tests/__pycache__
+preferences.db

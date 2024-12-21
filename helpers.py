@@ -1,7 +1,8 @@
 import pandas as pd
 
 from data_fetching_instruments import fetch_ohlc_data, analyze_data
-from utils import VALID_INTERVALS, user_selected_indicators
+from utils import VALID_INTERVALS
+from database import check_user_preferences
 
 def calculate_macd(data: pd.DataFrame):
     """
@@ -63,7 +64,7 @@ async def check_and_analyze(update, user_id, args):
         return
 
     # Check if user selected indicators
-    if user_id not in user_selected_indicators or not any(user_selected_indicators[user_id].values()):
+    if (not check_user_preferences(user_id)):
         await update.message.reply_text("Please select indicators using /select_indicators before requesting a chart.")
         return
 

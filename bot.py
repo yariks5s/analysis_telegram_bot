@@ -6,10 +6,11 @@ import logging
 from telegram import Update
 from telegram.ext import CommandHandler, CallbackContext, ApplicationBuilder, CallbackQueryHandler
 
-from utils import user_selected_indicators
 from helpers import check_and_analyze
 from plot_build_helpers import plot_price_chart
 from message_handlers import select_indicators, handle_indicator_selection
+
+from database import get_user_preferences
 
 # Configure logging
 logging.basicConfig(
@@ -30,7 +31,7 @@ async def send_crypto_chart(update: Update, context: CallbackContext):
     (indicators, df) = await check_and_analyze(update, user_id, context.args)
 
     # Filter indicators based on user selection
-    filtered_indicators = indicators.filter(user_selected_indicators[user_id])
+    filtered_indicators = indicators.filter(get_user_preferences(user_id))
 
     # Plot chart
     chart_path = plot_price_chart(df, filtered_indicators)
@@ -56,13 +57,16 @@ async def send_text_data(update: Update, context: CallbackContext):
     (indicators, df) = await check_and_analyze(update, user_id, context.args)
 
     # Filter indicators based on user selection
-    filtered_indicators = indicators.filter(user_selected_indicators[user_id])
+    filtered_indicators = indicators.filter(get_user_preferences(user_id))
 
     await update.message.reply_text(str(filtered_indicators))
     
     df = df.reset_index(drop=True)
 
 if __name__ == "__main__":
+    from database import init_db
+
+    init_db()
     TOKEN = os.getenv('API_TELEGRAM_KEY')
 
     app = ApplicationBuilder().token(TOKEN).build()
