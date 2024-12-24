@@ -10,7 +10,7 @@ from IndicatorUtils.fvg_utils import FVGs
 from IndicatorUtils.liquidity_level_utils import LiquidityLevels
 from IndicatorUtils.order_block_utils import OrderBlocks
 
-from data_fetching_instruments import fetch_from_json
+from data_fetching_instruments import fetch_from_json, analyze_data
 
 @pytest.fixture
 def setup_data():
@@ -54,42 +54,51 @@ def dataframe(setup_data):
     # Default values
     return fetch_from_json(args)
 
-def test_detect_order_blocks(dataframe):
-    
-    order_blocks = detect_order_blocks(dataframe)
-    assert isinstance(order_blocks, OrderBlocks), "Order blocks should return an OrderBlocks instance."
-    assert str(order_blocks) == """
-OrderBlock(type=bearish, index=7, high=0.8097, low=0.7623)"""
+def test_all_preferences(dataframe, sample_preferences_all):
+    indicators = analyze_data(dataframe, sample_preferences_all, liq_lev_tolerance=0.05)
+    assert (indicators.liquidity_levels.list)
+    assert (indicators.breaker_blocks.list)
+    assert (indicators.order_blocks.list)
+    assert (indicators.fvgs.list)
 
-def test_detect_fvgs(dataframe):
-    """Test detect_fvgs function."""
-    fvgs = detect_fvgs(dataframe)
-    assert isinstance(fvgs, FVGs), "FVGs should return a FVGs instance."
-    assert str(fvgs) == """
-FVG(type=bearish, start_index=0, end_index=2, start_price=0.8983, end_price=0.8947, covered=True)
-FVG(type=bearish, start_index=3, end_index=5, start_price=0.8784, end_price=0.8503, covered=True)
-FVG(type=bearish, start_index=4, end_index=6, start_price=0.8362, end_price=0.8236, covered=True)
-FVG(type=bearish, start_index=5, end_index=7, start_price=0.8184, end_price=0.8097, covered=True)
-FVG(type=bullish, start_index=8, end_index=10, start_price=0.8349, end_price=0.8444, covered=False)
-FVG(type=bullish, start_index=10, end_index=12, start_price=0.8649, end_price=0.8694, covered=False)"""
+def test_fvg_preferences(dataframe, sample_preferences_fvg):
+    indicators = analyze_data(dataframe, sample_preferences_fvg, liq_lev_tolerance=0.05)
+    assert (not indicators.liquidity_levels.list)
+    assert (not indicators.breaker_blocks.list)
+    assert (not indicators.order_blocks.list)
+    assert (indicators.fvgs.list)
 
-def test_detect_support_resistance_levels(dataframe):
-    """Test detect_support_resistance_levels function."""
+def test_ob_preferences(dataframe, sample_preferences_ob):
+    indicators = analyze_data(dataframe, sample_preferences_ob, liq_lev_tolerance=0.05)
+    assert (not indicators.liquidity_levels.list)
+    assert (not indicators.breaker_blocks.list)
+    assert (indicators.order_blocks.list)
+    assert (not indicators.fvgs.list)
 
-    levels = detect_support_resistance_levels(dataframe)
-    assert isinstance(levels, LiquidityLevels), "Support and resistance levels should return a LiquidityLevels instance."
-    assert str(levels) == """
-LiquidityLevel(type=support, price=0.871)
-LiquidityLevel(type=support, price=0.7618)
-LiquidityLevel(type=resistance, price=0.8662)"""
+def test_ll_preferences(dataframe, sample_preferences_ll):
+    indicators = analyze_data(dataframe, sample_preferences_ll, liq_lev_tolerance=0.05)
+    assert (indicators.liquidity_levels.list)
+    assert (not indicators.breaker_blocks.list)
+    assert (not indicators.order_blocks.list)
+    assert (not indicators.fvgs.list)
 
-def test_detect_breaker_blocks(dataframe):
-    """Test detect_breaker_blocks function."""
+def test_ll_bb_preferences(dataframe, sample_preferences_ll_bb):
+    indicators = analyze_data(dataframe, sample_preferences_ll_bb, liq_lev_tolerance=0.05)
+    assert (indicators.liquidity_levels.list)
+    assert (indicators.breaker_blocks.list)
+    assert (not indicators.order_blocks.list)
+    assert (not indicators.fvgs.list)
 
-    levels = detect_support_resistance_levels(dataframe)
-    breaker_blocks = detect_breaker_blocks(dataframe, levels)
-    assert isinstance(breaker_blocks, BreakerBlocks), "Breaker blocks should return a BreakerBlocks instance."
-    assert str(breaker_blocks) == """
-BreakerBlock(type=bearish, index=4, zone=(0.8362, 0.8897))
-BreakerBlock(type=bullish, index=11, zone=(0.8529, 0.8912))
-BreakerBlock(type=bullish, index=12, zone=(0.8694, 0.896))"""
+def test_none_preferences(dataframe, sample_preferences_none):
+    indicators = analyze_data(dataframe, sample_preferences_none, liq_lev_tolerance=0.05)
+    assert (not indicators.liquidity_levels.list)
+    assert (not indicators.breaker_blocks.list)
+    assert (not indicators.order_blocks.list)
+    assert (not indicators.fvgs.list)
+
+def test_bb_only_preferences(dataframe, sample_preferences_bb):
+    indicators = analyze_data(dataframe, sample_preferences_bb, liq_lev_tolerance=0.05)
+    assert (not indicators.liquidity_levels.list)
+    assert (not indicators.breaker_blocks.list)
+    assert (not indicators.order_blocks.list)
+    assert (not indicators.fvgs.list)

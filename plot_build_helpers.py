@@ -23,10 +23,17 @@ def plot_price_chart(df: pd.DataFrame, indicators):
         figsize=(12, 8)
     )
 
-    add_fvgs(ax, indicators.fvgs)
-    add_order_blocks(ax, indicators.order_blocks, df)
-    add_liquidity_levels(ax, indicators.liquidity_levels)
-    add_breaker_blocks(ax, indicators.breaker_blocks)
+    if (indicators.fvgs):
+        add_fvgs(ax, indicators.fvgs)
+
+    if (indicators.order_blocks):
+        add_order_blocks(ax, indicators.order_blocks, df)
+
+    if (indicators.liquidity_levels):
+        add_liquidity_levels(ax, indicators.liquidity_levels)
+
+    if (indicators.breaker_blocks):
+        add_breaker_blocks(ax, indicators.breaker_blocks)
 
     add_legend(ax, indicators)
 
@@ -44,11 +51,11 @@ def add_legend(ax, indicators):
     if (indicators.fvgs):
         handles.append(mpatches.Patch(color='purple', alpha=0.3, label='FVG'))
 
-    if (indicators.liquidity_levels):
+    if (indicators.breaker_blocks):
         handles.append(mpatches.Patch(color='green', alpha=0.05, label='Bullish Breaker Block'))
         handles.append(mpatches.Patch(color='red', alpha=0.05, label='Bearish Breaker Block'))
 
-    if (indicators.breaker_blocks):
+    if (indicators.liquidity_levels):
         handles.append(mlines.Line2D([], [], color='red', linestyle='--', markersize=10, label='Resistance level'))
         handles.append(mlines.Line2D([], [], color='green', linestyle='--', markersize=10, label='Support level'))
 

@@ -8,8 +8,8 @@ Todo:
 - [x] Add tests for this
 - [x] Create a possibility to enable/disable indicators
 - [x] Connect the bot to database (probably local), to store the user_ids and their preferences
-- [ ] Possibility to calculate indicators only on demand
-- [ ] Add tests for this
+- [x] Possibility to calculate indicators only on demand
+- [x] Add tests for this
 - [ ] Create a logic to find predictable movements, based on the created indicators
 - [ ] Add another tests for this
 - [ ] Find the most appropriate time interval for predictions

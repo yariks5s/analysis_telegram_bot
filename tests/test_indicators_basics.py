@@ -1,6 +1,7 @@
 import sys
 sys.path.append("/Users/yaroslav/cryptoBot")
 from indicators import detect_order_blocks, detect_fvgs, detect_support_resistance_levels, detect_breaker_blocks
+from IndicatorUtils.breaker_block_utils import BreakerBlocks
 
 def test_detect_order_blocks(sample_dataframe):
     order_blocks = detect_order_blocks(sample_dataframe)
@@ -15,5 +16,6 @@ def test_detect_support_resistance_levels(sample_dataframe):
     assert isinstance(levels.list, list)
 
 def test_detect_breaker_blocks(sample_dataframe):
-    breaker_blocks = detect_breaker_blocks(sample_dataframe, {})
-    assert isinstance(breaker_blocks.list, list)
+    levels = detect_support_resistance_levels(sample_dataframe)
+    breaker_blocks = detect_breaker_blocks(sample_dataframe, levels)
+    assert isinstance(breaker_blocks, BreakerBlocks)

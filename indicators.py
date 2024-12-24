@@ -143,6 +143,9 @@ def detect_breaker_blocks(df: pd.DataFrame, liquidity_levels: LiquidityLevels):
     """
     breaker_blocks = BreakerBlocks()
 
+    if (not liquidity_levels.list):
+        return breaker_blocks
+
     # Iterate over each candle
     for i in range(2, len(df)):
         low, high, close = df['Low'].iloc[i], df['High'].iloc[i], df['Close'].iloc[i]

@@ -57,7 +57,7 @@ async def input_sanity_check(args, update) -> tuple:
 
     return (symbol, hours, interval, liq_lev_tolerance)
 
-async def check_and_analyze(update, user_id, args):
+async def check_and_analyze(update, user_id, preferences, args):
     res = await input_sanity_check(args, update)
 
     if (not res):
@@ -81,5 +81,5 @@ async def check_and_analyze(update, user_id, args):
         await update.message.reply_text(f"Error fetching data for {symbol}. Please check the pair and try again.")
         return
 
-    indicators = analyze_data(df, liq_lev_tolerance)
+    indicators = analyze_data(df, preferences, liq_lev_tolerance)
     return (indicators, df)

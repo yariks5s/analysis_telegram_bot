@@ -28,7 +28,7 @@ def test_fetch_ohlc_data(mock_kline_data):
         assert len(df) == 2
         assert "Open" in df.columns
 
-def test_analyze_data(sample_dataframe):
-    indicators = analyze_data(sample_dataframe, liq_lev_tolerance=0.05)
+def test_analyze_data(sample_dataframe, sample_preferences_all):
+    indicators = analyze_data(sample_dataframe, sample_preferences_all, liq_lev_tolerance=0.05)
     assert indicators.order_blocks is not None
     assert indicators.liquidity_levels is not None

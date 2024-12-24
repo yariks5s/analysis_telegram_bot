@@ -27,14 +27,14 @@ async def send_crypto_chart(update: Update, context: CallbackContext):
     chat_id = update.effective_chat.id
     user_id = update.effective_user.id
 
-    # Analyze data
-    (indicators, df) = await check_and_analyze(update, user_id, context.args)
+    preferences = get_user_preferences(user_id)
 
-    # Filter indicators based on user selection
-    filtered_indicators = indicators.filter(get_user_preferences(user_id))
+    # Analyze data
+    (indicators, df) = await check_and_analyze(update, user_id, preferences, context.args)
+
 
     # Plot chart
-    chart_path = plot_price_chart(df, filtered_indicators)
+    chart_path = plot_price_chart(df, indicators)
     if chart_path is None:
         await update.message.reply_text("Error generating the chart. Please try again.")
         return
@@ -53,13 +53,11 @@ async def send_text_data(update: Update, context: CallbackContext):
     """
     user_id = update.effective_user.id
 
+    preferences = get_user_preferences(user_id)
     # Analyze data
-    (indicators, df) = await check_and_analyze(update, user_id, context.args)
+    (indicators, df) = await check_and_analyze(update, user_id, preferences, context.args)
 
-    # Filter indicators based on user selection
-    filtered_indicators = indicators.filter(get_user_preferences(user_id))
-
-    await update.message.reply_text(str(filtered_indicators))
+    await update.message.reply_text(str(indicators))
     
     df = df.reset_index(drop=True)
 

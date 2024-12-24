@@ -73,26 +73,28 @@ def fetch_ohlc_data(symbol: str, limit: int, interval: str):
         logger.error(f"Error while fetching data: {e}")
         return None
     
-def analyze_data(df: pd.DataFrame, liq_lev_tolerance: float):
+def analyze_data(df: pd.DataFrame, preferences, liq_lev_tolerance = 0.05):
     indicators = Indicators()
-    order_blocks = detect_order_blocks(df)
-    fvgs = detect_fvgs(df)
 
-    if not liq_lev_tolerance:
-        liq_lev_tolerance = 0.05
+    if (preferences["order_blocks"]):
+        order_blocks = detect_order_blocks(df)
+        logger.info(f"Detected Order Blocks: {order_blocks}")
+        indicators.order_blocks = order_blocks
+    
+    if (preferences["fvgs"]):
+        fvgs = detect_fvgs(df)
+        logger.info(f"Detected FVGs: {fvgs}")
+        indicators.fvgs = fvgs
 
-    liquidity_levels = detect_support_resistance_levels(df, window=len(df), tolerance=liq_lev_tolerance)
+    liquidity_levels = {}
+    if (preferences["liquidity_levels"]):
+        liquidity_levels = detect_support_resistance_levels(df, window=len(df), tolerance=liq_lev_tolerance)
+        logger.info(f"Detected Liquidity Levels: {liquidity_levels}")
+        indicators.liquidity_levels = liquidity_levels
 
-    breaker_blocks = detect_breaker_blocks(df, liquidity_levels)
-
-    logger.info(f"Detected Order Blocks: {order_blocks}")
-    logger.info(f"Detected FVGs: {fvgs}")
-    logger.info(f"Detected Liquidity Levels: {liquidity_levels}")
-    logger.info(f"Detected Breaker Blocks: {breaker_blocks}")
-
-    indicators.order_blocks = order_blocks
-    indicators.fvgs = fvgs
-    indicators.liquidity_levels = liquidity_levels
-    indicators.breaker_blocks = breaker_blocks
+    if (preferences["breaker_blocks"] and preferences["liquidity_levels"]):
+        breaker_blocks = detect_breaker_blocks(df, liquidity_levels)
+        logger.info(f"Detected Breaker Blocks: {breaker_blocks}")
+        indicators.breaker_blocks = breaker_blocks
 
     return indicators
