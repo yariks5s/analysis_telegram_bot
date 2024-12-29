@@ -50,43 +50,46 @@ def detect_order_blocks(df: pd.DataFrame, volume_threshold=1.5, body_percentage=
     return order_blocks
 
 
-def detect_fvgs(df: pd.DataFrame):
+def detect_fvgs(df: pd.DataFrame, min_fvg_ratio=0.005):
     """
     Detect Fair Value Gaps (FVGs) in price action and check if they are covered later.
-
-    Parameters:
-        df (pd.DataFrame): A DataFrame containing OHLCV data with columns ['Open', 'High', 'Low', 'Close'].
-
-    Returns:
-        list: A list of tuples representing FVGs, where each tuple is:
-              (start_index, end_index, start_price, end_price, type, covered)
-              - start_index: Start of the gap
-              - end_index: End of the gap
-              - start_price: Price at the start of the gap
-              - end_price: Price at the end of the gap
-              - type: 'bullish' or 'bearish'
-              - covered: Boolean indicating whether the FVG was later covered
+    Filter out relatively small FVGs, i.e. those whose size is less than
+    (min_fvg_ratio * last_close_price).
     """
     fvgs = FVGs()
+
+    if df.empty:
+        return fvgs
+
+    last_close_price = df['Close'].iloc[-1]
 
     for i in range(2, len(df)):
         # Bullish FVG
         if df['Low'].iloc[i] > df['High'].iloc[i - 2]:
+            gap_size = df['Low'].iloc[i] - df['High'].iloc[i - 2]
+            # Filter condition: skip if gap_size < min_fvg_ratio * last_close_price
+            if gap_size < min_fvg_ratio * last_close_price:
+                continue
+
             is_covered = False
             for j in range(i + 1, len(df)):
                 if df['Low'].iloc[j] <= df['Low'].iloc[i]:
-                   is_covered = True 
-                   break
+                    is_covered = True 
+                    break
 
             fvgs.add(FVG(i - 2, i, df['High'].iloc[i - 2], df['Low'].iloc[i], 'bullish', is_covered))
 
         # Bearish FVG
         elif df['High'].iloc[i] < df['Low'].iloc[i - 2]:
+            gap_size = df['Low'].iloc[i - 2] - df['High'].iloc[i]
+            if gap_size < min_fvg_ratio * last_close_price:
+                continue
+
             is_covered = False
             for j in range(i + 1, len(df)):
                 if df['High'].iloc[j] >= df['High'].iloc[i]:
-                   is_covered = True 
-                   break
+                    is_covered = True 
+                    break
 
             fvgs.add(FVG(i - 2, i, df['Low'].iloc[i - 2], df['High'].iloc[i], 'bearish', is_covered))
 

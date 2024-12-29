@@ -13,7 +13,7 @@ Todo:
 - [x] Create a logic to find predictable movements, based on the created indicators
 - [ ] Tune this logic properly
 - [ ] Add another tests for this
-- [ ] Don't count very small FVGs, insufficient order blocks etc
+- [ ] Don't count very small FVGs, low-volume or small-bodied order blocks etc
 - [ ] Find the most appropriate time interval for predictions
 - [ ] Consider about the timing of checking the market
 - [ ] Consider about a logic of pinging users about predictable movements
