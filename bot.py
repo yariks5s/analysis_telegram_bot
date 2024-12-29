@@ -9,6 +9,7 @@ from telegram.ext import CommandHandler, CallbackContext, ApplicationBuilder, Ca
 from helpers import check_and_analyze
 from plot_build_helpers import plot_price_chart
 from message_handlers import select_indicators, handle_indicator_selection
+from signal_detection import generate_price_prediction_signal_proba
 
 from database import get_user_preferences
 
@@ -38,10 +39,15 @@ async def send_crypto_chart(update: Update, context: CallbackContext):
     if chart_path is None:
         await update.message.reply_text("Error generating the chart. Please try again.")
         return
+    
+    # 1) Generate the probability-based signal:
+    signal, prob_bullish, confidence, reason_str = generate_price_prediction_signal_proba(df, indicators)
 
     # Send the chart to the user
     with open(chart_path, 'rb') as f:
         await context.bot.send_photo(chat_id=chat_id, photo=f)
+
+    await update.message.reply_text(f"  {reason_str}")  # Indentation needed for correct representation of the message
     
     df = df.reset_index(drop=True)
 

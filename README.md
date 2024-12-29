@@ -10,8 +10,10 @@ Todo:
 - [x] Connect the bot to database (probably local), to store the user_ids and their preferences
 - [x] Possibility to calculate indicators only on demand
 - [x] Add tests for this
-- [ ] Create a logic to find predictable movements, based on the created indicators
+- [x] Create a logic to find predictable movements, based on the created indicators
+- [ ] Tune this logic properly
 - [ ] Add another tests for this
+- [ ] Don't count very small FVGs, insufficient order blocks etc
 - [ ] Find the most appropriate time interval for predictions
 - [ ] Consider about the timing of checking the market
 - [ ] Consider about a logic of pinging users about predictable movements

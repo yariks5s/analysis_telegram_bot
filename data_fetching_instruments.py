@@ -73,7 +73,7 @@ def fetch_ohlc_data(symbol: str, limit: int, interval: str):
         logger.error(f"Error while fetching data: {e}")
         return None
     
-def analyze_data(df: pd.DataFrame, preferences, liq_lev_tolerance = 0.05):
+def analyze_data(df: pd.DataFrame, preferences, liq_lev_tolerance):
     indicators = Indicators()
 
     if (preferences["order_blocks"]):
@@ -85,6 +85,9 @@ def analyze_data(df: pd.DataFrame, preferences, liq_lev_tolerance = 0.05):
         fvgs = detect_fvgs(df)
         logger.info(f"Detected FVGs: {fvgs}")
         indicators.fvgs = fvgs
+
+    if (not liq_lev_tolerance):
+        liq_lev_tolerance = 0.05;
 
     liquidity_levels = {}
     if (preferences["liquidity_levels"]):
