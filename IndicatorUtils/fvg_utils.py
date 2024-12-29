@@ -39,10 +39,15 @@ class FVGs:
             return "\nNone."
     
     def non_verbose_str(self):
-        if (self.list):
+        if (self.__bool__()):
             return "\n" + "\n".join(str(fvg) for fvg in self.list if not fvg.covered)
         else:
             return "\nNone."
 
     def __bool__(self):
-        return bool(self.list)
+        if (not self.list):
+            return False
+        for fvg in self.list:
+            if (not fvg.covered):
+                return True
+        return False

@@ -13,8 +13,8 @@ Todo:
 - [x] Create a logic to find predictable movements, based on the created indicators
 - [ ] Tune this logic properly
 - [ ] Add another tests for this
-- [ ] Don't count very small FVGs, low-volume or small-bodied order blocks etc
-- [ ] Impove handling the cases where some indicators are not shown (Covered FVGs in text representation)
+- [x] Don't count very small FVGs
+- [x] Impove handling the cases where some indicators are not shown (Covered FVGs in text representation)
 - [ ] Tune order block detection
 - [ ] Keep previous 1000 candles in history and send signal based on the extended analysis (probably multi-frame)
 - [ ] Find the most appropriate time interval for predictions
