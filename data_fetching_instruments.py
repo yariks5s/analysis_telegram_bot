@@ -4,7 +4,7 @@ from datetime import datetime
 import requests
 
 from utils import VALID_INTERVALS, logger
-from indicators import detect_order_blocks, detect_fvgs, detect_support_resistance_levels, detect_breaker_blocks
+from indicators import detect_order_blocks, detect_multi_candle_order_blocks, detect_fvgs, detect_support_resistance_levels, detect_breaker_blocks
 from IndicatorUtils.indicators import Indicators
 
 def fetch_from_json(data):
@@ -77,7 +77,7 @@ def analyze_data(df: pd.DataFrame, preferences, liq_lev_tolerance):
     indicators = Indicators()
 
     if (preferences["order_blocks"]):
-        order_blocks = detect_order_blocks(df)
+        order_blocks = detect_multi_candle_order_blocks(df)
         logger.info(f"Detected Order Blocks: {order_blocks}")
         indicators.order_blocks = order_blocks
     

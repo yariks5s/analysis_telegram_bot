@@ -49,6 +49,77 @@ def detect_order_blocks(df: pd.DataFrame, volume_threshold=1.5, body_percentage=
 
     return order_blocks
 
+def detect_multi_candle_order_blocks(
+    df: pd.DataFrame,
+    min_consolidation_candles=2,
+    volume_multiplier=1.2,
+    breakout_factor=1.01
+):
+    """
+    1) Find 'consolidation zones' of at least min_consolidation_candles
+       where the range is small and overlapping.
+    2) Confirm a breakout from that zone with volume above average * volume_multiplier.
+    3) Mark that consolidation zone as an 'order block zone.'
+    """
+    blocks = OrderBlocks()
+    if df.empty:
+        return blocks
+
+    avg_volume = df['Volume'].mean()
+    i = 0
+    while i < len(df) - min_consolidation_candles:
+        # Step A: Check for a consolidation region of N candles
+        # e.g. consecutive overlapping candles with small range
+        region_start = i
+        region_end = i + min_consolidation_candles - 1
+
+        # Are these candles overlapping enough to be called 'consolidation'?
+        # Example logic:
+        highest_high = df['High'].iloc[region_start:region_end+1].max()
+        lowest_low = df['Low'].iloc[region_start:region_end+1].min()
+        # overlap or small range check, e.g., range < 0.5% of last close
+        range_size = highest_high - lowest_low
+        if range_size < 0.005 * df['Close'].iloc[region_end]:
+            # Potential zone
+            # Step B: Look for a breakout candle right after the zone
+            if region_end + 1 < len(df):
+                breakout_candle = region_end + 1
+                candle_high = df['High'].iloc[breakout_candle]
+                candle_low = df['Low'].iloc[breakout_candle]
+                candle_volume = df['Volume'].iloc[breakout_candle]
+                previous_high = highest_high
+                previous_low = lowest_low
+
+                # Check volume
+                if candle_volume > volume_multiplier * avg_volume:
+                    # Check if bullish breakout (e.g. candle_high > previous_high * breakout_factor)
+                    if candle_high > (previous_high * breakout_factor):
+                        # Mark region as bullish order block
+                        blocks.add(OrderBlock(
+                            block_type='bullish',
+                            index=region_end,
+                            high=previous_high,
+                            low=previous_low
+                        ))
+                        i = breakout_candle + 1
+                        continue
+
+                    # Check if bearish breakout
+                    if candle_low < (previous_low * (2 - breakout_factor)): 
+                        # 2 - breakout_factor might be 0.99 => 1% lower, etc.
+                        blocks.add(OrderBlock(
+                            block_type='bearish',
+                            index=region_end,
+                            high=previous_high,
+                            low=previous_low
+                        ))
+                        i = breakout_candle + 1
+                        continue
+
+        i += 1
+
+    return blocks
+
 
 def detect_fvgs(df: pd.DataFrame, min_fvg_ratio=0.005):
     """

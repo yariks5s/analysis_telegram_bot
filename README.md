@@ -14,6 +14,9 @@ Todo:
 - [ ] Tune this logic properly
 - [ ] Add another tests for this
 - [ ] Don't count very small FVGs, low-volume or small-bodied order blocks etc
+- [ ] Impove handling the cases where some indicators are not shown (Covered FVGs in text representation)
+- [ ] Tune order block detection
+- [ ] Keep previous 1000 candles in history and send signal based on the extended analysis (probably multi-frame)
 - [ ] Find the most appropriate time interval for predictions
 - [ ] Consider about the timing of checking the market
 - [ ] Consider about a logic of pinging users about predictable movements
