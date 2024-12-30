@@ -12,11 +12,11 @@ Todo:
 - [x] Add tests for this
 - [x] Create a logic to find predictable movements, based on the created indicators
 - [ ] Tune this logic properly
-- [ ] Add another tests for this
+- [ ] Add tests for this
 - [x] Don't count very small FVGs
 - [x] Impove handling the cases where some indicators are not shown (Covered FVGs in text representation)
-- [ ] Tune order block detection
-- [ ] Keep previous 1000 candles in history and send signal based on the extended analysis (probably multi-frame)
+- [ ] Tune order block detection - **Important**
+- [x] Keep previous 1000 candles in history and send signal based on the extended analysis (probably multi-frame) - done in another way (merging requests responses)
 - [ ] Find the most appropriate time interval for predictions
 - [ ] Consider about the timing of checking the market
 - [ ] Consider about a logic of pinging users about predictable movements

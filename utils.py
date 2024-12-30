@@ -15,3 +15,5 @@ VALID_INTERVALS = {
 
 # Store user-selected indicators temporarily
 user_selected_indicators = {}
+
+API_URL = "https://api.bybit.com/v5/market/kline"
