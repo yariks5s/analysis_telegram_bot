@@ -45,7 +45,6 @@ def get_user_preferences(user_id: int) -> dict[str: bool]:
             "fvgs": bool(row[2]),
             "liquidity_levels": bool(row[3]),
             "breaker_blocks": bool(row[4]),
-            "currency_pair": row[5]
         }
     else:
         return {
