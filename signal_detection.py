@@ -182,3 +182,4 @@ def generate_price_prediction_signal_proba(df, indicators):
         reason_str += "Reasons:\n- " + "\n- ".join(reasons)
 
     return signal, probability_of_bullish, confidence, reason_str
+
