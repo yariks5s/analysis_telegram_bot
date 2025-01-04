@@ -1,6 +1,6 @@
 from utils import auto_signal_jobs
 from datetime import datetime, timedelta
-from database import get_user_preferences
+from database import get_user_preferences, update_user_signals_requests, check_user_signals_requests, get_user_signal_requests, delete_user_signals_requests
 
 def generate_price_prediction_signal_proba(df, indicators):
     """
@@ -225,9 +225,16 @@ async def auto_signal_job(context):
     await context.bot.send_message(chat_id=chat_id, text=message_text)
 
 
-async def createSignalJob(symbol, period_minutes, update, context):
+async def createSignalJob(symbol: str, period_minutes: int, update, context):
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
+
+    # Update the database with the new signal request
+    signals_requests = {
+        "currency_pair": symbol,
+        "frequency_minutes": period_minutes,
+    }
+    update_user_signals_requests(user_id, signals_requests)
 
     # If a job is already running for this user, cancel it
     if user_id in auto_signal_jobs:
@@ -238,9 +245,9 @@ async def createSignalJob(symbol, period_minutes, update, context):
     # Create a job to run periodically
     job_queue = context.application.job_queue
     job_ref = job_queue.run_repeating(
-        callback=auto_signal_job,              # the function to call
+        callback=auto_signal_job,
         interval=timedelta(minutes=period_minutes),
-        first=0,                               # start immediately
+        first=0,  # Start immediately
         name=f"signal_job_{user_id}",
         data={
             "user_id": user_id,
@@ -249,7 +256,6 @@ async def createSignalJob(symbol, period_minutes, update, context):
         },
     )
 
-    # Save reference so we can stop it later
     auto_signal_jobs[user_id] = job_ref
     await update.message.reply_text(
         f"✅ Auto-signals started for {symbol}, every {period_minutes} minute{'s' if period_minutes > 1 else ''}."
@@ -259,6 +265,10 @@ async def createSignalJob(symbol, period_minutes, update, context):
 async def deleteSignalJob(update):
     user_id = update.effective_user.id
 
+    # Remove from the database
+    delete_user_signals_requests(user_id)
+
+    # Remove the job from the job queue
     if user_id in auto_signal_jobs:
         job_ref = auto_signal_jobs[user_id]
         job_ref.schedule_removal()

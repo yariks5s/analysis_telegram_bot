@@ -100,7 +100,7 @@ def update_user_preferences(user_id: int, preferences: dict[str: bool]) -> None:
 
 def get_user_signal_requests(user_id: int) -> dict:
     """
-    Retrieve the user's indicator preferences from the database.
+    Retrieve the user's signal request preferences from the database.
     """
     conn = sqlite3.connect("preferences.db")
     cursor = conn.cursor()
@@ -110,13 +110,13 @@ def get_user_signal_requests(user_id: int) -> dict:
 
     if row:
         return {
-            "currency_pair": row[5],
-            "frequency_minutes": int(row[6]),
+            "currency_pair": row[1],
+            "frequency_minutes": row[2],
         }
     else:
         return {
-            "currency_pair": "",
-            "frequency_minutes": 0,
+            "currency_pair": "BTCUSDT",
+            "frequency_minutes": 60,
         }
 
 
@@ -136,9 +136,9 @@ def check_user_signals_requests(user_id: int) -> bool:
         return False
 
 
-def update_user_signals_requests(user_id: int, signals_requests: dict[str: bool]) -> None:
+def update_user_signals_requests(user_id: int, signals_requests: dict) -> None:
     """
-    Update or insert the user's indicator preferences in the database.
+    Update or insert the user's signal request preferences in the database.
     """
     conn = sqlite3.connect("preferences.db")
     cursor = conn.cursor()
@@ -153,13 +153,26 @@ def update_user_signals_requests(user_id: int, signals_requests: dict[str: bool]
             UPDATE user_signals_requests
             SET currency_pair = ?, frequency_minutes = ?
             WHERE user_id = ?
-        """, (signals_requests["currency_pair"], signals_requests["frequency_minutes"]))
+        """, (signals_requests["currency_pair"], signals_requests["frequency_minutes"], user_id))
     else:
         # Insert new user preferences
         cursor.execute("""
             INSERT INTO user_signals_requests (user_id, currency_pair, frequency_minutes)
             VALUES (?, ?, ?)
-        """, (signals_requests["currency_pair"], signals_requests["frequency_minutes"]))
+        """, (user_id, signals_requests["currency_pair"], signals_requests["frequency_minutes"]))
+
+    conn.commit()
+    conn.close()
+
+
+def delete_user_signals_requests(user_id: int) -> None:
+    """
+    Deletes the user's signal request preferences in the database.
+    """
+    conn = sqlite3.connect("preferences.db")
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM user_signals_requests WHERE user_id = ?", (user_id,))
 
     conn.commit()
     conn.close()
