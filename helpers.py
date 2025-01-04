@@ -25,7 +25,7 @@ def calculate_rsi(data: pd.DataFrame, period: int = 14):
     rsi = 100 - (100 / (1 + rs))
     return rsi
 
-async def input_sanity_check(args, update) -> tuple:
+async def input_sanity_check_show(args, update) -> tuple:
     # Default values
     symbol = "BTCUSDT"
     hours = 24
@@ -57,8 +57,30 @@ async def input_sanity_check(args, update) -> tuple:
 
     return (symbol, hours, interval, liq_lev_tolerance)
 
+async def input_sanity_check_analyzing(args, update) -> tuple:
+    # Default values
+    symbol = "BTCUSDT"
+    period_minutes = 60
+
+    if len(args) < 2:
+        await update.message.reply_text(
+            f"Usage: /start_signals <symbol> <period_in_minutes>, you've sent {len(args)} arguments."
+        )
+        return tuple()
+
+    if (len(args) >= 1):
+        symbol = args[0]
+    if (len(args) >= 2):
+        try:
+            period_minutes = int(args[1])
+        except ValueError:
+            await update.message.reply_text("Invalid period. Must be an integer (minutes).")
+            return tuple()
+
+    return (symbol, period_minutes)
+
 async def check_and_analyze(update, user_id, preferences, args):
-    res = await input_sanity_check(args, update)
+    res = await input_sanity_check_show(args, update)
 
     if (not res):
         return
@@ -86,7 +108,7 @@ async def check_and_analyze(update, user_id, preferences, args):
 
 # Needs to be deprecated later
 async def get_1000(update, user_id, preferences, args):
-    res = await input_sanity_check(args, update)
+    res = await input_sanity_check_show(args, update)
 
     if (not res):
         return

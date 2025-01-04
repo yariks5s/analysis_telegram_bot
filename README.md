@@ -17,6 +17,8 @@ Todo:
 - [x] Impove handling the cases where some indicators are not shown (Covered FVGs in text representation)
 - [ ] Tune order block detection - **Important**
 - [x] Keep previous 1000 candles in history and send signal based on the extended analysis (probably multi-frame) - done in another way (merging requests responses)
+- [ ] Create a logic regarding pinging users about signals (one currency pair for user)
+- [ ] Create a logic regarding pinging users about signals (a few currency pairs for user)
 - [ ] Create a signal finding pipeline
 - [ ] Find the most appropriate time interval for predictions
 - [ ] Consider about the timing of checking the market

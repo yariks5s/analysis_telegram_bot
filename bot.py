@@ -1,7 +1,7 @@
-from helpers import check_and_analyze, get_1000
+from helpers import check_and_analyze, get_1000, input_sanity_check_analyzing
 from plot_build_helpers import plot_price_chart
 from message_handlers import select_indicators, handle_indicator_selection
-from signal_detection import generate_price_prediction_signal_proba
+from signal_detection import generate_price_prediction_signal_proba, createSignalJob, deleteSignalJob
 from database import get_user_preferences
 
 from utils import auto_signal_jobs
@@ -21,7 +21,6 @@ from dotenv import load_dotenv
 
 import os
 import logging
-from datetime import datetime, timedelta
 
 # Configure logging
 logging.basicConfig(
@@ -115,98 +114,18 @@ async def start_signals_command(update: Update, context: ContextTypes.DEFAULT_TY
     Example: /start_signals BTCUSDT 5
     - This means: "Check BTCUSDT on timeframe every 5 minutes"
     """
-    user_id = update.effective_user.id
-    chat_id = update.effective_chat.id
+    (symbol, period_minutes) = await input_sanity_check_analyzing(context.args, update)
 
-    # Parse user arguments
-    args = context.args  # list of strings
-    if len(args) < 2:
-        await update.message.reply_text(
-            "Usage: /start_signals <symbol> <period_in_minutes>"
-        )
-        return
+    await createSignalJob(symbol, period_minutes, update, context)
 
-    symbol = args[0]
-    try:
-        period_minutes = int(args[1])
-    except ValueError:
-        await update.message.reply_text("Invalid period. Must be an integer (minutes).")
-        return
-
-    # If a job is already running for this user, cancel it
-    if user_id in auto_signal_jobs:
-        old_job = auto_signal_jobs[user_id]
-        old_job.schedule_removal()
-        del auto_signal_jobs[user_id]
-
-    # Create a job to run periodically
-    job_queue = context.application.job_queue
-    job_ref = job_queue.run_repeating(
-        callback=auto_signal_job,              # the function to call
-        interval=timedelta(minutes=period_minutes),
-        first=0,                               # start immediately
-        name=f"signal_job_{user_id}",
-        data={
-            "user_id": user_id,
-            "chat_id": chat_id,
-            "symbol": symbol,
-        },
-    )
-
-    # Save reference so we can stop it later
-    auto_signal_jobs[user_id] = job_ref
-
-    await update.message.reply_text(
-        f"✅ Auto-signals started for {symbol}, every {period_minutes} minutes."
-    )
 
 async def stop_signals_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     /stop_signals
     Cancels the user's signal job if it exists.
     """
-    user_id = update.effective_user.id
+    await deleteSignalJob(update)
 
-    if user_id in auto_signal_jobs:
-        job_ref = auto_signal_jobs[user_id]
-        job_ref.schedule_removal()
-        del auto_signal_jobs[user_id]
-        await update.message.reply_text("✅ Auto-signals stopped.")
-    else:
-        await update.message.reply_text("No auto-signals are running for you.")
-
-async def auto_signal_job(context: CallbackContext):
-    """
-    This function is called periodically by the JobQueue (run_repeating).
-    It fetches signals and sends them to the user if needed.
-    """
-    job_data = context.job.data
-    user_id = job_data["user_id"]
-    chat_id = job_data["chat_id"]
-    symbol = job_data["symbol"]
-
-    # 1) Fetch user preferences (if you need them) from DB
-    # preferences = get_user_preferences(user_id)
-
-    # 2) Perform the analysis (example):
-    # (indicators, df) = await check_and_analyze(...)
-
-    # 3) Generate a signal
-    # signal, prob_bullish, confidence, reason_str = generate_price_prediction_signal_proba(df, indicators)
-
-    # 4) If there's a specific condition to alert:
-    # e.g., only alert if confidence > 0.6 or if signal != "Neutral"
-    # For demonstration, let's say we send a message every time for now:
-    # --------------------------------
-    now_str = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
-    message_text = (
-        f"[Auto-Signal Check @ {now_str}]\n"
-        f"Symbol: {symbol}\n"
-        f"**(Add your signal details here)**"
-    )
-
-    # 5) Send the message
-    await context.bot.send_message(chat_id=chat_id, text=message_text)
 
 if __name__ == "__main__":
     from database import init_db
