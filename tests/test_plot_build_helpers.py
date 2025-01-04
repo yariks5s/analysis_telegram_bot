@@ -1,5 +1,7 @@
 import sys
-sys.path.append("/Users/yaroslav/cryptoBot")
+import os
+project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.append(project_dir)
 
 from plot_build_helpers import plot_price_chart
 from IndicatorUtils.fvg_utils import FVGs

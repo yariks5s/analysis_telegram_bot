@@ -1,6 +1,6 @@
 import sqlite3
 
-def init_db():
+def init_db() -> None:
     """
     Initialize the SQLite database and create the table if it doesn't exist.
     """
@@ -15,10 +15,17 @@ def init_db():
             breaker_blocks BOOLEAN DEFAULT 0
         )
     """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS user_signals_requests (
+            user_id INTEGER PRIMARY KEY,
+            currency_pair VARCHAR DEFAULT BTCUSDT,
+            frequency_minutes INTEGER DEFAULT 60
+        )
+    """)
     conn.commit()
     conn.close()
 
-def get_user_preferences(user_id):
+def get_user_preferences(user_id: int) -> dict[str: bool]:
     """
     Retrieve the user's indicator preferences from the database.
     """
@@ -42,8 +49,9 @@ def get_user_preferences(user_id):
             "liquidity_levels": False,
             "breaker_blocks": False,
         }
-    
-def check_user_preferences(user_id):
+
+
+def check_user_preferences(user_id: int) -> bool:
     """
     Retrieve the user's indicator preferences from the database.
     """
@@ -58,7 +66,8 @@ def check_user_preferences(user_id):
     else:
         return False
 
-def update_user_preferences(user_id, preferences):
+
+def update_user_preferences(user_id: int, preferences: dict[str: bool]) -> None:
     """
     Update or insert the user's indicator preferences in the database.
     """
@@ -84,6 +93,86 @@ def update_user_preferences(user_id, preferences):
             VALUES (?, ?, ?, ?, ?)
         """, (user_id, preferences["order_blocks"], preferences["fvgs"],
               preferences["liquidity_levels"], preferences["breaker_blocks"]))
+
+    conn.commit()
+    conn.close()
+
+
+def get_user_signal_requests(user_id: int) -> dict:
+    """
+    Retrieve the user's signal request preferences from the database.
+    """
+    conn = sqlite3.connect("preferences.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM user_signals_requests WHERE user_id = ?", (user_id,))
+    row = cursor.fetchone()
+    conn.close()
+
+    if row:
+        return {
+            "currency_pair": row[1],
+            "frequency_minutes": row[2],
+        }
+    else:
+        return {
+            "currency_pair": "BTCUSDT",
+            "frequency_minutes": 60,
+        }
+
+
+def check_user_signals_requests(user_id: int) -> bool:
+    """
+    Retrieve the user's indicator signal requests from the database.
+    """
+    conn = sqlite3.connect("preferences.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM user_signals_requests WHERE user_id = ?", (user_id,))
+    row = cursor.fetchone()
+    conn.close()
+
+    if row:
+        return True
+    else:
+        return False
+
+
+def update_user_signals_requests(user_id: int, signals_requests: dict) -> None:
+    """
+    Update or insert the user's signal request preferences in the database.
+    """
+    conn = sqlite3.connect("preferences.db")
+    cursor = conn.cursor()
+
+    # Check if the user already exists
+    cursor.execute("SELECT 1 FROM user_signals_requests WHERE user_id = ?", (user_id,))
+    exists = cursor.fetchone()
+
+    if exists:
+        # Update preferences
+        cursor.execute("""
+            UPDATE user_signals_requests
+            SET currency_pair = ?, frequency_minutes = ?
+            WHERE user_id = ?
+        """, (signals_requests["currency_pair"], signals_requests["frequency_minutes"], user_id))
+    else:
+        # Insert new user preferences
+        cursor.execute("""
+            INSERT INTO user_signals_requests (user_id, currency_pair, frequency_minutes)
+            VALUES (?, ?, ?)
+        """, (user_id, signals_requests["currency_pair"], signals_requests["frequency_minutes"]))
+
+    conn.commit()
+    conn.close()
+
+
+def delete_user_signals_requests(user_id: int) -> None:
+    """
+    Deletes the user's signal request preferences in the database.
+    """
+    conn = sqlite3.connect("preferences.db")
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM user_signals_requests WHERE user_id = ?", (user_id,))
 
     conn.commit()
     conn.close()

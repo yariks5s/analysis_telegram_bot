@@ -83,7 +83,7 @@ def analyze_data(df: pd.DataFrame, preferences, liq_lev_tolerance):
     indicators = Indicators()
 
     if (preferences["order_blocks"]):
-        order_blocks = detect_multi_candle_order_blocks(df)
+        order_blocks = detect_order_blocks(df)
         logger.info(f"Detected Order Blocks: {order_blocks}")
         indicators.order_blocks = order_blocks
     
