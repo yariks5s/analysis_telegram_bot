@@ -1,4 +1,4 @@
-import pandas as pd
+import pandas as pd # type: ignore
 
 from IndicatorUtils.order_block_utils import OrderBlock, OrderBlocks
 from IndicatorUtils.fvg_utils import FVG, FVGs

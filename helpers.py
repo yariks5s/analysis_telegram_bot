@@ -1,4 +1,4 @@
-import pandas as pd
+import pandas as pd # type: ignore
 
 from data_fetching_instruments import fetch_ohlc_data, analyze_data, fetch_last_1000_candles
 from utils import VALID_INTERVALS
@@ -57,19 +57,26 @@ async def input_sanity_check_show(args, update) -> tuple:
 
     return (symbol, hours, interval, liq_lev_tolerance)
 
-async def input_sanity_check_analyzing(args, update) -> tuple:
+async def input_sanity_check_analyzing(is_start: bool, args, update) -> tuple:
     # Default values
     symbol = "BTCUSDT"
     period_minutes = 60
 
-    if len(args) < 2:
-        await update.message.reply_text(
-            f"Usage: /start_signals <symbol> <period_in_minutes>, you've sent {len(args)} arguments."
-        )
-        return tuple()
+    if (is_start):
+        if (len(args) < 2):
+            await update.message.reply_text(
+                f"❌ Please specify the currency pair and sending period to create a signal.\nUsage: /create_signal <symbol> <period_in_minutes>, you've sent {len(args)} arguments."
+            )
+            return tuple()
+    else:
+        if (len(args) != 1):
+            await update.message.reply_text(
+                f"❌ Please specify the currency pair to delete.\nUsage: /delete_signal SYMBOL, you've sent {len(args)} arguments."
+            )
+            return tuple()
 
     if (len(args) >= 1):
-        symbol = args[0]
+        symbol = str(args[0]).upper()
     if (len(args) >= 2):
         try:
             period_minutes = int(args[1])

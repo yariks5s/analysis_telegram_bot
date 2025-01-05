@@ -1,23 +1,22 @@
+import asyncio
+
 from helpers import check_and_analyze, get_1000, input_sanity_check_analyzing
 from plot_build_helpers import plot_price_chart
 from message_handlers import select_indicators, handle_indicator_selection
-from signal_detection import generate_price_prediction_signal_proba, createSignalJob, deleteSignalJob
+from signal_detection import generate_price_prediction_signal_proba, createSignalJob, deleteSignalJob, initialize_jobs
+
 from database import get_user_preferences
 
-from utils import auto_signal_jobs
-
-from telegram import Update
-from telegram.ext import (
+from telegram import Update # type: ignore
+from telegram.ext import ( # type: ignore
     ApplicationBuilder,
     CommandHandler,
     ContextTypes,
     CallbackContext,
     CallbackQueryHandler,
-    JobQueue,
-    Job,
 )
 
-from dotenv import load_dotenv
+from dotenv import load_dotenv # type: ignore
 
 import os
 import logging
@@ -108,23 +107,39 @@ async def send_text_data(update: Update, context: CallbackContext):
     
     df = df.reset_index(drop=True)
 
-async def start_signals_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def create_signal_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    /start_signals <symbol> <period_in_minutes>
-    Example: /start_signals BTCUSDT 5
-    - This means: "Check BTCUSDT on timeframe every 5 minutes"
+    Command handler to create a signal job.
+    Usage: /create_signal SYMBOL MINUTES
+    Example: /create_signal BTCUSDT 60
     """
-    (symbol, period_minutes) = await input_sanity_check_analyzing(context.args, update)
+    (symbol, period_minutes) = await input_sanity_check_analyzing(True, context.args, update)
+    try:
+        await createSignalJob(symbol, period_minutes, update, context)
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        await update.message.reply_text("❌ An unexpected error occurred.")
 
-    await createSignalJob(symbol, period_minutes, update, context)
+
+async def delete_signal_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Command handler to delete a specific signal job.
+    Usage: /delete_signal SYMBOL
+    Example: /delete_signal BTCUSDT
+    """
+    (currency_pair, _) = await input_sanity_check_analyzing(False, context.args, update)
+    try:
+        await deleteSignalJob(currency_pair, update)
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        await update.message.reply_text("❌ An unexpected error occurred.")
 
 
-async def stop_signals_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def initialize_jobs_handler(application):
     """
-    /stop_signals
-    Cancels the user's signal job if it exists.
+    Initialize all user signal jobs from the database when the application starts.
     """
-    await deleteSignalJob(update)
+    await initialize_jobs(application)
 
 
 if __name__ == "__main__":
@@ -143,8 +158,14 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("select_indicators", select_indicators))
     app.add_handler(CallbackQueryHandler(handle_indicator_selection))
 
-    app.add_handler(CommandHandler("start_signals", start_signals_command))
-    app.add_handler(CommandHandler("stop_signals", stop_signals_command))
+    app.add_handler(CommandHandler("create_signal", create_signal_command))
+    app.add_handler(CommandHandler("delete_signal", delete_signal_command))
+
+    # Initialize jobs after the bot starts
+    app.job_queue.run_once(
+        lambda _ : asyncio.create_task(initialize_jobs_handler(app)), 
+        when=0
+    )
 
     print("Bot is running...")
     app.run_polling()

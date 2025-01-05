@@ -1,5 +1,5 @@
-import pytest
-import pandas as pd
+import pytest # type: ignore
+import pandas as pd # type: ignore
 import sys
 import os
 project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))

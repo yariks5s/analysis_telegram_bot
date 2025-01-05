@@ -1,7 +1,7 @@
-import pandas as pd
+import pandas as pd # type: ignore
 from datetime import datetime
 
-import requests
+import requests # type: ignore
 
 from utils import VALID_INTERVALS, logger, API_URL
 from indicators import detect_order_blocks, detect_multi_candle_order_blocks, detect_fvgs, detect_support_resistance_levels, detect_breaker_blocks

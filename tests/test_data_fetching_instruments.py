@@ -1,6 +1,6 @@
-import pytest
-import requests_mock
-import pandas as pd
+import pytest # type: ignore
+import requests_mock # type: ignore
+import pandas as pd # type: ignore
 
 import sys
 import os

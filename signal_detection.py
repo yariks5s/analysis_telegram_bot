@@ -1,6 +1,8 @@
 from utils import auto_signal_jobs
-from datetime import datetime, timedelta
-from database import get_user_preferences, update_user_signals_requests, check_user_signals_requests, get_user_signal_requests, delete_user_signals_requests
+from datetime import timedelta
+from database import get_user_preferences, upsert_user_signal_request, delete_user_signal_request, get_chat_id_for_user, get_signal_requests
+
+import sqlite3
 
 def generate_price_prediction_signal_proba(df, indicators):
     """
@@ -196,84 +198,141 @@ async def auto_signal_job(context):
     job_data = context.job.data
     user_id = job_data["user_id"]
     chat_id = job_data["chat_id"]
-    symbol = job_data["symbol"]
+    currency_pair = job_data["currency_pair"]
 
-    # 1) Fetch user preferences (if you need them) from DB
+    # 1) Fetch user preferences from DB
     preferences = get_user_preferences(user_id)
 
-    if (all(not value for value in preferences.values())): # Check if all items are False
-        preferences = {key: True for key in preferences} # If yes, sett all to True
+    if all(not value for value in preferences.values()):  # Check if all items are False
+        preferences = {key: True for key in preferences}  # Set all to True
 
-    # 2) Perform the analysis (example):
-    # (indicators, df) = await check_and_analyze(...)
+    # 2) Perform the analysis (placeholder)
+    # Replace with your actual analysis function
+    # indicators, df = await check_and_analyze(currency_pair)
+    indicators = None  # Replace with actual indicators
+    df = None  # Replace with actual data frame
 
     # 3) Generate a signal
     # signal, prob_bullish, confidence, reason_str = generate_price_prediction_signal_proba(df, indicators)
 
-    # 4) If there's a specific condition to alert:
-    # e.g., only alert if confidence > 0.6 or if signal != "Neutral"
-    # For demonstration, let's say we send a message every time for now:
-    # --------------------------------
-    now_str = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
-    message_text = (
-        f"[Auto-Signal Check @ {now_str}]\n"
-        f"Symbol: {symbol}\n"
-        f"**(Add your signal details here)**"
-    )
+    # 4) Decide whether to send the signal based on confidence or signal
+    # if confidence > 0.6 or signal != "Neutral":
+    #     # 5) Build the message
+    #     now_str = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    #     message_text = (
+    #         f"[Auto-Signal Check @ {now_str}]\n"
+    #         f"Symbol: {currency_pair}\n"
+    #         f"Signal: {signal}\n"
+    #         f"Probability of Bullish: {prob_bullish:.3f}\n"
+    #         f"Confidence: {confidence:.3f}\n\n"
+    #         f"Reasons:\n{reason_str}"
+    #     )
 
-    # 5) Send the message
-    await context.bot.send_message(chat_id=chat_id, text=message_text)
+        # 6) Send the message
+        # try:
+    await context.bot.send_message(chat_id=chat_id, text=f"Signal for {currency_pair} for 1 minute")
+        # except Exception as e:
+        #     print(f"Error sending message to user {user_id}: {e}")
 
 
 async def createSignalJob(symbol: str, period_minutes: int, update, context):
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
+    currency_pair = symbol
 
     # Update the database with the new signal request
-    signals_requests = {
-        "currency_pair": symbol,
+    signals_request = {
+        "currency_pair": currency_pair,
         "frequency_minutes": period_minutes,
     }
-    update_user_signals_requests(user_id, signals_requests)
+    upsert_user_signal_request(user_id, signals_request)
 
-    # If a job is already running for this user, cancel it
-    if user_id in auto_signal_jobs:
-        old_job = auto_signal_jobs[user_id]
+    job_key = (user_id, currency_pair)
+
+    # If a job is already running for this user and currency pair, cancel it
+    if job_key in auto_signal_jobs:
+        old_job = auto_signal_jobs[job_key]
         old_job.schedule_removal()
-        del auto_signal_jobs[user_id]
+        del auto_signal_jobs[job_key]
 
     # Create a job to run periodically
-    job_queue = context.application.job_queue
-    job_ref = job_queue.run_repeating(
+    job_ref = context.application.job_queue.run_repeating(
         callback=auto_signal_job,
         interval=timedelta(minutes=period_minutes),
         first=0,  # Start immediately
-        name=f"signal_job_{user_id}",
+        name=f"signal_job_{user_id}_{currency_pair}",
         data={
             "user_id": user_id,
             "chat_id": chat_id,
-            "symbol": symbol,
+            "currency_pair": currency_pair,
         },
     )
 
-    auto_signal_jobs[user_id] = job_ref
+    # Save reference
+    auto_signal_jobs[job_key] = job_ref
+
     await update.message.reply_text(
-        f"✅ Auto-signals started for {symbol}, every {period_minutes} minute{'s' if period_minutes > 1 else ''}."
+        f"✅ Auto-signals started for {currency_pair}, every {period_minutes} minute{'s' if period_minutes > 1 else ''}."
     )
 
 
-async def deleteSignalJob(update):
+async def deleteSignalJob(currency_pair, update):
     user_id = update.effective_user.id
 
     # Remove from the database
-    delete_user_signals_requests(user_id)
+    delete_user_signal_request(user_id, currency_pair)
 
     # Remove the job from the job queue
-    if user_id in auto_signal_jobs:
-        job_ref = auto_signal_jobs[user_id]
+    job_key = (user_id, currency_pair)
+    if job_key in auto_signal_jobs:
+        job_ref = auto_signal_jobs[job_key]
         job_ref.schedule_removal()
-        del auto_signal_jobs[user_id]
-        await update.message.reply_text("✅ Auto-signals stopped.")
+        del auto_signal_jobs[job_key]
+        await update.message.reply_text(f"✅ Auto-signals for {currency_pair} stopped.")
     else:
-        await update.message.reply_text("No auto-signals are running for you.")
+        await update.message.reply_text(f"No auto-signals are running for {currency_pair}.")
+
+
+async def initialize_jobs(application):
+    """
+    Initialize all user signal jobs from the database when the application starts.
+    """
+    signal_requests = get_signal_requests()
+
+    for request in signal_requests:
+        user_id = request["user_id"]
+        currency_pair = request["currency_pair"]
+        frequency_minutes = request["frequency_minutes"]
+        chat_id = get_chat_id_for_user(user_id)
+
+        if not chat_id:
+            print(f"No chat_id found for user_id {user_id}. Skipping job creation.")
+            continue
+
+        job_key = (user_id, currency_pair)
+
+        if job_key in auto_signal_jobs:
+            print(f"Job for user_id {user_id}, currency_pair {currency_pair} already exists.")
+            continue
+
+        # Create job data
+        job_data = {
+            "user_id": user_id,
+            "chat_id": chat_id,
+            "currency_pair": currency_pair,
+        }
+
+        # Create a job to run periodically
+        job_ref = application.job_queue.run_repeating(
+            callback=auto_signal_job,
+            interval=timedelta(minutes=frequency_minutes),
+            first=0,  # Start immediately
+            name=f"signal_job_{user_id}_{currency_pair}",
+            data=job_data,
+        )
+
+        # Save reference
+        auto_signal_jobs[job_key] = job_ref
+
+    print("All user signal jobs have been initialized.")
 

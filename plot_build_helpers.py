@@ -1,8 +1,8 @@
 import matplotlib.patches as mpatches
 import matplotlib.lines as mlines
 
-import mplfinance as mpf
-import pandas as pd
+import mplfinance as mpf # type: ignore
+import pandas as pd # type: ignore
 
 from utils import logger
 
