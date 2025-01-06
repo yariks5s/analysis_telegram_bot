@@ -17,14 +17,11 @@ Todo:
 - [x] Impove handling the cases where some indicators are not shown (Covered FVGs in text representation)
 - [ ] Tune order block detection - **Important**
 - [x] Keep previous 1000 candles in history and send signal based on the extended analysis (probably multi-frame) - done in another way (merging requests responses)
-- [x] Create a logic regarding pinging users about signals (one currency pair for user)
-- [ ] Create a logic regarding pinging users about signals (a few currency pairs for user)
-- [ ] Create a signal finding pipeline
-- [ ] Refactor obsolete function for 1k candles, put the logic into the basic function
-- [ ] Find the most appropriate time interval for predictions
-- [ ] Consider about the timing of checking the market
-- [ ] Consider about a logic of pinging users about predictable movements
+- [x] Create a logic regarding pinging users about signals
 - [ ] Add tests for this
+- [ ] Check if a requested cryptocurrency pair exists on a Bybit (suggest the correct name usng Levenstein distance) - not important
+- [x] Refactor obsolete function for 1k candles, put the logic into the basic function
+- [ ] Create a signal finding pipeline
 - [ ] Create a neural network and make it learn on own data
 - [ ] Integrate a neural network to the predictions system
-  
+- [ ] Prettify the bot and make it easy to use

@@ -47,6 +47,66 @@ def fetch_from_json(data):
     return df
 
 
+def fetch_candles(symbol: str, desired_total: int, interval: str):
+    """
+    Fetch up to the specified number of candles for a given `symbol` and `interval`.
+    Since each request is limited to 200 candles, multiple requests are made as needed.
+    
+    Parameters:
+        symbol (str): The trading pair symbol (e.g., "BTCUSD").
+        interval (str): The interval for each candle (e.g., "1m", "5m", "1h").
+        desired_total (int): The number of candles to fetch.
+        
+    Returns:
+        pd.DataFrame: A DataFrame containing up to `desired_total` recent candles.
+                      If fewer are available, returns as many as possible.
+    """
+    # Initialize an empty DataFrame with the expected columns
+    all_candles = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])
+    
+    # Current time in milliseconds since epoch
+    end_time_ms = int(datetime.utcnow().timestamp() * 1000)
+    
+    # Define the maximum number of candles per batch request
+    batch_limit = 200
+    
+    while len(all_candles) < desired_total:
+        # Determine how many candles to fetch in this batch
+        remaining = desired_total - len(all_candles)
+        current_limit = min(batch_limit, remaining)
+        
+        # Fetch a batch of candles
+        df_batch = fetch_ohlc_data(symbol, current_limit, interval, end=end_time_ms)
+        
+        if df_batch is None or df_batch.empty:
+            print("No more data returned. Stopping early.")
+            break
+        
+        # Concatenate the new batch with the existing DataFrame
+        all_candles = pd.concat([all_candles, df_batch]).drop_duplicates()
+        
+        print(f"Fetched {len(df_batch)} new candles. Total in memory: {len(all_candles)}")
+        
+        # If the batch returned fewer candles than requested, assume no more data is available
+        if len(df_batch) < current_limit:
+            print("Reached the earliest available data from the exchange.")
+            break
+        
+        # Update `end_time_ms` to the timestamp of the earliest candle in the current batch minus 1 ms
+        earliest_candle_time = df_batch.index.min()  # Assuming the index is datetime
+        earliest_candle_ms = int(earliest_candle_time.timestamp() * 1000)
+        end_time_ms = earliest_candle_ms - 1  # Move back in time to avoid overlap
+    
+    # Sort the DataFrame by ascending time
+    all_candles.sort_index(inplace=True)
+    
+    # If more candles were fetched than desired (due to overlap), trim the DataFrame
+    if len(all_candles) > desired_total:
+        all_candles = all_candles.tail(desired_total)
+    
+    return all_candles
+
+
 def fetch_ohlc_data(symbol: str, limit: int, interval: str, start: int = None, end: int = None):
     """
     Fetch historical OHLCV data for a given crypto pair, time period, and interval.
@@ -108,61 +168,3 @@ def analyze_data(df: pd.DataFrame, preferences, liq_lev_tolerance):
 
     return indicators
 
-
-def fetch_last_1000_candles(symbol: str, interval: str):
-    """
-    Fetch up to the last 1000 candles for a given `symbol` and `interval`.
-    Because each request is limited to 200 candles, we will do multiple requests.
-
-    Returns a DataFrame with up to 1000 recent candles. If fewer are available, returns as many as possible.
-    """
-    all_candles = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])
-
-    # We'll fetch from "now" going backward in time until we accumulate 1000 rows or run out of data.
-    # Bybit allows using the `end` parameter to specify the latest time we want data for,
-    # then it will return earlier candles. We can shift `end` backward each time.
-    
-    # Let's define "end" as the current time in milliseconds
-    end_time_ms = int(datetime.utcnow().timestamp() * 1000)
-
-    # We'll keep fetching in batches of 200 until we gather 1000 or no more data.
-    batch_limit = 200
-    desired_total = 1000
-
-    while len(all_candles) < desired_total:
-        df_batch = fetch_ohlc_data(symbol, batch_limit, interval, end=end_time_ms)
-        if df_batch is None or df_batch.empty:
-            print("No more data returned. Stopping early.")
-            break
-
-        # Merge the new batch with our existing DataFrame
-        # Because we are going backward in time, the "new" batch will likely be older candles than we have.
-        # We'll just do a union and keep the unique ones.
-        # You can also handle duplicates if needed.
-        before_merge_len = len(all_candles)
-        all_candles = pd.concat([all_candles, df_batch]).drop_duplicates()
-        after_merge_len = len(all_candles)
-
-        print(f"Fetched {len(df_batch)} new candles. Total in memory: {after_merge_len}")
-
-        # If the batch is less than 200, we probably can't go further back
-        if len(df_batch) < batch_limit:
-            print("We likely reached earliest available data from Bybit.")
-            break
-
-        # Update end_time_ms to the earliest candle's timestamp in the batch minus 1 ms,
-        # so the next batch will be older than that.
-        earliest_candle_time = df_batch.index[0]  # because df_batch is sorted by date ascending
-        earliest_candle_ms = int(earliest_candle_time.timestamp() * 1000)
-        end_time_ms = earliest_candle_ms - 1  # go one millisecond before to avoid overlap/duplicate
-
-    # Now we have up to 1000 candles in all_candles (or fewer if the exchange didn't have more).
-    # We'll sort them by ascending time.
-    all_candles.sort_index(inplace=True)
-
-    # Finally, if we got more than 1000 (possible duplicates or overlap?), slice the last 1000
-    # e.g. "recent 1000" means the last 1000 rows in ascending order => tail(1000)
-    if len(all_candles) > desired_total:
-        all_candles = all_candles.tail(desired_total)
-
-    return all_candles

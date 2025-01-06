@@ -1,6 +1,6 @@
 import pandas as pd # type: ignore
 
-from data_fetching_instruments import fetch_ohlc_data, analyze_data, fetch_last_1000_candles
+from data_fetching_instruments import fetch_ohlc_data, analyze_data, fetch_candles
 from utils import VALID_INTERVALS
 from database import check_user_preferences
 
@@ -51,10 +51,6 @@ async def input_sanity_check_show(args, update) -> tuple:
             await update.message.reply_text(f"Invalid liquidity level tolerance specified. It should be a number between 0 and 1")
             return tuple()
 
-    if hours < 1 or hours > 200:
-        await update.message.reply_text("Amount of intervals must be between 1 and 200 (due to API limits).")
-        return tuple()
-
     return (symbol, hours, interval, liq_lev_tolerance)
 
 async def input_sanity_check_analyzing(is_start: bool, args, update) -> tuple:
@@ -102,10 +98,13 @@ async def check_and_analyze(update, user_id, preferences, args):
     interval = res[2]
     liq_lev_tolerance = res[3]
 
-    limit = min(hours, 200)
     await update.message.reply_text(f"Fetching {symbol} price data for the last {hours} periods with interval {interval}, please wait...")
-    
-    df = fetch_ohlc_data(symbol, limit, interval)
+
+    df = []
+    if (hours <= 200):
+        df = fetch_ohlc_data(symbol, hours, interval)
+    else:
+        df = fetch_candles(symbol, hours, interval)
     if df is None or df.empty:
         await update.message.reply_text(f"Error fetching data for {symbol}. Please check the pair and try again.")
         return
@@ -113,30 +112,3 @@ async def check_and_analyze(update, user_id, preferences, args):
     indicators = analyze_data(df, preferences, liq_lev_tolerance)
     return (indicators, df)
 
-# Needs to be deprecated later
-async def get_1000(update, user_id, preferences, args):
-    res = await input_sanity_check_show(args, update)
-
-    if (not res):
-        return
-
-    # Check if user selected indicators
-    if (not check_user_preferences(user_id)):
-        await update.message.reply_text("Please select indicators using /select_indicators before requesting a chart.")
-        return
-
-    symbol = res[0]
-    hours = res[1]
-    interval = res[2]
-    liq_lev_tolerance = res[3]
-
-    limit = min(hours, 200)
-    await update.message.reply_text(f"Fetching {symbol} price data for the last {hours} periods with interval {interval}, please wait...")
-    
-    df = fetch_last_1000_candles(symbol, interval)
-    if df is None or df.empty:
-        await update.message.reply_text(f"Error fetching data for {symbol}. Please check the pair and try again.")
-        return
-
-    indicators = analyze_data(df, preferences, liq_lev_tolerance)
-    return (indicators, df)
