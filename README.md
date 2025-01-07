@@ -22,6 +22,9 @@ Todo:
 - [ ] Check if a requested cryptocurrency pair exists on a Bybit (suggest the correct name usng Levenstein distance) - not important
 - [x] Refactor obsolete function for 1k candles, put the logic into the basic function
 - [ ] Create a signal finding pipeline
+- [ ] Tune the signal finding logic
+- [ ] Create an adequate UI for managing signals
+- [ ] Prevent from creating a multiple signal queries for the same currency
 - [ ] Create a neural network and make it learn on own data
 - [ ] Integrate a neural network to the predictions system
 - [ ] Prettify the bot and make it easy to use
