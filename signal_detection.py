@@ -5,7 +5,7 @@ import pandas as pd  # type: ignore
 
 from helpers import fetch_candles, analyze_data
 from database import get_user_preferences, upsert_user_signal_request, delete_user_signal_request
-from database import get_chat_id_for_user, get_signal_requests
+from database import get_chat_id_for_user, get_signal_requests, user_signal_request_exists
 from utils import auto_signal_jobs
 
 from datetime import timedelta
@@ -390,6 +390,13 @@ async def createSignalJob(symbol: str, period_minutes: int, update, context):
     """
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
+
+    if user_signal_request_exists(user_id, symbol):
+        await update.message.reply_text(
+            f"❌ You already have an auto-signal for {symbol}. "
+            "Please delete it first with /delete_signal or choose another pair."
+        )
+        return
 
     # Update or insert into DB
     signals_request = {

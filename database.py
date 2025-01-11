@@ -227,3 +227,17 @@ def get_signal_requests():
 
     return signal_requests
 
+
+def user_signal_request_exists(user_id: int, currency_pair: str) -> bool:
+    """
+    Returns True if the user already has a signal for the specified currency_pair, else False.
+    """
+    conn = sqlite3.connect("preferences.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT 1 FROM user_signals_requests
+        WHERE user_id = ? AND currency_pair = ?
+    """, (user_id, currency_pair))
+    row = cursor.fetchone()
+    conn.close()
+    return bool(row)
