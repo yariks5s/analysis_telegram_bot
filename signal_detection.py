@@ -211,7 +211,7 @@ async def multi_timeframe_analysis(
 ###############################################################################
 def generate_multi_tf_signal_proba(
     mtf_results: Dict[str, Dict[str, any]]
-) -> (str, float, float, str):
+) -> (str, float, float, str): # type: ignore
     """
     Aggregates signals from multiple timeframes. For each timeframe, we use
     'generate_price_prediction_signal_proba()' to produce an individual signal

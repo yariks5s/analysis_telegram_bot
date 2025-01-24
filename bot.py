@@ -2,10 +2,20 @@ import asyncio
 
 from helpers import check_and_analyze, input_sanity_check_analyzing
 from plot_build_helpers import plot_price_chart
-from message_handlers import select_indicators, handle_indicator_selection
+from message_handlers import (
+    select_indicators,
+    handle_indicator_selection,
+    manage_signals,
+    handle_signal_menu_callback,
+    handle_signal_text_input,
+    CHOOSING_ACTION,
+    TYPING_SIGNAL_DATA
+)
+
 from signal_detection import generate_price_prediction_signal_proba, createSignalJob, deleteSignalJob, initialize_jobs
 
 from database import get_user_preferences
+from utils import plural_helper
 
 from telegram import Update # type: ignore
 from telegram.ext import ( # type: ignore
@@ -14,6 +24,9 @@ from telegram.ext import ( # type: ignore
     ContextTypes,
     CallbackContext,
     CallbackQueryHandler,
+    MessageHandler,
+    filters,
+    ConversationHandler,
 )
 
 from dotenv import load_dotenv # type: ignore
@@ -79,29 +92,37 @@ async def send_text_data(update: Update, context: CallbackContext):
 async def create_signal_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Command handler to create a signal job.
-    Usage: /create_signal SYMBOL MINUTES
+    Usage: /create_signal <SYMBOL> <MINUTES>
     Example: /create_signal BTCUSDT 60
     """
-    (symbol, period_minutes) = await input_sanity_check_analyzing(True, context.args, update)
-    try:
-        await createSignalJob(symbol, period_minutes, update, context)
-    except Exception as e:
-        print(f"Unexpected error: {e}")
-        await update.message.reply_text("❌ An unexpected error occurred.")
+    args = context.args
+    pair = await input_sanity_check_analyzing(True, args, update)
+    if (not pair):
+        await update.message.reply_text(f"Usage: /create_signal <symbol> <period_in_minutes>, you've sent {len(args)} argument{plural_helper(len(args))}.")
+    else:
+        try:
+            await createSignalJob(pair[0], pair[1], update, context)
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+            await update.message.reply_text("❌ An unexpected error occurred.")
 
 
 async def delete_signal_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Command handler to delete a specific signal job.
-    Usage: /delete_signal SYMBOL
+    Usage: /delete_signal <SYMBOL>
     Example: /delete_signal BTCUSDT
     """
-    (currency_pair, _) = await input_sanity_check_analyzing(False, context.args, update)
-    try:
-        await deleteSignalJob(currency_pair, update)
-    except Exception as e:
-        print(f"Unexpected error: {e}")
-        await update.message.reply_text("❌ An unexpected error occurred.")
+    args = context.args
+    pair = await input_sanity_check_analyzing(False, args, update)
+    if (not pair):
+        await update.message.reply_text(f"Usage: /delete_signal <symbol>, you've sent {len(args)} argument{plural_helper(len(args))}.")
+    else:
+        try:
+            await deleteSignalJob(pair[0], update)
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+            await update.message.reply_text("❌ An unexpected error occurred.")
 
 
 async def initialize_jobs_handler(application):
@@ -124,10 +145,26 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("chart", send_crypto_chart))
     app.add_handler(CommandHandler("text_result", send_text_data))
     app.add_handler(CommandHandler("select_indicators", select_indicators))
-    app.add_handler(CallbackQueryHandler(handle_indicator_selection))
+    app.add_handler(CallbackQueryHandler(handle_indicator_selection, pattern=r'^indicator_'))
 
     app.add_handler(CommandHandler("create_signal", create_signal_command))
     app.add_handler(CommandHandler("delete_signal", delete_signal_command))
+
+    manage_signals_conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("manage_signals", manage_signals)],
+        states={
+            CHOOSING_ACTION: [
+                CallbackQueryHandler(handle_signal_menu_callback),
+            ],
+            TYPING_SIGNAL_DATA: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_signal_text_input),
+            ],
+        },
+        fallbacks=[
+            # Could add a "/cancel" fallback
+        ],
+    )
+    app.add_handler(manage_signals_conv_handler)
 
     # Initialize jobs after the bot starts
     app.job_queue.run_once(

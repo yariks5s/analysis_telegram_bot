@@ -19,12 +19,13 @@ Todo:
 - [x] Keep previous 1000 candles in history and send signal based on the extended analysis (probably multi-frame) - done in another way (merging requests responses)
 - [x] Create a logic regarding pinging users about signals
 - [ ] Add tests for this
-- [ ] Check if a requested cryptocurrency pair exists on a Bybit (suggest the correct name usng Levenstein distance) - not important
+- [ ] Check if a requested cryptocurrency pair exists on a Bybit (suggest the correct name using Levenstein distance) - not important
 - [x] Refactor obsolete function for 1k candles, put the logic into the basic function
 - [x] Create a signal finding pipeline
 - [ ] Tune the signal finding logic
-- [ ] Create an adequate UI for managing signals
+- [x] Create an adequate UI for managing signals
 - [x] Prevent from creating a multiple signal queries for the same currency
+- [ ] Possibility to choose whether we need a chart along with the signal using query setting
 - [ ] Create a neural network and make it learn on own data
 - [ ] Integrate a neural network to the predictions system
 - [ ] Prettify the bot and make it easy to use

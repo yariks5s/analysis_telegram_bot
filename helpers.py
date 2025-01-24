@@ -61,13 +61,13 @@ async def input_sanity_check_analyzing(is_start: bool, args, update) -> tuple:
     if (is_start):
         if (len(args) < 2):
             await update.message.reply_text(
-                f"❌ Please specify the currency pair and sending period to create a signal.\nUsage: /create_signal <symbol> <period_in_minutes>, you've sent {len(args)} arguments."
+                f"❌ Please specify the currency pair and sending period to create a signal."
             )
             return tuple()
     else:
         if (len(args) != 1):
             await update.message.reply_text(
-                f"❌ Please specify the currency pair to delete.\nUsage: /delete_signal SYMBOL, you've sent {len(args)} arguments."
+                f"❌ Please specify the currency pair to delete."
             )
             return tuple()
 
@@ -77,8 +77,12 @@ async def input_sanity_check_analyzing(is_start: bool, args, update) -> tuple:
         try:
             period_minutes = int(args[1])
         except ValueError:
-            await update.message.reply_text("Invalid period. Must be an integer (minutes).")
+            await update.message.reply_text("❌ Invalid period. Must be an integer (minutes).")
             return tuple()
+        
+    if (len(args) > (2 if is_start else 1)):
+        await update.message.reply_text("❌ Invalid number of arguments. Please check your request.")
+        return tuple()
 
     return (symbol, period_minutes)
 
