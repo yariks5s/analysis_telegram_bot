@@ -1,6 +1,8 @@
-import pytest
+import pytest # type: ignore
 import sys
-sys.path.append("/Users/yaroslav/cryptoBot")
+import os
+project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.append(project_dir)
 from message_handlers import handle_indicator_selection, select_indicators
 
 @pytest.mark.asyncio

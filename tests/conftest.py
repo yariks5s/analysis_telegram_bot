@@ -1,5 +1,15 @@
-import pytest
-import pandas as pd
+import pytest # type: ignore
+import pandas as pd # type: ignore
+import sys
+import os
+project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.append(project_dir)
+
+from database import init_db
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_environment():
+    init_db()
 
 @pytest.fixture
 def sample_dataframe():

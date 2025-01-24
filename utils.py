@@ -16,4 +16,14 @@ VALID_INTERVALS = {
 # Store user-selected indicators temporarily
 user_selected_indicators = {}
 
+auto_signal_jobs = {}
+
 API_URL = "https://api.bybit.com/v5/market/kline"
+
+def plural_helper(num: int) -> str:
+    """
+    Will help to decide whether we need to use the plural form of the words when communicating with the user
+    """
+    if (num != 1):
+        return "s"
+    return ""

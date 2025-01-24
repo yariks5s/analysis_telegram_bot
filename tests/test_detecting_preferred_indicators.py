@@ -1,14 +1,4 @@
-import pytest
-from indicators import (
-    detect_order_blocks,
-    detect_fvgs,
-    detect_support_resistance_levels,
-    detect_breaker_blocks,
-)
-from IndicatorUtils.breaker_block_utils import BreakerBlocks
-from IndicatorUtils.fvg_utils import FVGs
-from IndicatorUtils.liquidity_level_utils import LiquidityLevels
-from IndicatorUtils.order_block_utils import OrderBlocks
+import pytest # type: ignore
 
 from data_fetching_instruments import fetch_from_json, analyze_data
 
