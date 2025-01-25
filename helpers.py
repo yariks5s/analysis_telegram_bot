@@ -57,6 +57,7 @@ async def input_sanity_check_analyzing(is_start: bool, args, update) -> tuple:
     # Default values
     symbol = "BTCUSDT"
     period_minutes = 60
+    is_with_photo = False
 
     if (is_start):
         if (len(args) < 2):
@@ -79,12 +80,20 @@ async def input_sanity_check_analyzing(is_start: bool, args, update) -> tuple:
         except ValueError:
             await update.message.reply_text("❌ Invalid period. Must be an integer (minutes).")
             return tuple()
+    if (len(args) >= 3):
+        if (str(args[2]).lower == "true"):
+            is_with_photo = True
+        elif (str(args[2]).lower == "false"):
+            is_with_photo = False
+        else:
+            await update.message.reply_text("❌ Invalid period. Must be an integer (minutes).")
+            return tuple()
         
-    if (len(args) > (2 if is_start else 1)):
+    if (len(args) > (3 if is_start else 1)):
         await update.message.reply_text("❌ Invalid number of arguments. Please check your request.")
         return tuple()
 
-    return (symbol, period_minutes)
+    return (symbol, period_minutes, is_with_photo)
 
 async def check_and_analyze(update, user_id, preferences, args):
     res = await input_sanity_check_show(args, update)

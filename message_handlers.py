@@ -140,7 +140,7 @@ async def handle_signal_text_input(update: Update, context: ContextTypes.DEFAULT
 
     pair = await input_sanity_check_analyzing(True, parts, update)
     if (not pair):
-        await update.message.reply_text(f"Usage: <symbol> <period_in_minutes>, you've sent {len(parts)} argument{plural_helper(len(parts))}.")
+        await update.message.reply_text(f"Usage: <symbol> <period_in_minutes> [<is_with_photo>], you've sent {len(parts)} argument{plural_helper(len(parts))}.")
         return TYPING_SIGNAL_DATA
 
     await createSignalJob(pair[0], pair[1], update, context)

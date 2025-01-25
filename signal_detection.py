@@ -8,6 +8,8 @@ from database import get_user_preferences, upsert_user_signal_request, delete_us
 from database import get_chat_id_for_user, get_signal_requests, user_signal_request_exists
 from utils import auto_signal_jobs
 
+from bot import send_crypto_chart
+
 from datetime import timedelta
 
 
@@ -333,6 +335,7 @@ async def auto_signal_job(context):
     user_id = job_data["user_id"]
     chat_id = job_data["chat_id"]
     currency_pair = job_data["currency_pair"]
+    is_with_photo = job_data["is_with_photo"]
 
     # 1) Fetch user preferences from the database
     preferences = get_user_preferences(user_id)
@@ -383,7 +386,7 @@ async def auto_signal_job(context):
 ###############################################################################
 # Creating and Deleting Signal Jobs (Example usage remains similar)
 ###############################################################################
-async def createSignalJob(symbol: str, period_minutes: int, update, context):
+async def createSignalJob(symbol: str, period_minutes: int, is_with_photo: bool, update, context):
     """
     Creates a repeating job for auto-signal analysis (multi-timeframe).
     The code below is largely the same as your existing function.
@@ -423,6 +426,7 @@ async def createSignalJob(symbol: str, period_minutes: int, update, context):
             "user_id": user_id,
             "chat_id": chat_id,
             "currency_pair": symbol,
+            "is_with_photo": is_with_photo,
         },
     )
 
