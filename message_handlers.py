@@ -143,7 +143,7 @@ async def handle_signal_text_input(update: Update, context: ContextTypes.DEFAULT
         await update.message.reply_text(f"Usage: <symbol> <period_in_minutes> [<is_with_photo>], you've sent {len(parts)} argument{plural_helper(len(parts))}.")
         return TYPING_SIGNAL_DATA
 
-    await createSignalJob(pair[0], pair[1], update, context)
+    await createSignalJob(pair[0], pair[1], pair[2], update, context)
 
     # Finally show the updated list
     await update.message.reply_text(

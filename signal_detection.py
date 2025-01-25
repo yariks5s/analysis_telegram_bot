@@ -3,10 +3,12 @@ from typing import List, Dict, Tuple
 
 import pandas as pd  # type: ignore
 
-from helpers import fetch_candles, analyze_data
+from helpers import fetch_candles, analyze_data, fetch_data_and_get_indicators
 from database import get_user_preferences, upsert_user_signal_request, delete_user_signal_request
 from database import get_chat_id_for_user, get_signal_requests, user_signal_request_exists
-from utils import auto_signal_jobs
+from utils import auto_signal_jobs, create_true_preferences
+
+from plot_build_helpers import plot_price_chart
 
 from datetime import timedelta
 
@@ -365,7 +367,7 @@ async def auto_signal_job(context):
 
     # 4) Decide if we want to send the signal to the user
     #    For instance, we can require a minimum confidence or a non-neutral signal
-    if confidence > 0.3 or final_signal != "Neutral":
+    if confidence > 0.0 or final_signal != "Neutral":
         try:
             await context.bot.send_message(
                 chat_id=chat_id,
@@ -374,6 +376,15 @@ async def auto_signal_job(context):
                     f"{reason_str}"
                 ),
             )
+            if (is_with_photo):
+                input = [currency_pair, 200, "1h"]
+                (indicators, df) = await fetch_data_and_get_indicators(input, create_true_preferences(), ())
+
+                chart_path = plot_price_chart(df, indicators)
+
+                # Send the chart to the user
+                with open(chart_path, "rb") as chart_file:
+                    await context.bot.send_photo(chat_id=chat_id, photo=chart_file)
         except Exception as e:
             print(f"Error sending auto-signal message to user {user_id}: {str(e)}")
     else:

@@ -81,12 +81,12 @@ async def input_sanity_check_analyzing(is_start: bool, args, update) -> tuple:
             await update.message.reply_text("❌ Invalid period. Must be an integer (minutes).")
             return tuple()
     if (len(args) >= 3):
-        if (str(args[2]).lower == "true"):
+        if (str(args[2]).lower() == "true"):
             is_with_photo = True
-        elif (str(args[2]).lower == "false"):
+        elif (str(args[2]).lower() == "false"):
             is_with_photo = False
         else:
-            await update.message.reply_text("❌ Invalid period. Must be an integer (minutes).")
+            await update.message.reply_text("❌ Invalid value for the third argument. Must be a true/false depending if you need to receive a chart along with a signal.")
             return tuple()
         
     if (len(args) > (3 if is_start else 1)):
@@ -94,6 +94,36 @@ async def input_sanity_check_analyzing(is_start: bool, args, update) -> tuple:
         return tuple()
 
     return (symbol, period_minutes, is_with_photo)
+
+async def fetch_data_and_get_indicators(res, preferences, update):
+    symbol = {}
+    hours = {}
+    interval = {}
+    liq_lev_tolerance = {}
+
+    if (len(res) >= 1):
+        symbol = res[0]
+    if (len(res) >= 2):
+        hours = res[1]
+    if (len(res) >= 3):
+        interval = res[2]
+    if (len(res) >= 4):
+        liq_lev_tolerance = res[3]
+
+    if (update):
+        await update.message.reply_text(f"Fetching {symbol} price data for the last {hours} periods with interval {interval}, please wait...")
+
+    df = []
+    if (hours <= 200):
+        df = fetch_ohlc_data(symbol, hours, interval)
+    else:
+        df = fetch_candles(symbol, hours, interval)
+    if (df is None or df.empty) and update:
+        await update.message.reply_text(f"Error fetching data for {symbol}. Please check the pair and try again.")
+        return
+
+    indicators = analyze_data(df, preferences, liq_lev_tolerance)
+    return (indicators, df)
 
 async def check_and_analyze(update, user_id, preferences, args):
     res = await input_sanity_check_show(args, update)
@@ -106,22 +136,5 @@ async def check_and_analyze(update, user_id, preferences, args):
         await update.message.reply_text("Please select indicators using /select_indicators before requesting a chart.")
         return
 
-    symbol = res[0]
-    hours = res[1]
-    interval = res[2]
-    liq_lev_tolerance = res[3]
-
-    await update.message.reply_text(f"Fetching {symbol} price data for the last {hours} periods with interval {interval}, please wait...")
-
-    df = []
-    if (hours <= 200):
-        df = fetch_ohlc_data(symbol, hours, interval)
-    else:
-        df = fetch_candles(symbol, hours, interval)
-    if df is None or df.empty:
-        await update.message.reply_text(f"Error fetching data for {symbol}. Please check the pair and try again.")
-        return
-
-    indicators = analyze_data(df, preferences, liq_lev_tolerance)
-    return (indicators, df)
+    return fetch_data_and_get_indicators(res, preferences, update)
 
