@@ -8,8 +8,6 @@ from database import get_user_preferences, upsert_user_signal_request, delete_us
 from database import get_chat_id_for_user, get_signal_requests, user_signal_request_exists
 from utils import auto_signal_jobs
 
-from bot import send_crypto_chart
-
 from datetime import timedelta
 
 
