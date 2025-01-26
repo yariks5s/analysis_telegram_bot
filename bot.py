@@ -47,9 +47,6 @@ logging.basicConfig(
 load_dotenv()
 
 
-
-
-
 async def send_crypto_chart(update: Update, context: CallbackContext):
     """
     Telegram handler to fetch OHLC data, analyze indicators, and send the chart back to the user.
