@@ -21,6 +21,7 @@ def init_db() -> None:
             user_id INTEGER,
             currency_pair VARCHAR DEFAULT 'BTCUSDT',
             frequency_minutes INTEGER DEFAULT 60,
+            is_with_chart BOOL default 0,
             PRIMARY KEY (user_id, currency_pair)
         )
     """)
@@ -112,7 +113,7 @@ def get_all_user_signal_requests(user_id: int) -> List[Dict[str, any]]:
     conn = sqlite3.connect("preferences.db")
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT currency_pair, frequency_minutes 
+        SELECT currency_pair, frequency_minutes, is_with_chart
         FROM user_signals_requests 
         WHERE user_id = ?
     """, (user_id,))
@@ -123,6 +124,7 @@ def get_all_user_signal_requests(user_id: int) -> List[Dict[str, any]]:
         {
             "currency_pair": row[0],
             "frequency_minutes": row[1],
+            "is_with_chart": row[2]
         } for row in rows
     ]
 
@@ -136,11 +138,11 @@ def upsert_user_signal_request(user_id: int, signals_request: Dict[str, any]) ->
         cursor = conn.cursor()
 
         cursor.execute("""
-            INSERT INTO user_signals_requests (user_id, currency_pair, frequency_minutes)
-            VALUES (?, ?, ?)
+            INSERT INTO user_signals_requests (user_id, currency_pair, frequency_minutes, is_with_chart)
+            VALUES (?, ?, ?, ?)
             ON CONFLICT(user_id, currency_pair) DO UPDATE SET
                 frequency_minutes=excluded.frequency_minutes
-        """, (user_id, signals_request["currency_pair"], signals_request["frequency_minutes"]))
+        """, (user_id, signals_request["currency_pair"], signals_request["frequency_minutes"], signals_request["is_with_chart"]))
 
         conn.commit()
     except sqlite3.Error as e:

@@ -335,7 +335,7 @@ async def auto_signal_job(context):
     user_id = job_data["user_id"]
     chat_id = job_data["chat_id"]
     currency_pair = job_data["currency_pair"]
-    is_with_photo = job_data["is_with_photo"]
+    is_with_chart = job_data["is_with_chart"]
 
     # 1) Fetch user preferences from the database
     preferences = get_user_preferences(user_id)
@@ -376,11 +376,20 @@ async def auto_signal_job(context):
                     f"{reason_str}"
                 ),
             )
-            if (is_with_photo):
-                input = [currency_pair, 200, "1h"]
+            if (is_with_chart):
+                interval_count = 200
+                interval = "1h"
+                input = [currency_pair, interval_count, interval]
                 (indicators, df) = await fetch_data_and_get_indicators(input, create_true_preferences(), ())
 
                 chart_path = plot_price_chart(df, indicators)
+
+                await context.bot.send_message(
+                    chat_id=chat_id,
+                    text=(
+                        f"Below is a chart for {currency_pair} for the last {interval_count} intervals with {interval} interval:"
+                    ),
+                )
 
                 # Send the chart to the user
                 with open(chart_path, "rb") as chart_file:
@@ -395,7 +404,7 @@ async def auto_signal_job(context):
 ###############################################################################
 # Creating and Deleting Signal Jobs (Example usage remains similar)
 ###############################################################################
-async def createSignalJob(symbol: str, period_minutes: int, is_with_photo: bool, update, context):
+async def createSignalJob(symbol: str, period_minutes: int, is_with_chart: bool, update, context):
     """
     Creates a repeating job for auto-signal analysis (multi-timeframe).
     The code below is largely the same as your existing function.
@@ -414,6 +423,7 @@ async def createSignalJob(symbol: str, period_minutes: int, is_with_photo: bool,
     signals_request = {
         "currency_pair": symbol,
         "frequency_minutes": period_minutes,
+        "is_with_chart": is_with_chart,
     }
     upsert_user_signal_request(user_id, signals_request)
 
@@ -435,7 +445,7 @@ async def createSignalJob(symbol: str, period_minutes: int, is_with_photo: bool,
             "user_id": user_id,
             "chat_id": chat_id,
             "currency_pair": symbol,
-            "is_with_photo": is_with_photo,
+            "is_with_chart": is_with_chart,
         },
     )
 

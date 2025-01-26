@@ -57,7 +57,7 @@ async def input_sanity_check_analyzing(is_start: bool, args, update) -> tuple:
     # Default values
     symbol = "BTCUSDT"
     period_minutes = 60
-    is_with_photo = False
+    is_with_chart = False
 
     if (is_start):
         if (len(args) < 2):
@@ -81,19 +81,19 @@ async def input_sanity_check_analyzing(is_start: bool, args, update) -> tuple:
             await update.message.reply_text("❌ Invalid period. Must be an integer (minutes).")
             return tuple()
     if (len(args) >= 3):
-        if (str(args[2]).lower() == "true"):
-            is_with_photo = True
-        elif (str(args[2]).lower() == "false"):
-            is_with_photo = False
+        if (str(args[2]).lower() in ["true", "yes", "1"]):
+            is_with_chart = True
+        elif (str(args[2]).lower() in ["false", "no", "0"]):
+            is_with_chart = False
         else:
-            await update.message.reply_text("❌ Invalid value for the third argument. Must be a true/false depending if you need to receive a chart along with a signal.")
+            await update.message.reply_text("❌ Invalid value for the third argument. Must be a true/false (yes/no, 1/0) depending if you need to receive a chart along with a signal.")
             return tuple()
         
     if (len(args) > (3 if is_start else 1)):
         await update.message.reply_text("❌ Invalid number of arguments. Please check your request.")
         return tuple()
 
-    return (symbol, period_minutes, is_with_photo)
+    return (symbol, period_minutes, is_with_chart)
 
 async def fetch_data_and_get_indicators(res, preferences, update):
     symbol = {}
@@ -136,5 +136,5 @@ async def check_and_analyze(update, user_id, preferences, args):
         await update.message.reply_text("Please select indicators using /select_indicators before requesting a chart.")
         return
 
-    return fetch_data_and_get_indicators(res, preferences, update)
+    return await fetch_data_and_get_indicators(res, preferences, update)
 
