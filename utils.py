@@ -27,3 +27,13 @@ def plural_helper(num: int) -> str:
     if (num != 1):
         return "s"
     return ""
+
+def create_true_preferences():
+    preferences = {}
+    
+    preferences["order_blocks"] = True
+    preferences["fvgs"] = True
+    preferences["liquidity_levels"] = True
+    preferences["breaker_blocks"] = True
+    
+    return preferences

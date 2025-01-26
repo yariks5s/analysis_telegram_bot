@@ -3,10 +3,12 @@ from typing import List, Dict, Tuple
 
 import pandas as pd  # type: ignore
 
-from helpers import fetch_candles, analyze_data
+from helpers import fetch_candles, analyze_data, fetch_data_and_get_indicators
 from database import get_user_preferences, upsert_user_signal_request, delete_user_signal_request
 from database import get_chat_id_for_user, get_signal_requests, user_signal_request_exists
-from utils import auto_signal_jobs
+from utils import auto_signal_jobs, create_true_preferences
+
+from plot_build_helpers import plot_price_chart
 
 from datetime import timedelta
 
@@ -333,6 +335,7 @@ async def auto_signal_job(context):
     user_id = job_data["user_id"]
     chat_id = job_data["chat_id"]
     currency_pair = job_data["currency_pair"]
+    is_with_chart = job_data["is_with_chart"]
 
     # 1) Fetch user preferences from the database
     preferences = get_user_preferences(user_id)
@@ -364,7 +367,7 @@ async def auto_signal_job(context):
 
     # 4) Decide if we want to send the signal to the user
     #    For instance, we can require a minimum confidence or a non-neutral signal
-    if confidence > 0.3 or final_signal != "Neutral":
+    if confidence > 0.0 or final_signal != "Neutral":
         try:
             await context.bot.send_message(
                 chat_id=chat_id,
@@ -373,6 +376,24 @@ async def auto_signal_job(context):
                     f"{reason_str}"
                 ),
             )
+            if (is_with_chart):
+                interval_count = 200
+                interval = "1h"
+                input = [currency_pair, interval_count, interval]
+                (indicators, df) = await fetch_data_and_get_indicators(input, create_true_preferences(), ())
+
+                chart_path = plot_price_chart(df, indicators)
+
+                await context.bot.send_message(
+                    chat_id=chat_id,
+                    text=(
+                        f"Below is a chart for {currency_pair} for the last {interval_count} intervals with {interval} interval:"
+                    ),
+                )
+
+                # Send the chart to the user
+                with open(chart_path, "rb") as chart_file:
+                    await context.bot.send_photo(chat_id=chat_id, photo=chart_file)
         except Exception as e:
             print(f"Error sending auto-signal message to user {user_id}: {str(e)}")
     else:
@@ -383,7 +404,7 @@ async def auto_signal_job(context):
 ###############################################################################
 # Creating and Deleting Signal Jobs (Example usage remains similar)
 ###############################################################################
-async def createSignalJob(symbol: str, period_minutes: int, update, context):
+async def createSignalJob(symbol: str, period_minutes: int, is_with_chart: bool, update, context):
     """
     Creates a repeating job for auto-signal analysis (multi-timeframe).
     The code below is largely the same as your existing function.
@@ -402,6 +423,7 @@ async def createSignalJob(symbol: str, period_minutes: int, update, context):
     signals_request = {
         "currency_pair": symbol,
         "frequency_minutes": period_minutes,
+        "is_with_chart": is_with_chart,
     }
     upsert_user_signal_request(user_id, signals_request)
 
@@ -423,6 +445,7 @@ async def createSignalJob(symbol: str, period_minutes: int, update, context):
             "user_id": user_id,
             "chat_id": chat_id,
             "currency_pair": symbol,
+            "is_with_chart": is_with_chart,
         },
     )
 

@@ -49,7 +49,8 @@ def build_signal_list_keyboard(user_id: int) -> InlineKeyboardMarkup:
         for s in signals:
             pair = s["currency_pair"]
             freq = s["frequency_minutes"]
-            display_text = f"{pair} ({freq}m)"
+            is_with_chart = s["is_with_chart"]
+            display_text = f"{pair} ({freq}m), chart: {'✅' if str(is_with_chart) == '1' else '❌'}"
             # We use 'delete_signal_<pair>' as callback data for the delete button
             del_button = InlineKeyboardButton(
                 text=f"Delete {pair}",
@@ -117,7 +118,7 @@ async def handle_signal_menu_callback(update: Update, context: ContextTypes.DEFA
     elif data == "add_signal":
         # Switch to TYPING_SIGNAL_DATA state: we expect user to type "SYMBOL MINUTES"
         await query.edit_message_text(
-            "Enter new signal as: SYMBOL MINUTES (e.g. BTCUSDT 60)"
+            "Enter new signal as: SYMBOL MINUTES [IS_WITH_CHART] (e.g. BTCUSDT 60 true) \nIf you want to cancel this process, type 'cancel'"            
         )
         return TYPING_SIGNAL_DATA
 
@@ -138,12 +139,19 @@ async def handle_signal_text_input(update: Update, context: ContextTypes.DEFAULT
     text = update.message.text.strip()
     parts = text.split()
 
+    if (str(parts[0]).lower().strip() == "cancel"):
+        await update.message.reply_text(
+            text="Cancelled.",
+            reply_markup=build_signal_list_keyboard(user_id)
+        )
+        return CHOOSING_ACTION
+
     pair = await input_sanity_check_analyzing(True, parts, update)
     if (not pair):
-        await update.message.reply_text(f"Usage: <symbol> <period_in_minutes>, you've sent {len(parts)} argument{plural_helper(len(parts))}.")
+        await update.message.reply_text(f"Usage: <symbol> <period_in_minutes> [<is_with_chart>], you've sent {len(parts)} argument{plural_helper(len(parts))}.")
         return TYPING_SIGNAL_DATA
 
-    await createSignalJob(pair[0], pair[1], update, context)
+    await createSignalJob(pair[0], pair[1], pair[2], update, context)
 
     # Finally show the updated list
     await update.message.reply_text(

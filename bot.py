@@ -92,16 +92,18 @@ async def send_text_data(update: Update, context: CallbackContext):
 async def create_signal_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Command handler to create a signal job.
-    Usage: /create_signal <SYMBOL> <MINUTES>
-    Example: /create_signal BTCUSDT 60
+    Usage: /create_signal <SYMBOL> <MINUTES> [<IS_WITH_CHART>]
+    Example: /create_signal BTCUSDT 60 True
+
+    Note: is_with_chart is an optional argunent. Default value is false
     """
     args = context.args
     pair = await input_sanity_check_analyzing(True, args, update)
     if (not pair):
-        await update.message.reply_text(f"Usage: /create_signal <symbol> <period_in_minutes>, you've sent {len(args)} argument{plural_helper(len(args))}.")
+        await update.message.reply_text(f"Usage: /create_signal <symbol> [<is_with_chart>], you've sent {len(args)} argument{plural_helper(len(args))}.")
     else:
         try:
-            await createSignalJob(pair[0], pair[1], update, context)
+            await createSignalJob(pair[0], pair[1], pair[2], update, context)
         except Exception as e:
             print(f"Unexpected error: {e}")
             await update.message.reply_text("❌ An unexpected error occurred.")
