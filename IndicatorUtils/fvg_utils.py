@@ -1,5 +1,7 @@
 class FVG:
-    def __init__(self, start_index, end_index, start_price, end_price, fvg_type, covered=False):
+    def __init__(
+        self, start_index, end_index, start_price, end_price, fvg_type, covered=False
+    ):
         """
         Initialize a Fair Value Gap (FVG) object.
 
@@ -19,9 +21,11 @@ class FVG:
         self.covered = covered
 
     def __str__(self):
-        return (f"FVG(type={self.fvg_type}, start_index={self.start_index}, "
-                f"end_index={self.end_index}, start_price={self.start_price}, "
-                f"end_price={self.end_price}, covered={self.covered})")
+        return (
+            f"FVG(type={self.fvg_type}, start_index={self.start_index}, "
+            f"end_index={self.end_index}, start_price={self.start_price}, "
+            f"end_price={self.end_price}, covered={self.covered})"
+        )
 
 
 class FVGs:
@@ -33,21 +37,21 @@ class FVGs:
             self.list.append(fvg)
 
     def __str__(self):
-        if (self.list):
+        if self.list:
             return "\n" + "\n".join(str(fvg) for fvg in self.list)
         else:
             return "\nNone."
-    
+
     def non_verbose_str(self):
-        if (self.__bool__()):
+        if self.__bool__():
             return "\n" + "\n".join(str(fvg) for fvg in self.list if not fvg.covered)
         else:
             return "\nNone."
 
     def __bool__(self):
-        if (not self.list):
+        if not self.list:
             return False
         for fvg in self.list:
-            if (not fvg.covered):
+            if not fvg.covered:
                 return True
         return False

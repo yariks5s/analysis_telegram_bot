@@ -18,12 +18,12 @@ class OrderBlock:
         return f"OrderBlock(type={self.block_type}, index={self.index}, high={self.high}, low={self.low})"
 
     def is_bullish(self):
-        return self.block_type == 'bullish'
+        return self.block_type == "bullish"
 
     def is_bearish(self):
-        return self.block_type == 'bearish'
+        return self.block_type == "bearish"
 
-    
+
 class OrderBlocks:
     def __init__(self):
         self.list = []
@@ -33,7 +33,7 @@ class OrderBlocks:
             self.list.append(order_block)
 
     def __str__(self):
-        if (self.list):
+        if self.list:
             return "\n" + "\n".join(str(block) for block in self.list)
         else:
             return "\nNone."
