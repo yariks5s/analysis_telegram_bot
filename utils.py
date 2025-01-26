@@ -20,20 +20,22 @@ auto_signal_jobs = {}
 
 API_URL = "https://api.bybit.com/v5/market/kline"
 
+
 def plural_helper(num: int) -> str:
     """
     Will help to decide whether we need to use the plural form of the words when communicating with the user
     """
-    if (num != 1):
+    if num != 1:
         return "s"
     return ""
 
+
 def create_true_preferences():
     preferences = {}
-    
+
     preferences["order_blocks"] = True
     preferences["fvgs"] = True
     preferences["liquidity_levels"] = True
     preferences["breaker_blocks"] = True
-    
+
     return preferences

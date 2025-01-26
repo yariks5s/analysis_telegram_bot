@@ -17,20 +17,22 @@ class BreakerBlock:
         """
         String representation of the breaker block.
         """
-        return (f"BreakerBlock(type={self.block_type}, index={self.index}, "
-                f"zone={self.zone})")
+        return (
+            f"BreakerBlock(type={self.block_type}, index={self.index}, "
+            f"zone={self.zone})"
+        )
 
     def is_bullish(self):
         """
         Check if the breaker block is bullish.
         """
-        return self.block_type == 'bullish'
+        return self.block_type == "bullish"
 
     def is_bearish(self):
         """
         Check if the breaker block is bearish.
         """
-        return self.block_type == 'bearish'
+        return self.block_type == "bearish"
 
 
 class BreakerBlocks:
@@ -42,7 +44,7 @@ class BreakerBlocks:
             self.list.append(breaker_block)
 
     def __str__(self):
-        if (self.list):
+        if self.list:
             return "\n" + "\n".join(str(block) for block in self.list)
         else:
             return "\nNone."

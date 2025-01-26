@@ -1,9 +1,12 @@
 from helpers import input_sanity_check_analyzing
-from telegram import InlineKeyboardMarkup, InlineKeyboardButton, Update, ReplyKeyboardRemove # type: ignore
-from telegram.ext import ( # type: ignore
+from telegram import InlineKeyboardMarkup, InlineKeyboardButton, Update, ReplyKeyboardRemove  # type: ignore
+from telegram.ext import (  # type: ignore
     ContextTypes,
-    ConversationHandler, CommandHandler, MessageHandler,
-    CallbackQueryHandler, filters
+    ConversationHandler,
+    CommandHandler,
+    MessageHandler,
+    CallbackQueryHandler,
+    filters,
 )
 
 from database import (
@@ -21,6 +24,7 @@ from utils import plural_helper
 ###############################################################################
 CHOOSING_ACTION, TYPING_SIGNAL_DATA = range(2)
 
+
 async def manage_signals(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     /manage_signals - The entry point to display signals for the user with inline buttons.
@@ -28,8 +32,7 @@ async def manage_signals(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
 
     await update.message.reply_text(
-        text="Manage your signals:",
-        reply_markup=build_signal_list_keyboard(user_id)
+        text="Manage your signals:", reply_markup=build_signal_list_keyboard(user_id)
     )
 
     return CHOOSING_ACTION
@@ -53,34 +56,32 @@ def build_signal_list_keyboard(user_id: int) -> InlineKeyboardMarkup:
             display_text = f"{pair} ({freq}m), chart: {'✅' if str(is_with_chart) == '1' else '❌'}"
             # We use 'delete_signal_<pair>' as callback data for the delete button
             del_button = InlineKeyboardButton(
-                text=f"Delete {pair}",
-                callback_data=f"delete_signal_{pair}"
+                text=f"Delete {pair}", callback_data=f"delete_signal_{pair}"
             )
             # 'no_op' is a do-nothing callback if user clicks on the display_text
-            keyboard.append([
-                InlineKeyboardButton(display_text, callback_data="no_op"),
-                del_button
-            ])
+            keyboard.append(
+                [InlineKeyboardButton(display_text, callback_data="no_op"), del_button]
+            )
     else:
         # If no signals, show a placeholder row
-        keyboard.append([
-            InlineKeyboardButton("No signals found", callback_data="no_op")
-        ])
+        keyboard.append(
+            [InlineKeyboardButton("No signals found", callback_data="no_op")]
+        )
 
     # Add row for [Add New Signal]
-    keyboard.append([
-        InlineKeyboardButton("➕ Add New Signal", callback_data="add_signal")
-    ])
+    keyboard.append(
+        [InlineKeyboardButton("➕ Add New Signal", callback_data="add_signal")]
+    )
 
     # Add row for [Done]
-    keyboard.append([
-        InlineKeyboardButton("Done", callback_data="signal_menu_done")
-    ])
+    keyboard.append([InlineKeyboardButton("Done", callback_data="signal_menu_done")])
 
     return InlineKeyboardMarkup(keyboard)
 
 
-async def handle_signal_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_signal_menu_callback(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+):
     """
     CallbackQueryHandler for the signal management UI. This is where we CHECK callback data.
     """
@@ -111,14 +112,14 @@ async def handle_signal_menu_callback(update: Update, context: ContextTypes.DEFA
 
         await query.edit_message_text(
             text="Signal deleted. Updated list:",
-            reply_markup=build_signal_list_keyboard(user_id)
+            reply_markup=build_signal_list_keyboard(user_id),
         )
         return CHOOSING_ACTION
 
     elif data == "add_signal":
         # Switch to TYPING_SIGNAL_DATA state: we expect user to type "SYMBOL MINUTES"
         await query.edit_message_text(
-            "Enter new signal as: SYMBOL MINUTES [IS_WITH_CHART] (e.g. BTCUSDT 60 true) \nIf you want to cancel this process, type 'cancel'"            
+            "Enter new signal as: SYMBOL MINUTES [IS_WITH_CHART] (e.g. BTCUSDT 60 true) \nIf you want to cancel this process, type 'cancel'"
         )
         return TYPING_SIGNAL_DATA
 
@@ -139,27 +140,28 @@ async def handle_signal_text_input(update: Update, context: ContextTypes.DEFAULT
     text = update.message.text.strip()
     parts = text.split()
 
-    if (str(parts[0]).lower().strip() == "cancel"):
+    if str(parts[0]).lower().strip() == "cancel":
         await update.message.reply_text(
-            text="Cancelled.",
-            reply_markup=build_signal_list_keyboard(user_id)
+            text="Cancelled.", reply_markup=build_signal_list_keyboard(user_id)
         )
         return CHOOSING_ACTION
 
     pair = await input_sanity_check_analyzing(True, parts, update)
-    if (not pair):
-        await update.message.reply_text(f"Usage: <symbol> <period_in_minutes> [<is_with_chart>], you've sent {len(parts)} argument{plural_helper(len(parts))}.")
+    if not pair:
+        await update.message.reply_text(
+            f"Usage: <symbol> <period_in_minutes> [<is_with_chart>], you've sent {len(parts)} argument{plural_helper(len(parts))}."
+        )
         return TYPING_SIGNAL_DATA
 
     await createSignalJob(pair[0], pair[1], pair[2], update, context)
 
     # Finally show the updated list
     await update.message.reply_text(
-        text="Updated signals list:",
-        reply_markup=build_signal_list_keyboard(user_id)
+        text="Updated signals list:", reply_markup=build_signal_list_keyboard(user_id)
     )
 
     return CHOOSING_ACTION
+
 
 def get_indicator_selection_keyboard(user_id):
     """
@@ -171,27 +173,28 @@ def get_indicator_selection_keyboard(user_id):
     keyboard = [
         [
             InlineKeyboardButton(
-                f"{'✔️ ' if selected['order_blocks'] else ''}Order Blocks", 
-                callback_data="indicator_order_blocks"
+                f"{'✔️ ' if selected['order_blocks'] else ''}Order Blocks",
+                callback_data="indicator_order_blocks",
             ),
             InlineKeyboardButton(
-                f"{'✔️ ' if selected['fvgs'] else ''}FVGs", 
-                callback_data="indicator_fvgs"
+                f"{'✔️ ' if selected['fvgs'] else ''}FVGs",
+                callback_data="indicator_fvgs",
             ),
         ],
         [
             InlineKeyboardButton(
-                f"{'✔️ ' if selected['liquidity_levels'] else ''}Liquidity Levels", 
-                callback_data="indicator_liquidity_levels"
+                f"{'✔️ ' if selected['liquidity_levels'] else ''}Liquidity Levels",
+                callback_data="indicator_liquidity_levels",
             ),
             InlineKeyboardButton(
-                f"{'✔️ ' if selected['breaker_blocks'] else ''}Breaker Blocks", 
-                callback_data="indicator_breaker_blocks"
+                f"{'✔️ ' if selected['breaker_blocks'] else ''}Breaker Blocks",
+                callback_data="indicator_breaker_blocks",
             ),
         ],
-        [InlineKeyboardButton("Done", callback_data="indicator_done")]
+        [InlineKeyboardButton("Done", callback_data="indicator_done")],
     ]
     return InlineKeyboardMarkup(keyboard)
+
 
 async def handle_indicator_selection(update, _):
     """
@@ -227,6 +230,7 @@ async def handle_indicator_selection(update, _):
         reply_markup=get_indicator_selection_keyboard(user_id)
     )
 
+
 async def select_indicators(update, _):
     """
     Start the process of selecting indicators.
@@ -234,5 +238,5 @@ async def select_indicators(update, _):
     user_id = update.effective_user.id
     await update.message.reply_text(
         "Please choose the indicators you'd like to include:",
-        reply_markup=get_indicator_selection_keyboard(user_id)
+        reply_markup=get_indicator_selection_keyboard(user_id),
     )

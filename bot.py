@@ -9,16 +9,21 @@ from message_handlers import (
     handle_signal_menu_callback,
     handle_signal_text_input,
     CHOOSING_ACTION,
-    TYPING_SIGNAL_DATA
+    TYPING_SIGNAL_DATA,
 )
 
-from signal_detection import generate_price_prediction_signal_proba, createSignalJob, deleteSignalJob, initialize_jobs
+from signal_detection import (
+    generate_price_prediction_signal_proba,
+    createSignalJob,
+    deleteSignalJob,
+    initialize_jobs,
+)
 
 from database import get_user_preferences
 from utils import plural_helper
 
-from telegram import Update # type: ignore
-from telegram.ext import ( # type: ignore
+from telegram import Update  # type: ignore
+from telegram.ext import (  # type: ignore
     ApplicationBuilder,
     CommandHandler,
     ContextTypes,
@@ -29,18 +34,18 @@ from telegram.ext import ( # type: ignore
     ConversationHandler,
 )
 
-from dotenv import load_dotenv # type: ignore
+from dotenv import load_dotenv  # type: ignore
 
 import os
 import logging
 
 # Configure logging
 logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 
 load_dotenv()
+
 
 async def send_crypto_chart(update: Update, context: CallbackContext):
     """
@@ -52,24 +57,27 @@ async def send_crypto_chart(update: Update, context: CallbackContext):
     preferences = get_user_preferences(user_id)
 
     # Analyze data
-    (indicators, df) = await check_and_analyze(update, user_id, preferences, context.args)
-
+    (indicators, df) = await check_and_analyze(
+        update, user_id, preferences, context.args
+    )
 
     # Plot chart
     chart_path = plot_price_chart(df, indicators)
     if chart_path is None:
         await update.message.reply_text("Error generating the chart. Please try again.")
         return
-    
+
     # 1) Generate the probability-based signal:
     _, _, _, reason_str = generate_price_prediction_signal_proba(df, indicators)
 
     # Send the chart to the user
-    with open(chart_path, 'rb') as f:
+    with open(chart_path, "rb") as f:
         await context.bot.send_photo(chat_id=chat_id, photo=f)
 
-    await update.message.reply_text(f"  {reason_str}")  # Indentation needed for correct representation of the message
-    
+    await update.message.reply_text(
+        f"  {reason_str}"
+    )  # Indentation needed for correct representation of the message
+
     df = df.reset_index(drop=True)
 
 
@@ -83,11 +91,14 @@ async def send_text_data(update: Update, context: CallbackContext):
 
     preferences = get_user_preferences(user_id)
     # Analyze data
-    (indicators, df) = await check_and_analyze(update, user_id, preferences, context.args)
+    (indicators, df) = await check_and_analyze(
+        update, user_id, preferences, context.args
+    )
 
     await update.message.reply_text(str(indicators))
-    
+
     df = df.reset_index(drop=True)
+
 
 async def create_signal_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
@@ -99,8 +110,10 @@ async def create_signal_command(update: Update, context: ContextTypes.DEFAULT_TY
     """
     args = context.args
     pair = await input_sanity_check_analyzing(True, args, update)
-    if (not pair):
-        await update.message.reply_text(f"Usage: /create_signal <symbol> [<is_with_chart>], you've sent {len(args)} argument{plural_helper(len(args))}.")
+    if not pair:
+        await update.message.reply_text(
+            f"Usage: /create_signal <symbol> [<is_with_chart>], you've sent {len(args)} argument{plural_helper(len(args))}."
+        )
     else:
         try:
             await createSignalJob(pair[0], pair[1], pair[2], update, context)
@@ -117,8 +130,10 @@ async def delete_signal_command(update: Update, context: ContextTypes.DEFAULT_TY
     """
     args = context.args
     pair = await input_sanity_check_analyzing(False, args, update)
-    if (not pair):
-        await update.message.reply_text(f"Usage: /delete_signal <symbol>, you've sent {len(args)} argument{plural_helper(len(args))}.")
+    if not pair:
+        await update.message.reply_text(
+            f"Usage: /delete_signal <symbol>, you've sent {len(args)} argument{plural_helper(len(args))}."
+        )
     else:
         try:
             await deleteSignalJob(pair[0], update)
@@ -138,7 +153,7 @@ if __name__ == "__main__":
     from database import init_db
 
     init_db()
-    TOKEN = os.getenv('API_TELEGRAM_KEY')
+    TOKEN = os.getenv("API_TELEGRAM_KEY")
 
     app = ApplicationBuilder().token(TOKEN).build()
 
@@ -147,7 +162,9 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("chart", send_crypto_chart))
     app.add_handler(CommandHandler("text_result", send_text_data))
     app.add_handler(CommandHandler("select_indicators", select_indicators))
-    app.add_handler(CallbackQueryHandler(handle_indicator_selection, pattern=r'^indicator_'))
+    app.add_handler(
+        CallbackQueryHandler(handle_indicator_selection, pattern=r"^indicator_")
+    )
 
     app.add_handler(CommandHandler("create_signal", create_signal_command))
     app.add_handler(CommandHandler("delete_signal", delete_signal_command))
@@ -159,7 +176,9 @@ if __name__ == "__main__":
                 CallbackQueryHandler(handle_signal_menu_callback),
             ],
             TYPING_SIGNAL_DATA: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_signal_text_input),
+                MessageHandler(
+                    filters.TEXT & ~filters.COMMAND, handle_signal_text_input
+                ),
             ],
         },
         fallbacks=[
@@ -170,8 +189,7 @@ if __name__ == "__main__":
 
     # Initialize jobs after the bot starts
     app.job_queue.run_once(
-        lambda _ : asyncio.create_task(initialize_jobs_handler(app)), 
-        when=0
+        lambda _: asyncio.create_task(initialize_jobs_handler(app)), when=0
     )
 
     print("Bot is running...")

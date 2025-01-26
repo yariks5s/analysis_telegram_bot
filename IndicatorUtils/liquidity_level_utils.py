@@ -14,10 +14,10 @@ class LiquidityLevel:
         return f"LiquidityLevel(type={self.level_type}, price={self.price})"
 
     def is_support(self):
-        return self.level_type == 'support'
+        return self.level_type == "support"
 
     def is_resistance(self):
-        return self.level_type == 'resistance'
+        return self.level_type == "resistance"
 
 
 class LiquidityLevels:
@@ -32,7 +32,7 @@ class LiquidityLevels:
             self.list.append(level)
 
     def __str__(self):
-        if (self.list):
+        if self.list:
             return "\n" + "\n".join(str(level) for level in self.list)
         else:
             return "\nNone."

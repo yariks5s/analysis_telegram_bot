@@ -3,6 +3,7 @@ from IndicatorUtils.fvg_utils import FVGs
 from IndicatorUtils.liquidity_level_utils import LiquidityLevels
 from IndicatorUtils.breaker_block_utils import BreakerBlocks
 
+
 class Indicators:
     def __init__(self):
         """

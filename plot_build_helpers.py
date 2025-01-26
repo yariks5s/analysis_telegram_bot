@@ -1,10 +1,11 @@
 import matplotlib.patches as mpatches
 import matplotlib.lines as mlines
 
-import mplfinance as mpf # type: ignore
-import pandas as pd # type: ignore
+import mplfinance as mpf  # type: ignore
+import pandas as pd  # type: ignore
 
 from utils import logger
+
 
 def plot_price_chart(df: pd.DataFrame, indicators):
     """
@@ -13,53 +14,97 @@ def plot_price_chart(df: pd.DataFrame, indicators):
 
     fig, ax = mpf.plot(
         df,
-        type='candle',
-        style='yahoo',
+        type="candle",
+        style="yahoo",
         volume=True,
         returnfig=True,
-        ylabel='Price (USDT)',
-        ylabel_lower='Volume',
+        ylabel="Price (USDT)",
+        ylabel_lower="Volume",
         tight_layout=True,
-        figsize=(12, 8)
+        figsize=(12, 8),
     )
 
-    if (indicators.fvgs):
+    if indicators.fvgs:
         add_fvgs(ax, indicators.fvgs)
 
-    if (indicators.order_blocks):
+    if indicators.order_blocks:
         add_order_blocks(ax, indicators.order_blocks, df)
 
-    if (indicators.liquidity_levels):
+    if indicators.liquidity_levels:
         add_liquidity_levels(ax, indicators.liquidity_levels)
 
-    if (indicators.breaker_blocks):
+    if indicators.breaker_blocks:
         add_breaker_blocks(ax, indicators.breaker_blocks)
 
     add_legend(ax, indicators)
 
     fig.subplots_adjust(left=0.05, right=0.95)
-    fig.savefig('crypto_chart.png', bbox_inches='tight', pad_inches=0.1)
+    fig.savefig("crypto_chart.png", bbox_inches="tight", pad_inches=0.1)
 
-    return 'crypto_chart.png'
+    return "crypto_chart.png"
+
 
 def add_legend(ax, indicators):
     handles = []
-    if (indicators.order_blocks):
-        handles.append(mlines.Line2D([], [], color='blue', marker='o', markersize=10, label='Bearish Order Block', linestyle='None'))
-        handles.append(mlines.Line2D([], [], color='purple', marker='o', markersize=10, label='Bullish Order Block', linestyle='None'))
+    if indicators.order_blocks:
+        handles.append(
+            mlines.Line2D(
+                [],
+                [],
+                color="blue",
+                marker="o",
+                markersize=10,
+                label="Bearish Order Block",
+                linestyle="None",
+            )
+        )
+        handles.append(
+            mlines.Line2D(
+                [],
+                [],
+                color="purple",
+                marker="o",
+                markersize=10,
+                label="Bullish Order Block",
+                linestyle="None",
+            )
+        )
 
-    if (indicators.fvgs):
-        handles.append(mpatches.Patch(color='purple', alpha=0.3, label='FVG'))
+    if indicators.fvgs:
+        handles.append(mpatches.Patch(color="purple", alpha=0.3, label="FVG"))
 
-    if (indicators.breaker_blocks):
-        handles.append(mpatches.Patch(color='green', alpha=0.05, label='Bullish Breaker Block'))
-        handles.append(mpatches.Patch(color='red', alpha=0.05, label='Bearish Breaker Block'))
+    if indicators.breaker_blocks:
+        handles.append(
+            mpatches.Patch(color="green", alpha=0.05, label="Bullish Breaker Block")
+        )
+        handles.append(
+            mpatches.Patch(color="red", alpha=0.05, label="Bearish Breaker Block")
+        )
 
-    if (indicators.liquidity_levels):
-        handles.append(mlines.Line2D([], [], color='red', linestyle='--', markersize=10, label='Resistance level'))
-        handles.append(mlines.Line2D([], [], color='green', linestyle='--', markersize=10, label='Support level'))
+    if indicators.liquidity_levels:
+        handles.append(
+            mlines.Line2D(
+                [],
+                [],
+                color="red",
+                linestyle="--",
+                markersize=10,
+                label="Resistance level",
+            )
+        )
+        handles.append(
+            mlines.Line2D(
+                [],
+                [],
+                color="green",
+                linestyle="--",
+                markersize=10,
+                label="Support level",
+            )
+        )
 
-    ax[0].legend(handles=handles, loc='upper left')
+    ax[0].legend(handles=handles, loc="upper left")
+
 
 def add_order_blocks(ax, order_blocks, df):
     for block in order_blocks.list:
@@ -75,11 +120,12 @@ def add_order_blocks(ax, order_blocks, df):
         ax[0].scatter(
             idx,
             circle_y_position,
-            color='purple' if block.is_bullish() else 'blue',
+            color="purple" if block.is_bullish() else "blue",
             s=20,
             zorder=5,
-            label="Order Block"
+            label="Order Block",
         )
+
 
 def add_fvgs(ax, fvgs):
     for fvg in fvgs.list:
@@ -95,19 +141,21 @@ def add_fvgs(ax, fvgs):
                 x1=start_idx,
                 x2=end_idx,
                 # color='blue' if start_price < end_price else 'orange',
-                color='blue',
+                color="blue",
                 alpha=0.2,
                 label="FVG",
             )
+
 
 def add_liquidity_levels(ax, liquidity_levels):
     for level in liquidity_levels.list:
         ax[0].axhline(
             y=level.price,
-            color='green' if level.is_support() else 'red',
-            linestyle='--',
+            color="green" if level.is_support() else "red",
+            linestyle="--",
             linewidth=1,
         )
+
 
 def add_breaker_blocks(ax, breaker_blocks):
     for block in breaker_blocks.list:
@@ -119,13 +167,13 @@ def add_breaker_blocks(ax, breaker_blocks):
         y1, y2 = block.zone
 
         # Choose color based on type
-        color = 'green' if block.is_bullish() else 'red'
+        color = "green" if block.is_bullish() else "red"
 
         # Fill between x-axis and y-axis values
         ax[0].fill_betweenx(
-            y=[y1, y2],                     # Price range (y-axis)
-            x1=start_index,                 # Start time of the block
-            x2=end_index,                   # End time of the block
+            y=[y1, y2],  # Price range (y-axis)
+            x1=start_index,  # Start time of the block
+            x2=end_index,  # End time of the block
             color=color,
             alpha=0.05,
         )

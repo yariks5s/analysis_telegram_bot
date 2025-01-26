@@ -4,8 +4,16 @@ from typing import List, Dict, Tuple
 import pandas as pd  # type: ignore
 
 from helpers import fetch_candles, analyze_data, fetch_data_and_get_indicators
-from database import get_user_preferences, upsert_user_signal_request, delete_user_signal_request
-from database import get_chat_id_for_user, get_signal_requests, user_signal_request_exists
+from database import (
+    get_user_preferences,
+    upsert_user_signal_request,
+    delete_user_signal_request,
+)
+from database import (
+    get_chat_id_for_user,
+    get_signal_requests,
+    user_signal_request_exists,
+)
 from utils import auto_signal_jobs, create_true_preferences
 
 from plot_build_helpers import plot_price_chart
@@ -13,26 +21,28 @@ from plot_build_helpers import plot_price_chart
 from datetime import timedelta
 
 
-def generate_price_prediction_signal_proba(df: pd.DataFrame, indicators) -> Tuple[str, float, float, str]:
+def generate_price_prediction_signal_proba(
+    df: pd.DataFrame, indicators
+) -> Tuple[str, float, float, str]:
     """
     Generates a single-timeframe signal with bullish/bearish/neutral outcome.
     Treats all FVGs based on their position relative to the current price.
-    
+
     Returns:
         (signal, probability_of_bullish, confidence, reason_str)
     """
-    last_close = df['Close'].iloc[-1]
+    last_close = df["Close"].iloc[-1]
     reasons = []
 
     # Weights for each condition
-    W_BULLISH_OB        = 1.0
-    W_BEARISH_OB        = 1.0
-    W_BULLISH_BREAKER   = 1.0
-    W_BEARISH_BREAKER   = 1.0
-    W_ABOVE_SUPPORT     = 0.7
-    W_BELOW_RESISTANCE  = 0.7
-    W_FVG_ABOVE         = 0.5  # Weight for FVGs above price
-    W_FVG_BELOW         = 0.5  # Weight for FVGs below price
+    W_BULLISH_OB = 1.0
+    W_BEARISH_OB = 1.0
+    W_BULLISH_BREAKER = 1.0
+    W_BEARISH_BREAKER = 1.0
+    W_ABOVE_SUPPORT = 0.7
+    W_BELOW_RESISTANCE = 0.7
+    W_FVG_ABOVE = 0.5  # Weight for FVGs above price
+    W_FVG_BELOW = 0.5  # Weight for FVGs below price
 
     bullish_score = 0.0
     bearish_score = 0.0
@@ -42,28 +52,28 @@ def generate_price_prediction_signal_proba(df: pd.DataFrame, indicators) -> Tupl
     # -------------------------------------------------------------
     if indicators.order_blocks and indicators.order_blocks.list:
         for block in indicators.order_blocks.list[-3:]:
-            if block.block_type == 'bullish' and block.index >= (len(df) - 3):
+            if block.block_type == "bullish" and block.index >= (len(df) - 3):
                 bullish_score += W_BULLISH_OB
                 reasons.append("Recent bullish order block found")
                 break
 
     if indicators.order_blocks and indicators.order_blocks.list:
         for block in indicators.order_blocks.list[-3:]:
-            if block.block_type == 'bearish' and block.index >= (len(df) - 3):
+            if block.block_type == "bearish" and block.index >= (len(df) - 3):
                 bearish_score += W_BEARISH_OB
                 reasons.append("Recent bearish order block found")
                 break
 
     if indicators.breaker_blocks and indicators.breaker_blocks.list:
         for block in indicators.breaker_blocks.list[-3:]:
-            if block.block_type == 'bullish' and block.index >= (len(df) - 4):
+            if block.block_type == "bullish" and block.index >= (len(df) - 4):
                 bullish_score += W_BULLISH_BREAKER
                 reasons.append("Recent bullish breaker block found")
                 break
 
     if indicators.breaker_blocks and indicators.breaker_blocks.list:
         for block in indicators.breaker_blocks.list[-3:]:
-            if block.block_type == 'bearish' and block.index >= (len(df) - 4):
+            if block.block_type == "bearish" and block.index >= (len(df) - 4):
                 bearish_score += W_BEARISH_BREAKER
                 reasons.append("Recent bearish breaker block found")
                 break
@@ -75,20 +85,28 @@ def generate_price_prediction_signal_proba(df: pd.DataFrame, indicators) -> Tupl
     below_resistance = False
     if indicators.liquidity_levels and indicators.liquidity_levels.list:
         # Find last discovered support
-        supports = [lvl.price for lvl in indicators.liquidity_levels.list if lvl.is_support()]
+        supports = [
+            lvl.price for lvl in indicators.liquidity_levels.list if lvl.is_support()
+        ]
         if supports:
             last_support = supports[-1]
             if last_close > last_support:
                 above_support = True
-                reasons.append(f"Price {last_close:.2f} is above support {last_support:.2f}")
+                reasons.append(
+                    f"Price {last_close:.2f} is above support {last_support:.2f}"
+                )
 
         # Find last discovered resistance
-        resistances = [lvl.price for lvl in indicators.liquidity_levels.list if lvl.is_resistance()]
+        resistances = [
+            lvl.price for lvl in indicators.liquidity_levels.list if lvl.is_resistance()
+        ]
         if resistances:
             last_resistance = resistances[-1]
             if last_close < last_resistance:
                 below_resistance = True
-                reasons.append(f"Price {last_close:.2f} is below resistance {last_resistance:.2f}")
+                reasons.append(
+                    f"Price {last_close:.2f} is below resistance {last_resistance:.2f}"
+                )
 
     if above_support:
         bullish_score += W_ABOVE_SUPPORT
@@ -164,7 +182,7 @@ async def multi_timeframe_analysis(
     preferences: Dict[str, bool],
     timeframes: List[str],
     candles_per_tf: int = 300,
-    liq_lev_tolerance: float = 0.05
+    liq_lev_tolerance: float = 0.05,
 ) -> Dict[str, Dict[str, any]]:
     """
     Fetches OHLCV data for multiple timeframes (e.g., 1h, 4h, 1d) and analyzes
@@ -200,10 +218,7 @@ async def multi_timeframe_analysis(
         indicators = analyze_data(df, preferences, liq_lev_tolerance)
 
         # 3) Store the results
-        mtf_results[tf] = {
-            "df": df,
-            "indicators": indicators
-        }
+        mtf_results[tf] = {"df": df, "indicators": indicators}
 
     return mtf_results
 
@@ -213,7 +228,7 @@ async def multi_timeframe_analysis(
 ###############################################################################
 def generate_multi_tf_signal_proba(
     mtf_results: Dict[str, Dict[str, any]]
-) -> (str, float, float, str): # type: ignore
+) -> (str, float, float, str):  # type: ignore
     """
     Aggregates signals from multiple timeframes. For each timeframe, we use
     'generate_price_prediction_signal_proba()' to produce an individual signal
@@ -247,13 +262,13 @@ def generate_multi_tf_signal_proba(
     # Example weighting for each timeframe:
     # You can tweak these or make them user-configurable.
     timeframe_weights = {
-        "1m": 0.10,    # Just an example if you want 1m
+        "1m": 0.10,  # Just an example if you want 1m
         "5m": 0.15,
         "15m": 0.20,
         "1h": 0.25,
         "4h": 0.30,
         "1d": 0.40,
-        "1w": 0.50
+        "1w": 0.50,
     }
 
     reasons = []
@@ -266,7 +281,9 @@ def generate_multi_tf_signal_proba(
         indicators = data["indicators"]
 
         # Use your existing single-timeframe function to get the signal
-        signal, prob_bullish, confidence, reason_str = generate_price_prediction_signal_proba(df, indicators)
+        signal, prob_bullish, confidence, reason_str = (
+            generate_price_prediction_signal_proba(df, indicators)
+        )
 
         # 2) Retrieve a weight for that timeframe, default to 0.2 if not specified
         w = timeframe_weights.get(tf, 0.2)
@@ -288,8 +305,10 @@ def generate_multi_tf_signal_proba(
     # If no data/timeframes processed, return a default "Neutral" signal
     if total_weight == 0:
         return (
-            "Neutral", 0.5, 0.0,
-            "No timeframes data were available, defaulting to Neutral"
+            "Neutral",
+            0.5,
+            0.0,
+            "No timeframes data were available, defaulting to Neutral",
         )
 
     # 5) Compute the final aggregated bullish probability
@@ -315,8 +334,7 @@ def generate_multi_tf_signal_proba(
         f"Final Aggregated Signal: {final_signal}\n"
         f"Aggregated Probability of Bullish: {final_prob:.3f}\n"
         f"Confidence: {confidence:.3f}\n\n"
-        "Detailed breakdown by timeframe:\n"
-        + "\n".join(reasons)
+        "Detailed breakdown by timeframe:\n" + "\n".join(reasons)
     )
 
     return final_signal, final_prob, confidence, final_reasons_str
@@ -351,19 +369,20 @@ async def auto_signal_job(context):
         preferences=preferences,
         timeframes=["15m", "1h", "4h"],
         candles_per_tf=300,
-        liq_lev_tolerance=0.05
+        liq_lev_tolerance=0.05,
     )
 
     # If we have no data/timeframes, abort
     if not mtf_results:
         await context.bot.send_message(
-            chat_id=chat_id,
-            text=f"[Auto-Signal] No data found for {currency_pair}."
+            chat_id=chat_id, text=f"[Auto-Signal] No data found for {currency_pair}."
         )
         return
 
     # 3) Generate an aggregated signal from all timeframes
-    final_signal, final_prob, confidence, reason_str = generate_multi_tf_signal_proba(mtf_results)
+    final_signal, final_prob, confidence, reason_str = generate_multi_tf_signal_proba(
+        mtf_results
+    )
 
     # 4) Decide if we want to send the signal to the user
     #    For instance, we can require a minimum confidence or a non-neutral signal
@@ -371,16 +390,15 @@ async def auto_signal_job(context):
         try:
             await context.bot.send_message(
                 chat_id=chat_id,
-                text=(
-                    f"[Auto-Signal for {currency_pair}]\n\n"
-                    f"{reason_str}"
-                ),
+                text=(f"[Auto-Signal for {currency_pair}]\n\n" f"{reason_str}"),
             )
-            if (is_with_chart):
+            if is_with_chart:
                 interval_count = 200
                 interval = "1h"
                 input = [currency_pair, interval_count, interval]
-                (indicators, df) = await fetch_data_and_get_indicators(input, create_true_preferences(), ())
+                (indicators, df) = await fetch_data_and_get_indicators(
+                    input, create_true_preferences(), ()
+                )
 
                 chart_path = plot_price_chart(df, indicators)
 
@@ -404,7 +422,9 @@ async def auto_signal_job(context):
 ###############################################################################
 # Creating and Deleting Signal Jobs (Example usage remains similar)
 ###############################################################################
-async def createSignalJob(symbol: str, period_minutes: int, is_with_chart: bool, update, context):
+async def createSignalJob(
+    symbol: str, period_minutes: int, is_with_chart: bool, update, context
+):
     """
     Creates a repeating job for auto-signal analysis (multi-timeframe).
     The code below is largely the same as your existing function.
@@ -517,4 +537,3 @@ async def initialize_jobs(application):
         auto_signal_jobs[job_key] = job_ref
 
     print("All user signal jobs have been initialized.")
-
