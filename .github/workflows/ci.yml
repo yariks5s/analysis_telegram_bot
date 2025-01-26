@@ -11,6 +11,8 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # Ensure full history is fetched for comparison
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -18,11 +20,14 @@ jobs:
           python-version: "3.9"
 
       - name: Install dependencies
-        run: pip install --upgrade pip && pip install -r requirements.txt
+        run: pip install --upgrade pip && pip install -r requirements.txt && pip install black
 
       - name: Check Black formatting
         run: |
-          git diff --name-only origin/main | grep '\.py$' | xargs black --check
+          # Find the base branch of the pull request
+          BASE_BRANCH=$(git rev-parse --abbrev-ref HEAD | xargs -I{} git merge-base {} HEAD)
+          # List changed .py files compared to the base branch
+          git diff --name-only $BASE_BRANCH | grep '\.py$' | xargs black --check
         shell: bash
 
       - name: Run tests
