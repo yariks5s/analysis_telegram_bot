@@ -20,5 +20,10 @@ jobs:
       - name: Install dependencies
         run: pip install --upgrade pip && pip install -r requirements.txt
 
+      - name: Check Black formatting
+        run: |
+          git diff --name-only origin/main | grep '\.py$' | xargs black --check
+        shell: bash
+
       - name: Run tests
         run: pytest tests/
