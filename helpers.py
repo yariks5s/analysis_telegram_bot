@@ -2,7 +2,7 @@ import pandas as pd  # type: ignore
 
 from data_fetching_instruments import fetch_ohlc_data, analyze_data, fetch_candles
 from utils import VALID_INTERVALS
-from database import check_user_preferences
+from database import check_user_preferences, get_all_user_signal_requests
 
 
 def calculate_macd(data: pd.DataFrame):
@@ -161,3 +161,22 @@ async def check_and_analyze(update, user_id, preferences, args):
         return
 
     return await fetch_data_and_get_indicators(res, preferences, update)
+
+
+async def check_signal_limit(update, build_signal_list_keyboard=None) -> bool:
+    previous_signals = get_all_user_signal_requests(update.effective_user.id)
+
+    if len(previous_signals) >= 10:
+        if build_signal_list_keyboard is not None:
+            await update.message.reply_text(
+                text=f"You've reached the limit of signals ({len(previous_signals)}). If you want to add a new signal, please remove some of existing signals.",
+                reply_markup=build_signal_list_keyboard(update.effective_user.id),
+            )
+        else:
+            await update.message.reply_text(
+                text=f"You've reached the limit of signals ({len(previous_signals)}). If you want to add a new signal, please remove some of existing signals."
+            )
+
+        return True
+
+    return False

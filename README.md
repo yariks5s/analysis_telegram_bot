@@ -27,8 +27,9 @@ Todo:
 - [x] Prevent from creating a multiple signal queries for the same currency
 - [ ] Possibility to choose whether we need a chart along with the signal using query setting
 - [ ] Possibility to apply the chosen indicators to signals
-- [ ] Limit frequency of signals and amount of signals to not violate Bybit API limits
+- [x] Limit frequency of signals and amount of signals to not violate the API limits
 - [ ] If possible, make the bot to continue sending signals after it is restarted
 - [ ] Create a neural network and make it learn on own data
 - [ ] Integrate a neural network to the predictions system
 - [ ] Prettify the bot and make it easy to use
+- [ ] Clarify the exception message for this use-case: '/create_signal ARBUSDT 1 2'
