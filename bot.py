@@ -1,6 +1,6 @@
 import asyncio
 
-from helpers import check_and_analyze, input_sanity_check_analyzing
+from helpers import check_and_analyze, input_sanity_check_analyzing, check_signal_limit
 from plot_build_helpers import plot_price_chart
 from message_handlers import (
     select_indicators,
@@ -108,6 +108,9 @@ async def create_signal_command(update: Update, context: ContextTypes.DEFAULT_TY
 
     Note: is_with_chart is an optional argunent. Default value is false
     """
+    if (await check_signal_limit(update)):
+        return
+
     args = context.args
     pair = await input_sanity_check_analyzing(True, args, update)
     if not pair:
