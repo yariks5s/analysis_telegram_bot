@@ -99,7 +99,7 @@ async def input_sanity_check_analyzing(is_start: bool, args, update) -> tuple:
             is_with_chart = False
         else:
             await update.message.reply_text(
-                "❌ Invalid value for the third argument. Must be a true/false (yes/no, 1/0) depending if you need to receive a chart along with a signal."
+                "❌ Invalid value for the third argument. Must be a true/false (yes/no, 1/0) depending if you want to receive a chart along with a signal."
             )
             return tuple()
 
