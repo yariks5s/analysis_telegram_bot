@@ -115,7 +115,7 @@ async def create_signal_command(update: Update, context: ContextTypes.DEFAULT_TY
     pair = await input_sanity_check_analyzing(True, args, update)
     if not pair:
         await update.message.reply_text(
-            f"Usage: /create_signal <symbol> [<is_with_chart>], you've sent {len(args)} argument{plural_helper(len(args))}."
+            f"Usage: /create_signal <symbol> <period_in_minutes> [<is_with_chart>], you've sent {len(args)} argument{plural_helper(len(args))}."
         )
     else:
         try:
