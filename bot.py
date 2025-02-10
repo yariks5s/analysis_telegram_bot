@@ -108,7 +108,7 @@ async def create_signal_command(update: Update, context: ContextTypes.DEFAULT_TY
 
     Note: is_with_chart is an optional argunent. Default value is false
     """
-    if (await check_signal_limit(update)):
+    if await check_signal_limit(update):
         return
 
     args = context.args

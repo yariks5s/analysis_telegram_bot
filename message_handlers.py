@@ -53,7 +53,9 @@ def build_signal_list_keyboard(user_id: int) -> InlineKeyboardMarkup:
             pair = s["currency_pair"]
             freq = s["frequency_minutes"]
             is_with_chart = s["is_with_chart"]
-            display_text = f"{pair} {freq}m chart {'✅' if str(is_with_chart) == '1' else '❌'}"
+            display_text = (
+                f"{pair} {freq}m chart {'✅' if str(is_with_chart) == '1' else '❌'}"
+            )
             # We use 'delete_signal_<pair>' as callback data for the delete button
             del_button = InlineKeyboardButton(
                 text=f"Delete {pair}", callback_data=f"delete_signal_{pair}"
@@ -146,7 +148,7 @@ async def handle_signal_text_input(update: Update, context: ContextTypes.DEFAULT
         )
         return CHOOSING_ACTION
 
-    if (await check_signal_limit(update, build_signal_list_keyboard)):
+    if await check_signal_limit(update, build_signal_list_keyboard):
         return CHOOSING_ACTION
 
     pair = await input_sanity_check_analyzing(True, parts, update)
