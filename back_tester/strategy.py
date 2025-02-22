@@ -9,10 +9,10 @@ from data_fetching_instruments import fetch_candles, analyze_data
 from signal_detection import generate_price_prediction_signal_proba
 from utils import create_true_preferences
 
-def backtest_strategy(
+def backtest_strategy( # TODO: LOGGING INSTEAD OF PRINTING
     symbol: str,
     interval: str,
-    candles: int = 500,
+    candles: int = 1000,
     window: int = 300,
     initial_balance: float = 10000.0,
     liq_lev_tolerance: float = 0.05,
@@ -67,8 +67,8 @@ def backtest_strategy(
             position = balance / price
             entry_price = price
             balance = 0  # all-in
-            trade_log.append({"type": "buy", "price": price, "index": i, "signal": signal})
-            print(f"[Index {i}] BUY at {price:.2f} | Reason: {reason.splitlines()[0]}")
+            trade_log.append({"type": "buy", "price": entry_price, "index": i, "signal": signal})
+            print(f"[Index {i}] BUY at {entry_price:.2f} | Reason: {reason.splitlines()[0]}")
         elif signal == "Bearish" and position > 0:
             # Sell signal: liquidate the position
             balance = position * price
