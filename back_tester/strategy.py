@@ -1,5 +1,6 @@
 import os
 import sys
+from typing import List
 
 project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(project_dir)
@@ -17,6 +18,7 @@ def backtest_strategy(  # TODO: LOGGING INSTEAD OF PRINTING
     window: int = 300,
     initial_balance: float = 10000.0,
     liq_lev_tolerance: float = 0.05,
+    weights: list = [],
 ) -> (float, list):  # type: ignore
     """
     Backtest a simple strategy:
@@ -58,7 +60,7 @@ def backtest_strategy(  # TODO: LOGGING INSTEAD OF PRINTING
         # Compute technical indicators and generate a signal
         indicators = analyze_data(current_window, preferences, liq_lev_tolerance)
         signal, prob, confidence, reason = generate_price_prediction_signal_proba(
-            current_window, indicators
+            current_window, indicators, weights
         )
 
         # Use the current close price as the trade price

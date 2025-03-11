@@ -22,7 +22,7 @@ from datetime import timedelta
 
 
 def generate_price_prediction_signal_proba(
-    df: pd.DataFrame, indicators
+    df: pd.DataFrame, indicators, weights: list = []
 ) -> Tuple[str, float, float, str]:
     """
     Generates a single-timeframe signal with bullish/bearish/neutral outcome.
@@ -43,6 +43,16 @@ def generate_price_prediction_signal_proba(
     W_BELOW_RESISTANCE = 0.7
     W_FVG_ABOVE = 0.5  # Weight for FVGs above price
     W_FVG_BELOW = 0.5  # Weight for FVGs below price
+
+    if weights and len(weights) == 8:
+        W_BULLISH_OB = weights[0]
+        W_BEARISH_OB = weights[1]
+        W_BULLISH_BREAKER = weights[2]
+        W_BEARISH_BREAKER = weights[3]
+        W_ABOVE_SUPPORT = weights[4]
+        W_BELOW_RESISTANCE = weights[5]
+        W_FVG_ABOVE = weights[6]
+        W_FVG_BELOW = weights[7]
 
     bullish_score = 0.0
     bearish_score = 0.0
@@ -227,7 +237,7 @@ async def multi_timeframe_analysis(
 # Multi-timeframe Aggregation of Signals
 ###############################################################################
 def generate_multi_tf_signal_proba(
-    mtf_results: Dict[str, Dict[str, any]]
+    mtf_results: Dict[str, Dict[str, any]],
 ) -> (str, float, float, str):  # type: ignore
     """
     Aggregates signals from multiple timeframes. For each timeframe, we use
