@@ -50,7 +50,12 @@ def fetch_from_json(data):
     return df
 
 
-def fetch_candles(symbol: str, desired_total: int, interval: str, timestamp: float = datetime.utcnow().timestamp()):
+def fetch_candles(
+    symbol: str,
+    desired_total: int,
+    interval: str,
+    timestamp: float = datetime.utcnow().timestamp(),
+):
     """
     Fetch up to the specified number of candles for a given `symbol` and `interval`.
     Since each request is limited to 200 candles, multiple requests are made as needed.

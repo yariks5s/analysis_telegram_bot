@@ -4,25 +4,26 @@ import sys
 project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(project_dir)
 
-import pandas as pd # type: ignore
+import pandas as pd  # type: ignore
 from data_fetching_instruments import fetch_candles, analyze_data
 from signal_detection import generate_price_prediction_signal_proba
 from utils import create_true_preferences
 
-def backtest_strategy( # TODO: LOGGING INSTEAD OF PRINTING
+
+def backtest_strategy(  # TODO: LOGGING INSTEAD OF PRINTING
     symbol: str,
     interval: str,
     candles: int = 1000,
     window: int = 300,
     initial_balance: float = 10000.0,
     liq_lev_tolerance: float = 0.05,
-) -> (float, list): # type: ignore
+) -> (float, list):  # type: ignore
     """
     Backtest a simple strategy:
       - At each step (after an initial window of historical data), generate a signal
       - If the signal is Bullish and you are not in the market, buy (go all in)
       - If the signal is Bearish and you are in a position, sell (go to cash)
-    
+
     Parameters:
       symbol: The trading pair symbol (e.g. "BTCUSDT")
       interval: The candle interval (e.g. "1h")
@@ -44,19 +45,21 @@ def backtest_strategy( # TODO: LOGGING INSTEAD OF PRINTING
     df.sort_index(inplace=True)
 
     balance = initial_balance
-    position = 0.0       # quantity of asset held
+    position = 0.0  # quantity of asset held
     entry_price = None
-    trade_log = []       # logs of trades for later analysis
+    trade_log = []  # logs of trades for later analysis
 
     # Use all indicators enabled by default in backtesting
     preferences = create_true_preferences()
 
     for i in range(window, len(df)):
         current_window = df.iloc[i - window : i]
-        
+
         # Compute technical indicators and generate a signal
         indicators = analyze_data(current_window, preferences, liq_lev_tolerance)
-        signal, prob, confidence, reason = generate_price_prediction_signal_proba(current_window, indicators)
+        signal, prob, confidence, reason = generate_price_prediction_signal_proba(
+            current_window, indicators
+        )
 
         # Use the current close price as the trade price
         price = df["Close"].iloc[i]
@@ -67,12 +70,18 @@ def backtest_strategy( # TODO: LOGGING INSTEAD OF PRINTING
             position = balance / price
             entry_price = price
             balance = 0  # all-in
-            trade_log.append({"type": "buy", "price": entry_price, "index": i, "signal": signal})
-            print(f"[Index {i}] BUY at {entry_price:.2f} | Reason: {reason.splitlines()[0]}")
+            trade_log.append(
+                {"type": "buy", "price": entry_price, "index": i, "signal": signal}
+            )
+            print(
+                f"[Index {i}] BUY at {entry_price:.2f} | Reason: {reason.splitlines()[0]}"
+            )
         elif signal == "Bearish" and position > 0:
             # Sell signal: liquidate the position
             balance = position * price
-            trade_log.append({"type": "sell", "price": price, "index": i, "signal": signal})
+            trade_log.append(
+                {"type": "sell", "price": price, "index": i, "signal": signal}
+            )
             print(f"[Index {i}] SELL at {price:.2f} | Reason: {reason.splitlines()[0]}")
             position = 0
             entry_price = None
@@ -81,10 +90,18 @@ def backtest_strategy( # TODO: LOGGING INSTEAD OF PRINTING
     if position > 0:
         final_price = df["Close"].iloc[-1]
         balance = position * final_price
-        trade_log.append({"type": "sell_end", "price": final_price, "index": len(df) - 1, "signal": "Final Sell"})
+        trade_log.append(
+            {
+                "type": "sell_end",
+                "price": final_price,
+                "index": len(df) - 1,
+                "signal": "Final Sell",
+            }
+        )
         print(f"[Final] SELL at {final_price:.2f}")
 
     return balance, trade_log
+
 
 if __name__ == "__main__":
     symbol = "BTCUSDT"
