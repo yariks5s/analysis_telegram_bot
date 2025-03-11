@@ -31,8 +31,13 @@ if __name__ == "__main__":
         # Define intervals
         intervals = ["1m", "5m", "15m", "30m", "1h", "4h", "1d"]
         
+        # Set initial balance (assumed same for each test)
+        initial_balance = 1000.0  
+
         # Run backtest for each selected pair with different intervals
         results = []
+        total_revenue_percent = 0
+
         for symbol in selected_pairs:
             interval = random.choice(intervals)  # Select a random interval
             candles = random.randint(300, 600)  # Choose a random total candle count
@@ -43,14 +48,19 @@ if __name__ == "__main__":
             print(f"Total Candles: {candles}, Lookback Window: {window}")
             
             # Run the backtest
-            final_balance, trades = backtest_strategy(symbol, interval, candles, window)
-            
+            final_balance, trades = backtest_strategy(symbol, interval, candles, window, initial_balance)
+
+            # Calculate revenue percentage for this test
+            revenue_percent = ((final_balance - initial_balance) / initial_balance) * 100
+            total_revenue_percent += revenue_percent  # Accumulate total revenue percentage
+
             # Store results
             results.append({
                 "symbol": symbol,
                 "interval": interval,
                 "final_balance": final_balance,
                 "num_trades": len(trades),
+                "revenue_percent": revenue_percent,
                 "trades": trades
             })
             
@@ -58,6 +68,7 @@ if __name__ == "__main__":
             print("\n--- Backtest Complete ---")
             print(f"Final Balance: {final_balance:.2f}")
             print(f"Total Trades: {len(trades)}")
+            print(f"Revenue %: {revenue_percent:.2f}%")
             print("Trade Log (First 5 trades shown):")
             for trade in trades[:5]:  # Display only the first 5 trades for readability
                 print(trade)
@@ -65,7 +76,11 @@ if __name__ == "__main__":
 
         print("\n====== Summary of All Backtests ======")
         for res in results:
-            print(f"Pair: {res['symbol']} | Interval: {res['interval']} | Final Balance: {res['final_balance']:.2f} | Trades: {res['num_trades']}")
+            print(f"Pair: {res['symbol']} | Interval: {res['interval']} | Final Balance: {res['final_balance']:.2f} | Trades: {res['num_trades']} | Revenue %: {res['revenue_percent']:.2f}%")
+
+        # Compute the average revenue percentage
+        average_revenue_percent = total_revenue_percent / len(results)
+        print(f"\nTotal Revenue % across all backtests: {average_revenue_percent:.2f}%")
     
     except Exception as e:
         print("Error:", e)
