@@ -50,7 +50,12 @@ def fetch_from_json(data):
     return df
 
 
-def fetch_candles(symbol: str, desired_total: int, interval: str):
+def fetch_candles(
+    symbol: str,
+    desired_total: int,
+    interval: str,
+    timestamp: float = datetime.utcnow().timestamp(),
+):
     """
     Fetch up to the specified number of candles for a given `symbol` and `interval`.
     Since each request is limited to 200 candles, multiple requests are made as needed.
@@ -68,7 +73,7 @@ def fetch_candles(symbol: str, desired_total: int, interval: str):
     all_candles = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])
 
     # Current time in milliseconds since epoch
-    end_time_ms = int(datetime.utcnow().timestamp() * 1000)
+    end_time_ms = int(timestamp * 1000)
 
     # Define the maximum number of candles per batch request
     batch_limit = 200

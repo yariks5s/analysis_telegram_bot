@@ -27,8 +27,10 @@ Todo:
 - [x] Prevent from creating a multiple signal queries for the same currency
 - [x] Possibility to choose whether we need a chart along with the signal using query setting
 - [x] Clarify the exception message for this use-case: '/create_signal ARBUSDT 1 2'
-- [ ] Possibility to apply only chosen indicators to signals
+- [x] Possibility to apply only chosen indicators to signals
 - [x] Limit frequency of signals and amount of signals to not violate the API limits
+- [x] Testing system (backtesting)
+- [ ] Make the system that will set the right logic coefficients based on backtesting
 - [ ] If possible, make the bot to continue sending signals after it is restarted
 - [ ] Create a neural network and make it learn on own data
 - [ ] Integrate a neural network to the predictions system
