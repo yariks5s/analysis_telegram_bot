@@ -15,6 +15,7 @@ learning_rate = 0.05  # Step size for adjusting weights
 iterations = 1000  # Number of iterations for tuning
 evaluation_runs = 20  # How many tests per weight set
 
+
 # --- Function to evaluate weights ---
 def evaluate_weights(weights):
     try:
@@ -39,7 +40,9 @@ def evaluate_weights(weights):
                     symbol, interval, candles, window, initial_balance, weights=weights
                 )
 
-                revenue_percent = ((final_balance - initial_balance) / initial_balance) * 100
+                revenue_percent = (
+                    (final_balance - initial_balance) / initial_balance
+                ) * 100
                 total_revenue_percent += revenue_percent
 
         avg_revenue_percent = total_revenue_percent / (evaluation_runs * num_pairs)
@@ -48,6 +51,7 @@ def evaluate_weights(weights):
     except Exception as e:
         print("Error:", e)
         return -9999  # Return a large negative value in case of failure
+
 
 # --- AI Optimization Process ---
 def optimize_weights(weights, iterations, learning_rate):
@@ -77,6 +81,7 @@ def optimize_weights(weights, iterations, learning_rate):
     print(f"Optimized Weights: {best_weights}")
 
     return best_weights
+
 
 if __name__ == "__main__":
     optimized_weights = optimize_weights(weights, iterations, learning_rate)

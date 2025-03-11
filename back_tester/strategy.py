@@ -18,7 +18,7 @@ def backtest_strategy(  # TODO: LOGGING INSTEAD OF PRINTING
     window: int = 300,
     initial_balance: float = 10000.0,
     liq_lev_tolerance: float = 0.05,
-    weights: list = []
+    weights: list = [],
 ) -> (float, list):  # type: ignore
     """
     Backtest a simple strategy:

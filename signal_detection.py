@@ -237,7 +237,7 @@ async def multi_timeframe_analysis(
 # Multi-timeframe Aggregation of Signals
 ###############################################################################
 def generate_multi_tf_signal_proba(
-    mtf_results: Dict[str, Dict[str, any]]
+    mtf_results: Dict[str, Dict[str, any]],
 ) -> (str, float, float, str):  # type: ignore
     """
     Aggregates signals from multiple timeframes. For each timeframe, we use
