@@ -1,7 +1,7 @@
 import random
 import os
 import sys
-import numpy as np # type: ignore
+import numpy as np
 
 project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(project_dir)

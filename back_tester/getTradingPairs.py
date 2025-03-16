@@ -1,4 +1,4 @@
-import requests # type: ignore
+import requests
 
 url = "https://api.bybit.com/spot/v1/symbols"
 response = requests.get(url)
