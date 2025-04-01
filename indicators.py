@@ -5,56 +5,125 @@ from IndicatorUtils.fvg_utils import FVG, FVGs
 from IndicatorUtils.liquidity_level_utils import LiquidityLevel, LiquidityLevels
 from IndicatorUtils.breaker_block_utils import BreakerBlock, BreakerBlocks
 
+from utils import is_bullish, is_bearish
+
 
 def detect_order_blocks(
-    df: pd.DataFrame, volume_threshold=1.5, body_percentage=0.5, breakout_factor=1.01
+    df: pd.DataFrame,
+    max_candles: int = 7,
+    impulse_threshold_multiplier: float = 1.2,
+    min_gap: int = 5
 ):
     """
-    Detect less sensitive order blocks based on bullish or bearish breakouts.
-
-    Parameters:
-        df (pd.DataFrame): A DataFrame containing OHLCV data with columns ['Open', 'High', 'Low', 'Close', 'Volume'].
-        volume_threshold (float): Multiplier to determine significant volume (e.g., 1.5x the average).
-        body_percentage (float): Minimum body size as a percentage of the candle's range to be considered significant.
-        breakout_factor (float): Multiplier to determine the strength of the breakout (e.g., 1.01 for 1% breakout).
-
+    Detects order blocks and evaluates impulse strength by comparing the average price change
+    per confirming candle during the impulse with the average price change of regular candles.
+    
+    For a bullish order block candidate (candidate is bearish: Close < Open):
+      - Checks up to max_candles following candles.
+      - Counts confirmations: a candle confirms if its Close > candidate's High.
+      - The counting is done from the end of the window backward.
+      - Computes impulse_change as the difference between the last confirming candle's Close 
+        and candidate's High.
+      - Computes average_impulse_change = impulse_change / impulse_count.
+      - The candidate is considered a valid bullish order block if average_impulse_change 
+        >= impulse_threshold_multiplier * baseline_change.
+    
+    For a bearish order block candidate (candidate is bullish: Close > Open):
+      - Checks up to max_candles following candles.
+      - A candle confirms if its Close < candidate's Low.
+      - Counts confirmations from the end backward.
+      - Computes impulse_change as the difference between candidate's Low and the last confirming 
+        candle's Close.
+      - Computes average_impulse_change = impulse_change / impulse_count.
+      - The candidate is considered valid if average_impulse_change 
+        >= impulse_threshold_multiplier * baseline_change.
+    
+    Additionally, if two order blocks are detected too close to each other (i.e. within min_gap candles),
+    the second one replaces the first.
+    
+    Args:
+        df (pd.DataFrame): DataFrame containing candlestick data with columns 'Open', 'High', 'Low', 'Close'.
+        max_candles (int): Maximum number of candles to consider for confirmation (default is 7).
+        impulse_threshold_multiplier (float): Multiplier to compare the impulse's average change 
+                                              with the baseline average change.
+        min_gap (int): Minimum gap (in candle count) required between order blocks.
+    
     Returns:
-        list: A list of tuples representing order blocks, where each tuple is:
-              (index, high, low, type)
-              - index: Index of the order block candle
-              - high: High of the candle
-              - low: Low of the candle
-              - type: 'bullish' or 'bearish'
+        OrderBlocks: An instance of the OrderBlocks class containing detected OrderBlock objects.
     """
     order_blocks = OrderBlocks()
-    avg_volume = df["Volume"].mean()
-
-    for i in range(1, len(df) - 3):
-        high, low, close, open_price = (
-            df["High"].iloc[i],
-            df["Low"].iloc[i],
-            df["Close"].iloc[i],
-            df["Open"].iloc[i],
-        )
-        volume = df["Volume"].iloc[i]
-
-        body_size = abs(close - open_price)
-        range_size = high - low
-
-        # Skip small candles
-        if range_size == 0 or body_size / range_size < body_percentage:
-            continue
-
-        # Skip low-volume candles
-        if volume < volume_threshold * avg_volume:
-            continue
-
-        # Detect order blocks
-        if close < open_price and df["Close"].iloc[i + 1] > high * breakout_factor:
-            order_blocks.add(OrderBlock("bearish", i, high, low))
-        elif close > open_price and df["Close"].iloc[i + 1] < low * breakout_factor:
-            order_blocks.add(OrderBlock("bullish", i, high, low))
-
+    
+    # Compute baseline average change (absolute difference between Close and Open) for all candles
+    baseline_change = (df["Close"] - df["Open"]).abs().mean()
+    
+    # Loop over candidate candles ensuring enough candles for confirmation exist
+    for i in range(len(df) - max_candles):
+        candidate = df.iloc[i]
+        
+        # Process bullish order block candidate:
+        # Candidate candle is bearish (Close < Open) and we expect confirmation with Close > candidate's High.
+        if is_bearish(candidate):
+            window = df.iloc[i+1:i+max_candles+1]
+            confirmations = [candle["Close"] > candidate["High"] for _, candle in window.iterrows()]
+            impulse_count = 0
+            last_confirming_close = None
+            # Count consecutive confirmations starting from the end of the window
+            for condition, close_value in zip(reversed(confirmations), reversed(window["Close"].tolist())):
+                if condition:
+                    impulse_count += 1
+                    if last_confirming_close is None:
+                        last_confirming_close = close_value
+                else:
+                    break
+            
+            if impulse_count > 0 and last_confirming_close is not None:
+                impulse_change = last_confirming_close - candidate["High"]
+                average_impulse_change = impulse_change / impulse_count
+                # Compare with baseline change to determine if this is a valid impulse
+                if average_impulse_change >= impulse_threshold_multiplier * baseline_change:
+                    # Now we check if there are any more bearish candles ahead to get the last one
+                    index = i
+                    while (is_bearish(df.iloc[index + 1])):
+                        candidate = df.iloc[index + 1]
+                        index += 1
+                    ready_candidate = OrderBlock("bullish", index, candidate["High"], candidate["Low"])
+                    # Check if the last accepted order block is too close.
+                    if order_blocks.list and (i - order_blocks.list[-1].index < min_gap):
+                        # Replace the previous order block with the current one.
+                        order_blocks.list[-1] = ready_candidate
+                    else:
+                        order_blocks.add(ready_candidate)
+        
+        # Process bearish order block candidate:
+        # Candidate candle is bullish (Close > Open) and we expect confirmation with Close < candidate's Low.
+        elif is_bullish(candidate):
+            window = df.iloc[i+1:i+max_candles+1]
+            confirmations = [candle["Close"] < candidate["Low"] for _, candle in window.iterrows()]
+            impulse_count = 0
+            last_confirming_close = None
+            for condition, close_value in zip(reversed(confirmations), reversed(window["Close"].tolist())):
+                if condition:
+                    impulse_count += 1
+                    if last_confirming_close is None:
+                        last_confirming_close = close_value
+                else:
+                    break
+            
+            if impulse_count > 0 and last_confirming_close is not None:
+                impulse_change = candidate["Low"] - last_confirming_close
+                average_impulse_change = impulse_change / impulse_count
+                if average_impulse_change >= impulse_threshold_multiplier * baseline_change:
+                    # Now we check if there are any more bullish candles ahead to get the last one
+                    index = i
+                    while (is_bullish(df.iloc[index + 1])):
+                        candidate = df.iloc[index + 1]
+                        index += 1
+                    ready_candidate = OrderBlock("bearish", index, candidate["High"], candidate["Low"])
+                    if order_blocks.list and (i - order_blocks.list[-1].index < min_gap):
+                        order_blocks.list[-1] = ready_candidate
+                    else:
+                        order_blocks.add(ready_candidate)
+    
     return order_blocks
 
 
@@ -65,10 +134,16 @@ def detect_multi_candle_order_blocks(
     breakout_factor=1.01,
 ):
     """
-    1) Find 'consolidation zones' of at least min_consolidation_candles
-       where the range is small and overlapping.
-    2) Confirm a breakout from that zone with volume above average * volume_multiplier.
-    3) Mark that consolidation zone as an 'order block zone.'
+    Detect order blocks by:
+      1. Identifying consolidation zones where at least `min_consolidation_candles` have overlapping ranges.
+      2. Confirming a breakout from that zone with volume above average * volume_multiplier.
+      3. Marking the zone as an order block zone.
+    
+    For a bullish order block, the breakout candle closes above the consolidation zone’s high.
+    For a bearish order block, the breakout candle closes below the consolidation zone’s low.
+
+    Returns:
+        OrderBlocks: A collection of detected multi-candle order blocks.
     """
     blocks = OrderBlocks()
     if df.empty:

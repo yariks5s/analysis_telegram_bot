@@ -39,3 +39,15 @@ def create_true_preferences():
     preferences["breaker_blocks"] = True
 
     return preferences
+
+def is_bullish(candle):
+    """
+    Detects whether the candle is bullish
+    """
+    return candle["Close"] > candle["Open"]
+
+def is_bearish(candle):
+    """
+    Detects whether the candle is bullish
+    """
+    return candle["Close"] < candle["Open"]
