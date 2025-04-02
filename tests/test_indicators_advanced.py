@@ -184,7 +184,7 @@ def test_detect_order_blocks(dataframe):
     assert (
         str(order_blocks)
         == """
-OrderBlock(type=bearish, index=7, high=0.8097, low=0.7623)"""
+OrderBlock(type=bullish, index=7, high=0.8097, low=0.7623)"""
     )
 
 
