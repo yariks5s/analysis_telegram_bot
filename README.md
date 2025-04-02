@@ -15,7 +15,7 @@ Todo:
 - [ ] Add tests for this
 - [x] Don't count very small FVGs
 - [x] Impove handling the cases where some indicators are not shown (Covered FVGs in text representation)
-- [ ] Tune order block detection - **Important**
+- [x] Tune order block detection - **Important**
 - [x] Keep previous 1000 candles in history and send signal based on the extended analysis (probably multi-frame) - done in another way (merging requests responses)
 - [x] Create a logic regarding pinging users about signals
 - [ ] Add tests for this
