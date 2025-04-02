@@ -8,22 +8,24 @@ from IndicatorUtils.breaker_block_utils import BreakerBlock, BreakerBlocks
 from utils import is_bullish, is_bearish
 
 
-def detect_impulses(df: pd.DataFrame, overall_impulse_multiplier: float = 1.5, min_chain_length: int = 2):
+def detect_impulses(
+    df: pd.DataFrame, overall_impulse_multiplier: float = 1.5, min_chain_length: int = 2
+):
     """
     Detect impulses in the DataFrame as chains of consecutive candles in the same direction.
-    
+
     For a bullish impulse:
       - The chain is built from consecutive bullish candles.
       - The overall move is: last candle's Close - first candle's Open.
-    
+
     For a bearish impulse:
       - The chain is built from consecutive bearish candles.
       - The overall move is: first candle's Close - last candle's Close.
-    
+
     An impulse is accepted if the overall move is at least overall_impulse_multiplier times
     the expected cumulative move (chain_length * baseline_change), where baseline_change is the
     average absolute change of all candles.
-    
+
     Returns:
         A list of impulses. Each impulse is a tuple:
           (chain_start_index, chain_end_index, impulse_type, overall_move, chain_length)
@@ -42,10 +44,22 @@ def detect_impulses(df: pd.DataFrame, overall_impulse_multiplier: float = 1.5, m
                 chain_end += 1
             chain_length = chain_end - chain_start + 1
             if chain_length >= min_chain_length:
-                overall_move = df.iloc[chain_end]["Close"] - df.iloc[chain_start]["Open"]
+                overall_move = (
+                    df.iloc[chain_end]["Close"] - df.iloc[chain_start]["Open"]
+                )
                 expected_move = chain_length * baseline_change
                 if overall_move >= overall_impulse_multiplier * expected_move:
-                    impulses.append((chain_start, chain_end, "bullish", overall_move, chain_length, df.iloc[chain_start]["Open"], df.iloc[chain_end]["Close"]))
+                    impulses.append(
+                        (
+                            chain_start,
+                            chain_end,
+                            "bullish",
+                            overall_move,
+                            chain_length,
+                            df.iloc[chain_start]["Open"],
+                            df.iloc[chain_end]["Close"],
+                        )
+                    )
             i = chain_end + 1
         # Detect bearish impulses: consecutive bearish candles.
         elif is_bearish(candle):
@@ -55,40 +69,55 @@ def detect_impulses(df: pd.DataFrame, overall_impulse_multiplier: float = 1.5, m
                 chain_end += 1
             chain_length = chain_end - chain_start + 1
             if chain_length >= min_chain_length:
-                overall_move = df.iloc[chain_start]["Close"] - df.iloc[chain_end]["Close"]
+                overall_move = (
+                    df.iloc[chain_start]["Close"] - df.iloc[chain_end]["Close"]
+                )
                 expected_move = chain_length * baseline_change
                 if overall_move >= overall_impulse_multiplier * expected_move:
-                    impulses.append((chain_start, chain_end, "bearish", overall_move, chain_length, df.iloc[chain_start]["Open"], df.iloc[chain_end]["Close"]))
+                    impulses.append(
+                        (
+                            chain_start,
+                            chain_end,
+                            "bearish",
+                            overall_move,
+                            chain_length,
+                            df.iloc[chain_start]["Open"],
+                            df.iloc[chain_end]["Close"],
+                        )
+                    )
             i = chain_end + 1
         else:
             i += 1
     return impulses
 
-def detect_order_blocks_from_impulses(df: pd.DataFrame, impulses, min_gap: int = 5) -> "OrderBlocks":
+
+def detect_order_blocks_from_impulses(
+    df: pd.DataFrame, impulses, min_gap: int = 5
+) -> "OrderBlocks":
     """
     For each detected impulse, find the candidate order block by searching backwards from the start
     of the impulse until a candle with the opposite trend is found. For a bullish impulse (upward move),
     the candidate must be bearish; for a bearish impulse (downward move), the candidate must be bullish.
-    
+
     If two order blocks are too close (within min_gap candles), the later one replaces the earlier.
-    
+
     Args:
         df (pd.DataFrame): DataFrame with candlestick data.
         impulses (list): List of impulses as returned by detect_impulses().
         min_gap (int): Minimum gap (in candle count) required between order blocks.
-    
+
     Returns:
         OrderBlocks: An instance containing detected OrderBlock objects.
     """
     order_blocks = OrderBlocks()
-    
+
     for impulse in impulses:
         chain_start, chain_end, impulse_type, overall_move, chain_length, _, _ = impulse
-        
+
         # Start from the candle immediately before the impulse chain
         candidate_index = chain_start - 1
         found_candidate = None
-        
+
         # For bullish impulse, search backwards for the closest bearish candle.
         if impulse_type == "bullish":
             while candidate_index >= 0:
@@ -97,7 +126,7 @@ def detect_order_blocks_from_impulses(df: pd.DataFrame, impulses, min_gap: int =
                     found_candidate = candidate_index
                     break
                 candidate_index -= 1
-        
+
         # For bearish impulse, search backwards for the closest bullish candle.
         elif impulse_type == "bearish":
             while candidate_index >= 0:
@@ -106,45 +135,54 @@ def detect_order_blocks_from_impulses(df: pd.DataFrame, impulses, min_gap: int =
                     found_candidate = candidate_index
                     break
                 candidate_index -= 1
-        
+
         if found_candidate is None:
             # No suitable candidate found; skip this impulse.
             continue
-        
+
         candidate_index = found_candidate
         candidate = df.iloc[candidate_index]
-        
+
         # The order block's type is derived from the impulse type.
         # For bullish impulse, we label the order block as "bullish" (indicating a potential supply zone).
         # For bearish impulse, we label it as "bearish" (indicating a potential demand zone).
         block_type = impulse_type
-        
-        new_block = OrderBlock(block_type, candidate_index, candidate["High"], candidate["Low"])
+
+        new_block = OrderBlock(
+            block_type, candidate_index, candidate["High"], candidate["Low"]
+        )
         new_block.pos = candidate_index  # store positional index
-        
+
         # Enforce the minimum gap between order blocks.
-        if order_blocks.list and (candidate_index - order_blocks.list[-1].index < min_gap) and order_blocks.list[-1].block_type == new_block.block_type:
+        if (
+            order_blocks.list
+            and (candidate_index - order_blocks.list[-1].index < min_gap)
+            and order_blocks.list[-1].block_type == new_block.block_type
+        ):
             order_blocks.list[-1] = new_block
         else:
             order_blocks.add(new_block)
-    
+
     return order_blocks
 
-def detect_order_blocks(df: pd.DataFrame,
-                        overall_impulse_multiplier: float = 1.5,
-                        min_chain_length: int = 2,
-                        min_gap: int = 5):
+
+def detect_order_blocks(
+    df: pd.DataFrame,
+    overall_impulse_multiplier: float = 1.5,
+    min_chain_length: int = 2,
+    min_gap: int = 5,
+):
     """
     Detect potential order blocks by first detecting impulses in the DataFrame and then determining
     the candidate order block for each impulse. The candidate order block is the candle immediately preceding
     the impulse chain.
-    
+
     Args:
         df (pd.DataFrame): DataFrame with candlestick data ('Open', 'High', 'Low', 'Close').
         overall_impulse_multiplier (float): Multiplier threshold for impulse detection.
         min_chain_length (int): Minimum number of candles in an impulse chain.
         min_gap (int): Minimum gap (in candle count) required between order blocks.
-    
+
     Returns:
         OrderBlocks: An instance containing the detected OrderBlock objects.
     """
