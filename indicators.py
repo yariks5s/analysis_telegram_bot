@@ -1,9 +1,13 @@
 import pandas as pd  # type: ignore
+import numpy as np # type: ignore
 
 from IndicatorUtils.order_block_utils import OrderBlock, OrderBlocks
 from IndicatorUtils.fvg_utils import FVG, FVGs
 from IndicatorUtils.liquidity_level_utils import LiquidityLevel, LiquidityLevels
 from IndicatorUtils.breaker_block_utils import BreakerBlock, BreakerBlocks
+
+from sklearn.cluster import DBSCAN # type: ignore
+from typing import Tuple, List
 
 from utils import is_bullish, is_bearish
 
@@ -257,49 +261,77 @@ def detect_fvgs(df: pd.DataFrame, min_fvg_ratio=0.005):
 ### NOTE: Instead of support and resistance levels we can do just a liquidity levels
 
 
+def is_local_min(df: pd.DataFrame, i: int, n: int = 3) -> bool:
+    return all(df["Low"].iloc[i] < df["Low"].iloc[i - j] and df["Low"].iloc[i] < df["Low"].iloc[i + j] for j in range(1, n + 1))
+
+def is_local_max(df: pd.DataFrame, i: int, n: int = 3) -> bool:
+    return all(df["High"].iloc[i] > df["High"].iloc[i - j] and df["High"].iloc[i] > df["High"].iloc[i + j] for j in range(1, n + 1))
+
+def find_extrema(df: pd.DataFrame, n: int = 3):
+    supports, resistances = [], []
+    for i in range(n, len(df) - n):
+        if is_local_min(df, i, n):
+            supports.append(df["Low"].iloc[i])
+        if is_local_max(df, i, n):
+            resistances.append(df["High"].iloc[i])
+    return supports, resistances
+
+def cluster_levels(levels, eps: float = 0.03, min_samples: int = 2):
+    if not levels:
+        return []
+
+    data = np.array(levels).reshape(-1, 1)
+    model = DBSCAN(eps=eps * np.mean(levels), min_samples=min_samples)
+    model.fit(data)
+
+    clusters = {}
+    for level, label in zip(levels, model.labels_):
+        if label == -1:
+            continue  # noise
+        clusters.setdefault(label, []).append(level)
+
+    clustered = [np.mean(cluster) for cluster in clusters.values()]
+    return sorted(clustered)
+
+def count_touches(df: pd.DataFrame, level: float, tolerance: float = 0.005) -> int:
+    touches = 0
+    for _, row in df.iterrows():
+        if abs(row["Low"] - level) / level < tolerance or abs(row["High"] - level) / level < tolerance:
+            touches += 1
+    return touches
+
+def filter_by_touch_frequency(df, levels, min_touches: int = 2, tolerance: float = 0.005):
+    return [level for level in levels if count_touches(df, level, tolerance) >= min_touches]
+
+
 def detect_support_resistance_levels(
-    df: pd.DataFrame, window: int = 50, tolerance: float = 0.05
-):
+    df: pd.DataFrame,
+    window: int = 200,
+    extrema_window: int = 3,
+    eps: float = 0.01,
+    min_cluster_size: int = 2,
+    min_touches: int = 2,
+    tolerance: float = 0.005
+) -> LiquidityLevels:
     """
-    Identifies support and resistance levels within a given range of candlesticks.
-
-    Parameters:
-        df (pd.DataFrame): OHLC data (Open, High, Low, Close).
-        window (int): The number of recent candlesticks to analyze (between 50 and 200).
-        tolerance (float): The tolerance for grouping nearby levels (default is 0.2%).
-
-    Returns:
-        Tuple[List[float], List[float]]: Lists of support and resistance levels.
+    Detects support and resistance levels and returns LiquidityLevels object.
     """
-    # Ensure the window size does not exceed the DataFrame size
-    recent_df = df.tail(window)
-    levels = LiquidityLevels()
+    df = df.tail(window).copy().reset_index(drop=True)
+    supports, resistances = find_extrema(df, n=extrema_window)
 
-    for i in range(1, len(recent_df) - 1):
-        low, high = recent_df["Low"].iloc[i], recent_df["High"].iloc[i]
+    clustered_supports = cluster_levels(supports, eps=eps, min_samples=min_cluster_size)
+    clustered_resistances = cluster_levels(resistances, eps=eps, min_samples=min_cluster_size)
 
-        # Local minima as support
-        if low < recent_df["Low"].iloc[i - 1] and low < recent_df["Low"].iloc[i + 1]:
-            levels.add(LiquidityLevel("support", low))
+    filtered_supports = filter_by_touch_frequency(df, clustered_supports, min_touches, tolerance)
+    filtered_resistances = filter_by_touch_frequency(df, clustered_resistances, min_touches, tolerance)
 
-        # Local maxima as resistance
-        if (
-            high > recent_df["High"].iloc[i - 1]
-            and high > recent_df["High"].iloc[i + 1]
-        ):
-            levels.add(LiquidityLevel("resistance", high))
+    result = LiquidityLevels()
+    for level in filtered_supports:
+        result.add(LiquidityLevel("support", level))
+    for level in filtered_resistances:
+        result.add(LiquidityLevel("resistance", level))
 
-    # Group levels
-    grouped_levels = LiquidityLevels()
-    for level in levels.list:
-        if (
-            not grouped_levels
-            or abs(level.price - grouped_levels.list[-1].price)
-            > tolerance * level.price
-        ):
-            grouped_levels.add(level)
-
-    return grouped_levels
+    return result
 
 
 def detect_breaker_blocks(df: pd.DataFrame, liquidity_levels: LiquidityLevels):
