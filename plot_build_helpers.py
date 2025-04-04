@@ -151,7 +151,7 @@ def add_liquidity_levels(ax, liquidity_levels):
     for level in liquidity_levels.list:
         ax[0].axhline(
             y=level.price,
-            color="green" if level.is_support() else "red",
+            color="green",
             linestyle="--",
             linewidth=1,
         )

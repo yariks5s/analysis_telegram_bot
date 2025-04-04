@@ -303,7 +303,6 @@ def count_touches(df: pd.DataFrame, level: float, tolerance: float = 0.005) -> i
 def filter_by_touch_frequency(df, levels, min_touches: int = 2, tolerance: float = 0.005):
     return [level for level in levels if count_touches(df, level, tolerance) >= min_touches]
 
-
 def detect_support_resistance_levels(
     df: pd.DataFrame,
     window: int = 200,
@@ -314,7 +313,7 @@ def detect_support_resistance_levels(
     tolerance: float = 0.005
 ) -> LiquidityLevels:
     """
-    Detects support and resistance levels and returns LiquidityLevels object.
+    Detects liquidity levels (merging support and resistance) and returns a LiquidityLevels object.
     """
     df = df.tail(window).copy().reset_index(drop=True)
     supports, resistances = find_extrema(df, n=extrema_window)
@@ -325,11 +324,12 @@ def detect_support_resistance_levels(
     filtered_supports = filter_by_touch_frequency(df, clustered_supports, min_touches, tolerance)
     filtered_resistances = filter_by_touch_frequency(df, clustered_resistances, min_touches, tolerance)
 
+    # Combine both supports and resistances into a single unified list of levels
+    unified_levels = filtered_supports + filtered_resistances
+
     result = LiquidityLevels()
-    for level in filtered_supports:
-        result.add(LiquidityLevel("support", level))
-    for level in filtered_resistances:
-        result.add(LiquidityLevel("resistance", level))
+    for level in unified_levels:
+        result.add(LiquidityLevel(level))
 
     return result
 
@@ -357,15 +357,9 @@ def detect_breaker_blocks(df: pd.DataFrame, liquidity_levels: LiquidityLevels):
         # Check for bullish and bearish breaker blocks
         for level in liquidity_levels.list:
             # Bullish breaker: sweeps support and reverses upward
-            if level.is_support() and low < level.price and close > level.price:
+            if low < level.price and close > level.price:
                 breaker_blocks.add(
                     BreakerBlock(block_type="bullish", index=i, zone=(low, high))
-                )
-
-            # Bearish breaker: sweeps resistance and reverses downward
-            elif level.is_resistance() and high > level.price and close < level.price:
-                breaker_blocks.add(
-                    BreakerBlock(block_type="bearish", index=i, zone=(low, high))
                 )
 
     return breaker_blocks
