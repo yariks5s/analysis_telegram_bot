@@ -2,7 +2,7 @@ import pytest  # type: ignore
 from indicators import (
     detect_order_blocks,
     detect_fvgs,
-    detect_support_resistance_levels,
+    detect_liquidity_levels,
     detect_breaker_blocks,
 )
 from IndicatorUtils.breaker_block_utils import BreakerBlocks

@@ -1,23 +1,15 @@
 class LiquidityLevel:
-    def __init__(self, level_type, price):
+    def __init__(self, price):
         """
-        Initialize a LiquidityLevel object.
+        Initialize a unified LiquidityLevel object.
 
         Parameters:
-            level_type (str): 'support' or 'resistance'.
             price (float): The price of the liquidity level.
         """
-        self.level_type = level_type
         self.price = price
 
     def __str__(self):
-        return f"LiquidityLevel(type={self.level_type}, price={self.price})"
-
-    def is_support(self):
-        return self.level_type == "support"
-
-    def is_resistance(self):
-        return self.level_type == "resistance"
+        return f"LiquidityLevel(price={self.price})"
 
 
 class LiquidityLevels:
