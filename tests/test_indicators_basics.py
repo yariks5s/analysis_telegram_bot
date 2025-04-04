@@ -6,7 +6,7 @@ sys.path.append(project_dir)
 from indicators import (
     detect_order_blocks,
     detect_fvgs,
-    detect_support_resistance_levels,
+    detect_liquidity_levels,
     detect_breaker_blocks,
 )
 from IndicatorUtils.breaker_block_utils import BreakerBlocks
@@ -22,12 +22,12 @@ def test_detect_fvgs(sample_dataframe):
     assert isinstance(fvgs.list, list)
 
 
-def test_detect_support_resistance_levels(sample_dataframe):
-    levels = detect_support_resistance_levels(sample_dataframe, window=2, tolerance=0.1)
+def test_detect_liquidity_levels(sample_dataframe):
+    levels = detect_liquidity_levels(sample_dataframe, window=2, tolerance=0.1)
     assert isinstance(levels.list, list)
 
 
 def test_detect_breaker_blocks(sample_dataframe):
-    levels = detect_support_resistance_levels(sample_dataframe)
+    levels = detect_liquidity_levels(sample_dataframe)
     breaker_blocks = detect_breaker_blocks(sample_dataframe, levels)
     assert isinstance(breaker_blocks, BreakerBlocks)

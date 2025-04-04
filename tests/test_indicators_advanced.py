@@ -2,7 +2,7 @@ import pytest  # type: ignore
 from indicators import (
     detect_order_blocks,
     detect_fvgs,
-    detect_support_resistance_levels,
+    detect_liquidity_levels,
     detect_breaker_blocks,
 )
 from IndicatorUtils.breaker_block_utils import BreakerBlocks
@@ -203,10 +203,10 @@ FVG(type=bullish, start_index=10, end_index=12, start_price=0.8649, end_price=0.
     )
 
 
-def test_detect_support_resistance_levels(dataframe):
-    """Test detect_support_resistance_levels function."""
+def test_detect_liquidity_levels(dataframe):
+    """Test detect_liquidity_levels function."""
 
-    levels = detect_support_resistance_levels(dataframe)
+    levels = detect_liquidity_levels(dataframe)
     assert isinstance(
         levels, LiquidityLevels
     ), "Support and resistance levels should return a LiquidityLevels instance."
@@ -222,7 +222,7 @@ LiquidityLevel(type=resistance, price=0.8662)"""
 def test_detect_breaker_blocks(dataframe):
     """Test detect_breaker_blocks function."""
 
-    levels = detect_support_resistance_levels(dataframe)
+    levels = detect_liquidity_levels(dataframe)
     breaker_blocks = detect_breaker_blocks(dataframe, levels)
     assert isinstance(
         breaker_blocks, BreakerBlocks

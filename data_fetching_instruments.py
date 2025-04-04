@@ -7,7 +7,7 @@ from utils import VALID_INTERVALS, logger, API_URL
 from indicators import (
     detect_order_blocks,
     detect_fvgs,
-    detect_support_resistance_levels,
+    detect_liquidity_levels,
     detect_breaker_blocks,
 )
 from IndicatorUtils.indicators import Indicators
@@ -169,8 +169,8 @@ def analyze_data(df: pd.DataFrame, preferences, liq_lev_tolerance):
 
     liquidity_levels = {}
     if preferences["liquidity_levels"]:
-        liquidity_levels = detect_support_resistance_levels(
-            df, window=len(df), tolerance=liq_lev_tolerance
+        liquidity_levels = detect_liquidity_levels(
+            df, window=len(df), stdev_multiplier=liq_lev_tolerance
         )
         logger.info(f"Detected Liquidity Levels: {liquidity_levels}")
         indicators.liquidity_levels = liquidity_levels
