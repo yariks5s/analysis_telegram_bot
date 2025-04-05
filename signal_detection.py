@@ -96,29 +96,29 @@ def generate_price_prediction_signal_proba(
 
     # TODO!
     # if indicators.liquidity_levels and indicators.liquidity_levels.list:
-        # Find last discovered support
-        # supports = [
-        #     lvl.price for lvl in indicators.liquidity_levels.list if lvl.is_support()
-        # ]
-        # if supports:
-        #     last_support = supports[-1]
-        #     if last_close > last_support:
-        #         above_support = True
-        #         reasons.append(
-        #             f"Price {last_close:.2f} is above support {last_support:.2f}"
-        #         )
+    # Find last discovered support
+    # supports = [
+    #     lvl.price for lvl in indicators.liquidity_levels.list if lvl.is_support()
+    # ]
+    # if supports:
+    #     last_support = supports[-1]
+    #     if last_close > last_support:
+    #         above_support = True
+    #         reasons.append(
+    #             f"Price {last_close:.2f} is above support {last_support:.2f}"
+    #         )
 
-        # Find last discovered resistance
-        # resistances = [
-        #     lvl.price for lvl in indicators.liquidity_levels.list if lvl.is_resistance()
-        # ]
-        # if resistances:
-        #     last_resistance = resistances[-1]
-        #     if last_close < last_resistance:
-        #         below_resistance = True
-        #         reasons.append(
-        #             f"Price {last_close:.2f} is below resistance {last_resistance:.2f}"
-        #        )
+    # Find last discovered resistance
+    # resistances = [
+    #     lvl.price for lvl in indicators.liquidity_levels.list if lvl.is_resistance()
+    # ]
+    # if resistances:
+    #     last_resistance = resistances[-1]
+    #     if last_close < last_resistance:
+    #         below_resistance = True
+    #         reasons.append(
+    #             f"Price {last_close:.2f} is below resistance {last_resistance:.2f}"
+    #        )
 
     if above_support:
         bullish_score += W_ABOVE_SUPPORT

@@ -1,13 +1,12 @@
 import pandas as pd  # type: ignore
-import numpy as np # type: ignore
+import numpy as np  # type: ignore
 
 from IndicatorUtils.order_block_utils import OrderBlock, OrderBlocks
 from IndicatorUtils.fvg_utils import FVG, FVGs
 from IndicatorUtils.liquidity_level_utils import LiquidityLevel, LiquidityLevels
 from IndicatorUtils.breaker_block_utils import BreakerBlock, BreakerBlocks
 
-from sklearn.cluster import DBSCAN # type: ignore
-from typing import Tuple, List
+from sklearn.cluster import DBSCAN  # type: ignore
 
 from utils import is_bullish, is_bearish
 
@@ -261,7 +260,7 @@ def detect_fvgs(df: pd.DataFrame, min_fvg_ratio=0.005):
 def compute_atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
     """
     Compute the Average True Range (ATR) over a specified period.
-    
+
     ATR is used to measure volatility. Here it helps determine the significance
     of pivots and scales the touch tolerances.
 
@@ -273,21 +272,24 @@ def compute_atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
         pd.Series: ATR values computed as the rolling mean of the true range.
     """
     # Calculate differences needed for True Range
-    high_low = df['High'] - df['Low']
-    high_close = (df['High'] - df['Close'].shift()).abs()
-    low_close = (df['Low'] - df['Close'].shift()).abs()
+    high_low = df["High"] - df["Low"]
+    high_close = (df["High"] - df["Close"].shift()).abs()
+    low_close = (df["Low"] - df["Close"].shift()).abs()
     # True Range is the maximum of the three measures per bar
     true_range = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
     return true_range.rolling(period).mean()
 
-def is_swing_high(df: pd.DataFrame, i: int, left_bars: int, right_bars: int, min_move: float) -> bool:
+
+def is_swing_high(
+    df: pd.DataFrame, i: int, left_bars: int, right_bars: int, min_move: float
+) -> bool:
     """
     Determine if the **candle body** at index i qualifies as a swing high pivot.
-    
+
     Here we consider the candle's body:
       - 'BodyHigh' is defined as max(Open, Close)
       - 'BodyLow' is defined as min(Open, Close)
-    
+
     A swing high pivot is defined by:
       - The current BodyHigh is greater than the BodyHigh of the previous 'left_bars' candles.
       - The current BodyHigh is greater than or equal to the BodyHigh of the next 'right_bars' candles.
@@ -305,23 +307,31 @@ def is_swing_high(df: pd.DataFrame, i: int, left_bars: int, right_bars: int, min
         bool: True if conditions are met, otherwise False
     """
     # Check if current high is greater than previous left_bars highs and at least equal to subsequent right_bars highs
-    pivot_condition = all(df['BodyHigh'].iloc[i] > df['BodyHigh'].iloc[i - j] for j in range(1, left_bars + 1)) and \
-                      all(df['BodyHigh'].iloc[i] >= df['BodyHigh'].iloc[i + j] for j in range(1, right_bars + 1))
+    pivot_condition = all(
+        df["BodyHigh"].iloc[i] > df["BodyHigh"].iloc[i - j]
+        for j in range(1, left_bars + 1)
+    ) and all(
+        df["BodyHigh"].iloc[i] >= df["BodyHigh"].iloc[i + j]
+        for j in range(1, right_bars + 1)
+    )
     if not pivot_condition:
         return False
 
     # Ensure the price difference is significant compared to ATR-based min_move
-    if (df['BodyHigh'].iloc[i] - df['BodyLow'].iloc[i - left_bars]) < min_move:
+    if (df["BodyHigh"].iloc[i] - df["BodyLow"].iloc[i - left_bars]) < min_move:
         return False
-    if (df['BodyHigh'].iloc[i] - df['BodyLow'].iloc[i + right_bars]) < min_move:
+    if (df["BodyHigh"].iloc[i] - df["BodyLow"].iloc[i + right_bars]) < min_move:
         return False
 
     return True
 
-def is_swing_low(df: pd.DataFrame, i: int, left_bars: int, right_bars: int, min_move: float) -> bool:
+
+def is_swing_low(
+    df: pd.DataFrame, i: int, left_bars: int, right_bars: int, min_move: float
+) -> bool:
     """
     Determine if the candle body at index i qualifies as a swing low pivot.
-    
+
     A swing low pivot is defined by:
       - The current BodyLow is lower than the BodyLow of the previous 'left_bars' candles.
       - The current BodyLow is lower than or equal to the BodyLow of the next 'right_bars' candles.
@@ -339,31 +349,37 @@ def is_swing_low(df: pd.DataFrame, i: int, left_bars: int, right_bars: int, min_
         bool: True if conditions are met, otherwise False
     """
     # Check if current low is less than previous left_bars lows and less than or equal to subsequent right_bars lows
-    pivot_condition = all(df['BodyLow'].iloc[i] < df['BodyLow'].iloc[i - j] for j in range(1, left_bars + 1)) and \
-                      all(df['BodyLow'].iloc[i] <= df['BodyLow'].iloc[i + j] for j in range(1, right_bars + 1))
+    pivot_condition = all(
+        df["BodyLow"].iloc[i] < df["BodyLow"].iloc[i - j]
+        for j in range(1, left_bars + 1)
+    ) and all(
+        df["BodyLow"].iloc[i] <= df["BodyLow"].iloc[i + j]
+        for j in range(1, right_bars + 1)
+    )
     if not pivot_condition:
         return False
 
     # Ensure the price difference is significant compared to ATR-based min_move
-    if (df['BodyHigh'].iloc[i - left_bars] - df['BodyLow'].iloc[i]) < min_move:
+    if (df["BodyHigh"].iloc[i - left_bars] - df["BodyLow"].iloc[i]) < min_move:
         return False
-    if (df['BodyHigh'].iloc[i + right_bars] - df['BodyLow'].iloc[i]) < min_move:
+    if (df["BodyHigh"].iloc[i + right_bars] - df["BodyLow"].iloc[i]) < min_move:
         return False
 
     return True
+
 
 def find_pivots(
     df: pd.DataFrame,
     left_bars: int = 2,
     right_bars: int = 2,
     significance_multiplier: float = 0.5,
-    atr_period: int = 14
+    atr_period: int = 14,
 ):
     """
     Identify pivot points (swing highs and swing lows) using an ATR-based fractal method,
     considering only the candle body.
 
-    For each candle (ensuring enough candles exist on both sides), the function computes a 
+    For each candle (ensuring enough candles exist on both sides), the function computes a
     minimum required move (min_move) as significance_multiplier multiplied by the ATR at that candle.
     If the candle's body qualifies as a pivot (via is_swing_high or is_swing_low), it is recorded.
 
@@ -386,11 +402,12 @@ def find_pivots(
         # Determine the minimum required move for this bar
         min_move = significance_multiplier * atr_series.iloc[i]
         if is_swing_high(df, i, left_bars, right_bars, min_move):
-            pivot_highs.append(df['BodyHigh'].iloc[i])
+            pivot_highs.append(df["BodyHigh"].iloc[i])
         if is_swing_low(df, i, left_bars, right_bars, min_move):
-            pivot_lows.append(df['BodyLow'].iloc[i])
+            pivot_lows.append(df["BodyLow"].iloc[i])
 
     return pivot_lows, pivot_highs
+
 
 def detect_liquidity_levels(
     df: pd.DataFrame,
@@ -402,7 +419,7 @@ def detect_liquidity_levels(
     atr_period: int = 14,
     min_samples: int = 2,
     min_touches: int = 3,
-    atr_touch_multiplier: float = 0.2
+    atr_touch_multiplier: float = 0.2,
 ) -> LiquidityLevels:
     """
     Detect liquidity levels using an ATR-based fractal pivot method with DBSCAN clustering,
@@ -414,7 +431,7 @@ def detect_liquidity_levels(
       1. Limit analysis to the last 'window' candles and compute 'BodyHigh' and 'BodyLow'
       2. Identify significant pivot points (both swing highs and swing lows) using the ATR-based method
       3. Cluster the pivot points using DBSCAN with dynamic epsilon = (std_dev of pivots) * stdev_multiplier
-      4. Filter clusters based on "touch frequency": retain a cluster only if the price touches its centroid 
+      4. Filter clusters based on "touch frequency": retain a cluster only if the price touches its centroid
          at least 'min_touches' times. The touch tolerance is set as (latest ATR) * atr_touch_multiplier
       5. If a custom stdev_multiplier was used and the resulting number of liquidity levels is not in the specified range,
          adjust stdev_multiplier and recalculate the liquidity levels
@@ -443,11 +460,13 @@ def detect_liquidity_levels(
 
     # 1. Limit analysis to the last 'window' candles and compute body values
     df = df.tail(window).copy().reset_index(drop=True)
-    df['BodyHigh'] = df[['Open', 'Close']].max(axis=1)
-    df['BodyLow'] = df[['Open', 'Close']].min(axis=1)
+    df["BodyHigh"] = df[["Open", "Close"]].max(axis=1)
+    df["BodyLow"] = df[["Open", "Close"]].min(axis=1)
 
     # 2. Identify pivot lows and pivot highs based on candle body
-    pivot_lows, pivot_highs = find_pivots(df, left_bars, right_bars, significance_multiplier, atr_period)
+    pivot_lows, pivot_highs = find_pivots(
+        df, left_bars, right_bars, significance_multiplier, atr_period
+    )
     all_pivots = pivot_lows + pivot_highs
     if not all_pivots:
         return LiquidityLevels()
@@ -475,12 +494,16 @@ def detect_liquidity_levels(
         if not clusters_dict:
             return []
         clustered_levels = [np.mean(vals) for vals in clusters_dict.values()]
+
         # Count touches using candle body values
         def count_touches(level):
             count = 0
             for _, row in df.iterrows():
-                if (level - base_touch_tolerance) <= row['BodyLow'] <= (level + base_touch_tolerance) or \
-                   (level - base_touch_tolerance) <= row['BodyHigh'] <= (level + base_touch_tolerance):
+                if (level - base_touch_tolerance) <= row["BodyLow"] <= (
+                    level + base_touch_tolerance
+                ) or (level - base_touch_tolerance) <= row["BodyHigh"] <= (
+                    level + base_touch_tolerance
+                ):
                     count += 1
             return count
 
@@ -492,7 +515,7 @@ def detect_liquidity_levels(
 
     # 3. If custom stdev is not specified, adjust it to yield between 3 and 6 liquidity levels
     # Motivation: if we will have too many liquidity levels, using them will not make any sense
-    # So we might want either to rely on this logic and make the computer decide, how many 
+    # So we might want either to rely on this logic and make the computer decide, how many
     # liquidity levels it is there, or to go into the "pro" mode and try to specify the multiplier by yourself
     if not is_stdev_specified:
         target_min, target_max = 3, 6
