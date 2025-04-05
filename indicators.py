@@ -394,27 +394,31 @@ def find_pivots(
 
 def detect_liquidity_levels(
     df: pd.DataFrame,
+    stdev_multiplier: float,  # default is 0.05 if not provided
     window: int = 200,
     left_bars: int = 2,
     right_bars: int = 2,
     significance_multiplier: float = 0.5,
     atr_period: int = 14,
-    stdev_multiplier: float = 0.05,
     min_samples: int = 2,
     min_touches: int = 3,
     atr_touch_multiplier: float = 0.2
 ) -> LiquidityLevels:
     """
     Detect liquidity levels using an ATR-based fractal pivot method with DBSCAN clustering,
-    considering only the candle body. The process is as follows:
-    
-      1. Limit the analysis to the most recent 'window' candles and compute 'BodyHigh' and 'BodyLow'.
-      2. Identify significant pivot points (both swing highs and swing lows) using the ATR-based fractal method.
-      3. Cluster the pivot points using DBSCAN with a dynamic epsilon set as stdev_multiplier times the 
-         standard deviation of the pivot levels.
-      4. Filter the clusters based on touch frequency: a cluster is retained only if the price touches
-         its centroid at least 'min_touches' times. The touch tolerance is set as a fraction of the latest ATR.
-      5. Return the final liquidity levels.
+    considering only the candle body. If a custom stdev_multiplier is used (i.e. not provided),
+    the function will adjust it via binary search to ensure that the final number of liquidity levels
+    falls between 3 and 8
+
+    The process is as follows:
+      1. Limit analysis to the last 'window' candles and compute 'BodyHigh' and 'BodyLow'
+      2. Identify significant pivot points (both swing highs and swing lows) using the ATR-based method
+      3. Cluster the pivot points using DBSCAN with dynamic epsilon = (std_dev of pivots) * stdev_multiplier
+      4. Filter clusters based on "touch frequency": retain a cluster only if the price touches its centroid 
+         at least 'min_touches' times. The touch tolerance is set as (latest ATR) * atr_touch_multiplier
+      5. If a custom stdev_multiplier was used and the resulting number of liquidity levels is not in the specified range,
+         adjust stdev_multiplier and recalculate the liquidity levels
+      6. Return the final liquidity levels
 
     Parameters:
         df (pd.DataFrame): DataFrame with columns ['Open', 'High', 'Low', 'Close'].
@@ -431,6 +435,12 @@ def detect_liquidity_levels(
     Returns:
         LiquidityLevels: A container object holding all valid liquidity levels
     """
+    # Determine if we need to auto-adjust stdev_multiplier or it is set by user and we should not touch it
+    is_stdev_specified = True
+    if not stdev_multiplier:
+        is_stdev_specified = False
+        stdev_multiplier = 0.05
+
     # 1. Limit analysis to the last 'window' candles and compute body values
     df = df.tail(window).copy().reset_index(drop=True)
     df['BodyHigh'] = df[['Open', 'Close']].max(axis=1)
@@ -442,48 +452,69 @@ def detect_liquidity_levels(
     if not all_pivots:
         return LiquidityLevels()
 
-    # 3. Cluster pivot points using DBSCAN
+    # Pre-calculate some values that remain constant for different stdev_multiplier trials
     data = np.array(all_pivots).reshape(-1, 1)
     std_dev = np.std(all_pivots)
-    eps = std_dev * stdev_multiplier
-    model = DBSCAN(eps=eps, min_samples=min_samples)
-    model.fit(data)
-
-    # Group pivot points by their cluster labels (ignore noise, labeled as -1)
-    clusters_dict = {}
-    for lvl, lbl in zip(all_pivots, model.labels_):
-        if lbl == -1:
-            continue
-        clusters_dict.setdefault(lbl, []).append(lvl)
-    if not clusters_dict:
-        return LiquidityLevels()
-
-    # Group pivot points by their cluster labels (ignore noise, labeled as -1)
-    clustered_levels = [np.mean(vals) for vals in clusters_dict.values()]
-
-    # 4. Filter clusters by "touch frequency" using candle body
     atr_series = compute_atr(df, atr_period).fillna(0)
     last_atr = atr_series.iloc[-1] if not atr_series.empty else 0.0
-    touch_tolerance = last_atr * atr_touch_multiplier
+    base_touch_tolerance = last_atr * atr_touch_multiplier
 
-    def count_touches(df, level):
+    def calc_final_levels(multiplier: float) -> list:
         """
-        Count how many times the candle body touches within the dynamic tolerance of a level
-        Uses 'BodyHigh' and 'BodyLow' instead of the full candle extremes
+        Given a stdev_multiplier value, perform clustering and touch filtering
+        to return the final liquidity level centroids
         """
-        count = 0
-        for _, row in df.iterrows():
-            if (level - touch_tolerance) <= row['BodyLow'] <= (level + touch_tolerance) or \
-               (level - touch_tolerance) <= row['BodyHigh'] <= (level + touch_tolerance):
-                count += 1
-        return count
+        eps = std_dev * multiplier
+        model = DBSCAN(eps=eps, min_samples=min_samples)
+        model.fit(data)
+        clusters_dict = {}
+        for lvl, lbl in zip(all_pivots, model.labels_):
+            if lbl == -1:
+                continue
+            clusters_dict.setdefault(lbl, []).append(lvl)
+        if not clusters_dict:
+            return []
+        clustered_levels = [np.mean(vals) for vals in clusters_dict.values()]
+        # Count touches using candle body values
+        def count_touches(level):
+            count = 0
+            for _, row in df.iterrows():
+                if (level - base_touch_tolerance) <= row['BodyLow'] <= (level + base_touch_tolerance) or \
+                   (level - base_touch_tolerance) <= row['BodyHigh'] <= (level + base_touch_tolerance):
+                    count += 1
+            return count
 
-    final_levels = []
-    for lvl in clustered_levels:
-        if count_touches(df, lvl) >= min_touches:
-            final_levels.append(lvl)
+        final = [lvl for lvl in clustered_levels if count_touches(lvl) >= min_touches]
+        return sorted(final)
 
-    # 5. Wrap the final levels into the LiquidityLevels container
+    # Initially calculate final levels with the given stdev_multiplier
+    final_levels = calc_final_levels(stdev_multiplier)
+
+    # 3. If custom stdev is not specified, adjust it to yield between 3 and 6 liquidity levels
+    # Motivation: if we will have too many liquidity levels, using them will not make any sense
+    # So we might want either to rely on this logic and make the computer decide, how many 
+    # liquidity levels it is there, or to go into the "pro" mode and try to specify the multiplier by yourself
+    if not is_stdev_specified:
+        target_min, target_max = 3, 6
+        # Define search range for stdev_multiplier
+        low_multiplier, high_multiplier = 0.01, 0.2
+        # Perform binary search over 10 iterations
+        for _ in range(10):
+            trial_multiplier = (low_multiplier + high_multiplier) / 2.0
+            trial_levels = calc_final_levels(trial_multiplier)
+            count = len(trial_levels)
+            if target_min <= count <= target_max:
+                stdev_multiplier = trial_multiplier
+                final_levels = trial_levels
+                break
+            elif count < target_min:
+                # Too few levels: merge is too aggressive; decrease eps -> lower multiplier
+                high_multiplier = trial_multiplier
+            else:  # count > target_max
+                # Too many levels: clusters are too fragmented; increase multiplier to merge more
+                low_multiplier = trial_multiplier
+
+    # 4. Wrap the final levels into the LiquidityLevels container
     result = LiquidityLevels()
     for lvl in sorted(final_levels):
         result.add(LiquidityLevel(lvl))

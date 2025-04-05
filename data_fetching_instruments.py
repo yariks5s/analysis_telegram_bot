@@ -164,9 +164,6 @@ def analyze_data(df: pd.DataFrame, preferences, liq_lev_tolerance):
         logger.info(f"Detected FVGs: {fvgs}")
         indicators.fvgs = fvgs
 
-    if not liq_lev_tolerance:
-        liq_lev_tolerance = 0.05
-
     liquidity_levels = {}
     if preferences["liquidity_levels"]:
         liquidity_levels = detect_liquidity_levels(
