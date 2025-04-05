@@ -169,9 +169,24 @@ def setup_data():
 
 
 @pytest.fixture
+def setup_ll(sample_response_for_ll):
+    """Fixture to provide test data."""
+    args = sample_response_for_ll
+    update = {}
+
+    return args, update
+
+
+@pytest.fixture
 def dataframe(setup_data):
     args, update = setup_data
     # Default values
+    return fetch_from_json(args)
+
+
+@pytest.fixture
+def dataframe_ll(setup_ll):
+    args, _ = setup_ll
     return fetch_from_json(args)
 
 
@@ -203,34 +218,36 @@ FVG(type=bullish, start_index=10, end_index=12, start_price=0.8649, end_price=0.
     )
 
 
-def test_detect_liquidity_levels(dataframe):
+def test_detect_liquidity_levels(dataframe_ll):
     """Test detect_liquidity_levels function."""
 
-    levels = detect_liquidity_levels(dataframe)
+    levels = detect_liquidity_levels(dataframe_ll, {})
     assert isinstance(
         levels, LiquidityLevels
     ), "Support and resistance levels should return a LiquidityLevels instance."
     assert (
         str(levels)
         == """
-LiquidityLevel(type=support, price=0.871)
-LiquidityLevel(type=support, price=0.7618)
-LiquidityLevel(type=resistance, price=0.8662)"""
+LiquidityLevel(price=7.195e-06)"""
     )
 
 
-def test_detect_breaker_blocks(dataframe):
+def test_detect_breaker_blocks(dataframe_ll):
     """Test detect_breaker_blocks function."""
 
-    levels = detect_liquidity_levels(dataframe)
-    breaker_blocks = detect_breaker_blocks(dataframe, levels)
+    levels = detect_liquidity_levels(dataframe_ll, {})
+    breaker_blocks = detect_breaker_blocks(dataframe_ll, levels)
     assert isinstance(
         breaker_blocks, BreakerBlocks
     ), "Breaker blocks should return a BreakerBlocks instance."
     assert (
         str(breaker_blocks)
         == """
-BreakerBlock(type=bearish, index=4, zone=(0.8362, 0.8897))
-BreakerBlock(type=bullish, index=11, zone=(0.8529, 0.8912))
-BreakerBlock(type=bullish, index=12, zone=(0.8694, 0.896))"""
+BreakerBlock(type=bullish, index=20, zone=(7.02e-06, 7.24e-06))
+BreakerBlock(type=bullish, index=23, zone=(7.04e-06, 7.22e-06))
+BreakerBlock(type=bullish, index=25, zone=(7.18e-06, 7.27e-06))
+BreakerBlock(type=bullish, index=26, zone=(7.18e-06, 7.25e-06))
+BreakerBlock(type=bullish, index=33, zone=(7.17e-06, 7.27e-06))
+BreakerBlock(type=bullish, index=35, zone=(7.19e-06, 7.25e-06))
+BreakerBlock(type=bullish, index=36, zone=(7.18e-06, 7.25e-06))"""
     )

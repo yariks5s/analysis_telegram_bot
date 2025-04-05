@@ -32,7 +32,8 @@ Todo:
 - [x] Testing system (backtesting)
 - [ ] Abilty to toggle legend
 - [ ] Ability to toggle volumes
-- [ ] Optimize the process of normalizing the liquidity levels if no settings are specified
+- [x] Optimize the process of normalizing the liquidity levels if no settings are specified
+- [ ] Add a test for the task above
 - [ ] Make the system that will set the right logic coefficients based on backtesting
 - [ ] If possible, make the bot to continue sending signals after it is restarted
 - [ ] Create a neural network and make it learn on own data

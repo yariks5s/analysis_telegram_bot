@@ -439,12 +439,12 @@ def detect_liquidity_levels(
 
     Parameters:
         df (pd.DataFrame): DataFrame with columns ['Open', 'High', 'Low', 'Close'].
+        stdev_multiplier (float): Multiplier for the standard deviation of pivot levels to set DBSCAN's eps.
         window (int): Number of recent candles to analyze.
         left_bars (int): Number of candles to the left for validating a pivot.
         right_bars (int): Number of candles to the right for validating a pivot.
         significance_multiplier (float): Multiplier for ATR to determine the minimum move for a pivot.
         atr_period (int): Lookback period for ATR calculation.
-        stdev_multiplier (float): Multiplier for the standard deviation of pivot levels to set DBSCAN's eps.
         min_samples (int): Minimum number of samples for DBSCAN to form a cluster.
         min_touches (int): Minimum number of times price must "touch" a level to be valid.
         atr_touch_multiplier (float): Multiplier for ATR to set the touch tolerance.
@@ -474,6 +474,11 @@ def detect_liquidity_levels(
     # Pre-calculate some values that remain constant for different stdev_multiplier trials
     data = np.array(all_pivots).reshape(-1, 1)
     std_dev = np.std(all_pivots)
+    # Calculate eps; if std_dev is zero, set eps to a small positive value to avoid DBSCAN error
+    eps = std_dev * stdev_multiplier
+    if eps <= 0:
+        eps = 1e-5
+
     atr_series = compute_atr(df, atr_period).fillna(0)
     last_atr = atr_series.iloc[-1] if not atr_series.empty else 0.0
     base_touch_tolerance = last_atr * atr_touch_multiplier
@@ -483,8 +488,10 @@ def detect_liquidity_levels(
         Given a stdev_multiplier value, perform clustering and touch filtering
         to return the final liquidity level centroids
         """
-        eps = std_dev * multiplier
-        model = DBSCAN(eps=eps, min_samples=min_samples)
+        trial_eps = std_dev * multiplier
+        if trial_eps <= 0:
+            trial_eps = 1e-5
+        model = DBSCAN(eps=trial_eps, min_samples=min_samples)
         model.fit(data)
         clusters_dict = {}
         for lvl, lbl in zip(all_pivots, model.labels_):

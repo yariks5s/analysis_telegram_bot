@@ -23,11 +23,11 @@ def test_detect_fvgs(sample_dataframe):
 
 
 def test_detect_liquidity_levels(sample_dataframe):
-    levels = detect_liquidity_levels(sample_dataframe, window=2, tolerance=0.1)
+    levels = detect_liquidity_levels(sample_dataframe, stdev_multiplier={})
     assert isinstance(levels.list, list)
 
 
 def test_detect_breaker_blocks(sample_dataframe):
-    levels = detect_liquidity_levels(sample_dataframe)
+    levels = detect_liquidity_levels(sample_dataframe, stdev_multiplier={})
     breaker_blocks = detect_breaker_blocks(sample_dataframe, levels)
     assert isinstance(breaker_blocks, BreakerBlocks)
