@@ -172,7 +172,7 @@ def detect_order_blocks_from_impulses(
 def detect_order_blocks(
     df: pd.DataFrame,
     overall_impulse_multiplier: float = 1.5,
-    min_chain_length: int = 2,
+    min_chain_length: int = 1,
     min_gap: int = 5,
 ):
     """
@@ -193,11 +193,26 @@ def detect_order_blocks(
     return detect_order_blocks_from_impulses(df, impulses, min_gap)
 
 
-def detect_fvgs(df: pd.DataFrame, min_fvg_ratio=0.005):
+def detect_fvgs(df: pd.DataFrame, min_fvg_ratio=0.0005):
     """
     Detect Fair Value Gaps (FVGs) in price action and check if they are covered later.
-    Filter out relatively small FVGs, i.e. those whose size is less than
-    (min_fvg_ratio * last_close_price).
+    
+    An FVG is detected when a gap exists between candle i-2 and candle i that is
+    larger than (min_fvg_ratio * last_close_price). This function also checks if the 
+    gap is later "covered" by subsequent price action.
+    
+    Optimization:
+      - Compute the positional indices of the global highest high and the global lowest low.
+      - Determine a single extreme index (global_extreme_idx) as the maximum of the two.
+      - For any FVG candidate, if the starting candle (i-2) occurs before global_extreme_idx,
+        skip it because it will be covered by one (or both) of the extrema.
+    
+    Parameters:
+        df (pd.DataFrame): DataFrame with columns ['Open', 'High', 'Low', 'Close'].
+        min_fvg_ratio (float): Minimum gap size as a fraction of the last close price.
+        
+    Returns:
+        FVGs: A container holding all detected FVG objects.
     """
     fvgs = FVGs()
 
@@ -206,49 +221,92 @@ def detect_fvgs(df: pd.DataFrame, min_fvg_ratio=0.005):
 
     last_close_price = df["Close"].iloc[-1]
 
-    for i in range(2, len(df)):
-        # Bullish FVG
+    # Optimization suggestion: it is possible to build a two sorted lists with some amount of candles, sorted
+    # by low and high, which are stored along with their indices. If we pass that index when iterating over candles,
+    # just remove that candle from sorted list of candles. And ta-da, you don't need to recalculate the min/max again.
+
+    # Convert the index of the global high and global low into positional indices
+    global_high_idx = df.index.get_loc(df["High"].idxmax())
+    global_low_idx = df.index.get_loc(df["Low"].idxmin())
+    # Candidate FVG must occur after both extremes
+    global_extreme_idx = min(global_high_idx, global_low_idx)
+
+    for i in range(global_extreme_idx - 3, len(df)): # Skip candidates that occur before the later of the global extremes (including extrema candle)
+        # Bullish FVG: current candle's low is greater than candle (i-2)'s high
         if df["Low"].iloc[i] > df["High"].iloc[i - 2]:
             gap_size = df["Low"].iloc[i] - df["High"].iloc[i - 2]
-            # Filter condition: skip if gap_size < min_fvg_ratio * last_close_price
             if gap_size < min_fvg_ratio * last_close_price:
                 continue
 
+            # We'll track coverage by scanning forward for the next MIN Low
+            next_min = df["Low"].iloc[i]
             is_covered = False
+            top_boundary = df["Low"].iloc[i]     # top boundary of bullish gap
+            bottom_boundary = df["High"].iloc[i - 2]  # bottom boundary of gap
+
             for j in range(i + 1, len(df)):
-                if df["Low"].iloc[j] <= df["Low"].iloc[i]:
+                # Always track the minimum Low so far
+                if df["Low"].iloc[j] < next_min:
+                    next_min = df["Low"].iloc[j]
+                else:
+                    continue
+
+                # If next_min <= bottom_boundary => fully covered
+                if next_min <= bottom_boundary:
                     is_covered = True
                     break
+            
+            # If partly covered, we can tighten the top boundary to 'next_min'
+            # (meaning price only went down to next_min, never fully to bottom_boundary)
+            if not is_covered and next_min < top_boundary:
+                top_boundary = next_min
 
             fvgs.add(
                 FVG(
                     i - 2,
                     i,
                     df["High"].iloc[i - 2],
-                    df["Low"].iloc[i],
+                    top_boundary,
                     "bullish",
                     is_covered,
                 )
             )
 
-        # Bearish FVG
+        # Bearish FVG: current candle's high is less than candle (i-2)'s low
         elif df["High"].iloc[i] < df["Low"].iloc[i - 2]:
             gap_size = df["Low"].iloc[i - 2] - df["High"].iloc[i]
             if gap_size < min_fvg_ratio * last_close_price:
                 continue
 
+            # We'll track coverage by scanning forward for the next MAX High
+            next_max = df["High"].iloc[i]
             is_covered = False
+            top_boundary = df["Low"].iloc[i - 2]  # top boundary of gap
+            bottom_boundary = df["High"].iloc[i]  # bottom boundary
+
             for j in range(i + 1, len(df)):
-                if df["High"].iloc[j] >= df["High"].iloc[i]:
+                # Always track the maximum High so far
+                if df["High"].iloc[j] > next_max:
+                    next_max = df["High"].iloc[j]
+                else:
+                    continue
+
+                # If next_max >= top_boundary => fully covered
+                if next_max >= top_boundary:
                     is_covered = True
                     break
+
+            # If partly covered, we adjust the FVG accordingly
+            if not is_covered and next_max > bottom_boundary:
+                bottom_boundary = next_max
+
 
             fvgs.add(
                 FVG(
                     i - 2,
                     i,
                     df["Low"].iloc[i - 2],
-                    df["High"].iloc[i],
+                    bottom_boundary,
                     "bearish",
                     is_covered,
                 )

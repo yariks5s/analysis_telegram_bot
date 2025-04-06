@@ -4,3 +4,4 @@ output.txt
 chatGPT_script.py
 **/__pycache__/
 preferences.db
+tech_debt.txt
