@@ -86,20 +86,10 @@ def add_legend(ax, indicators):
             mlines.Line2D(
                 [],
                 [],
-                color="red",
+                color="orange",
                 linestyle="--",
                 markersize=10,
-                label="Resistance level",
-            )
-        )
-        handles.append(
-            mlines.Line2D(
-                [],
-                [],
-                color="green",
-                linestyle="--",
-                markersize=10,
-                label="Support level",
+                label="Liquidity level",
             )
         )
 
@@ -151,7 +141,7 @@ def add_liquidity_levels(ax, liquidity_levels):
     for level in liquidity_levels.list:
         ax[0].axhline(
             y=level.price,
-            color="green" if level.is_support() else "red",
+            color="orange",
             linestyle="--",
             linewidth=1,
         )
