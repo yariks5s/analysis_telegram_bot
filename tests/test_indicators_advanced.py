@@ -210,12 +210,8 @@ def test_detect_fvgs(dataframe):
     assert (
         str(fvgs)
         == """
-FVG(type=bearish, start_index=0, end_index=2, start_price=0.8983, end_price=0.8947, covered=True)
-FVG(type=bearish, start_index=3, end_index=5, start_price=0.8784, end_price=0.8503, covered=True)
-FVG(type=bearish, start_index=4, end_index=6, start_price=0.8362, end_price=0.8236, covered=True)
-FVG(type=bearish, start_index=5, end_index=7, start_price=0.8184, end_price=0.8097, covered=True)
-FVG(type=bullish, start_index=8, end_index=10, start_price=0.8349, end_price=0.8444, covered=False)
-FVG(type=bullish, start_index=10, end_index=12, start_price=0.8649, end_price=0.8694, covered=False)"""
+FVG(type=bullish, start_index=8, end_index=10, start_price=0.8349, end_price=0.8444)
+FVG(type=bullish, start_index=10, end_index=12, start_price=0.8649, end_price=0.8694)"""
     )
 
 

@@ -196,6 +196,16 @@ def get_indicator_selection_keyboard(user_id):
                 callback_data="indicator_breaker_blocks",
             ),
         ],
+        [
+            InlineKeyboardButton(
+                f"{'✔️ ' if selected['show_legend'] else ''}Show Legend",
+                callback_data="indicator_show_legend",
+            ),
+            InlineKeyboardButton(
+                f"{'✔️ ' if selected['show_volume'] else ''}Show Volume",
+                callback_data="indicator_show_volume",
+            ),
+        ],
         [InlineKeyboardButton("Done", callback_data="indicator_done")],
     ]
     return InlineKeyboardMarkup(keyboard)
@@ -222,6 +232,10 @@ async def handle_indicator_selection(update, _):
         preferences["liquidity_levels"] = not preferences["liquidity_levels"]
     elif data == "indicator_breaker_blocks":
         preferences["breaker_blocks"] = not preferences["breaker_blocks"]
+    elif data == "indicator_show_legend":
+        preferences["show_legend"] = not preferences["show_legend"]
+    elif data == "indicator_show_volume":
+        preferences["show_volume"] = not preferences["show_volume"]
     elif data == "indicator_done":
         selected = [key for key, val in preferences.items() if val]
         await query.edit_message_text(f"You selected: {', '.join(selected) or 'None'}")

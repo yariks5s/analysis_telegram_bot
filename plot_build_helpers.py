@@ -1,13 +1,19 @@
-import matplotlib.patches as mpatches
-import matplotlib.lines as mlines
+import matplotlib.patches as mpatches  # type: ignore
+import matplotlib.lines as mlines  # type: ignore
 
 import mplfinance as mpf  # type: ignore
 import pandas as pd  # type: ignore
 
+from typing import List, Dict
 from utils import logger
 
 
-def plot_price_chart(df: pd.DataFrame, indicators):
+def plot_price_chart(
+    df: pd.DataFrame,
+    indicators: Dict[str, bool],
+    show_legend: bool = True,
+    show_volume: bool = True,
+):
     """
     Generate a candlestick chart with detected order blocks, FVGs, and support/resistance levels as horizontal lines.
     """
@@ -16,7 +22,7 @@ def plot_price_chart(df: pd.DataFrame, indicators):
         df,
         type="candle",
         style="yahoo",
-        volume=True,
+        volume=show_volume,
         returnfig=True,
         ylabel="Price (USDT)",
         ylabel_lower="Volume",
@@ -36,7 +42,8 @@ def plot_price_chart(df: pd.DataFrame, indicators):
     if indicators.breaker_blocks:
         add_breaker_blocks(ax, indicators.breaker_blocks)
 
-    add_legend(ax, indicators)
+    if show_legend:
+        add_legend(ax, indicators)
 
     fig.subplots_adjust(left=0.05, right=0.95)
     fig.savefig("crypto_chart.png", bbox_inches="tight", pad_inches=0.1)
@@ -124,17 +131,16 @@ def add_fvgs(ax, fvgs):
         start_price = fvg.start_price
         end_price = fvg.end_price
 
-        if not fvg.covered:
-            # Plot the FVG as a horizontal rectangle
-            ax[0].fill_betweenx(
-                y=[start_price, end_price],
-                x1=start_idx,
-                x2=end_idx,
-                # color='blue' if start_price < end_price else 'orange',
-                color="blue",
-                alpha=0.2,
-                label="FVG",
-            )
+        # Plot the FVG as a horizontal rectangle
+        ax[0].fill_betweenx(
+            y=[start_price, end_price],
+            x1=start_idx,
+            x2=end_idx,
+            # color='blue' if start_price < end_price else 'orange',
+            color="blue",
+            alpha=0.2,
+            label="FVG",
+        )
 
 
 def add_liquidity_levels(ax, liquidity_levels):

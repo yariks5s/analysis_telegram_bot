@@ -257,9 +257,12 @@ def detect_fvgs(df: pd.DataFrame, min_fvg_ratio=0.0005):
                     is_covered = True
                     break
 
+            if is_covered:
+                continue
+
             # If partly covered, we can tighten the top boundary to 'next_min'
             # (meaning price only went down to next_min, never fully to bottom_boundary)
-            if not is_covered and next_min < top_boundary:
+            if next_min < top_boundary:
                 top_boundary = next_min
 
             gap_size = top_boundary - df["High"].iloc[i - 2]
@@ -273,7 +276,6 @@ def detect_fvgs(df: pd.DataFrame, min_fvg_ratio=0.0005):
                     df["High"].iloc[i - 2],
                     top_boundary,
                     "bullish",
-                    is_covered,
                 )
             )
 
@@ -297,8 +299,11 @@ def detect_fvgs(df: pd.DataFrame, min_fvg_ratio=0.0005):
                     is_covered = True
                     break
 
+            if is_covered:
+                continue
+
             # If partly covered, we adjust the FVG accordingly
-            if not is_covered and next_max > bottom_boundary:
+            if next_max > bottom_boundary:
                 bottom_boundary = next_max
 
             gap_size = df["Low"].iloc[i - 2] - bottom_boundary
@@ -312,7 +317,6 @@ def detect_fvgs(df: pd.DataFrame, min_fvg_ratio=0.0005):
                     df["Low"].iloc[i - 2],
                     bottom_boundary,
                     "bearish",
-                    is_covered,
                 )
             )
 
