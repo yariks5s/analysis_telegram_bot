@@ -410,7 +410,12 @@ async def auto_signal_job(context):
                     input, create_true_preferences(), ()
                 )
 
-                chart_path = plot_price_chart(df, indicators, show_legend=preferences["show_legend"], show_volume=preferences["show_volume"])
+                chart_path = plot_price_chart(
+                    df,
+                    indicators,
+                    show_legend=preferences["show_legend"],
+                    show_volume=preferences["show_volume"],
+                )
 
                 await context.bot.send_message(
                     chat_id=chat_id,

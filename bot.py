@@ -62,7 +62,12 @@ async def send_crypto_chart(update: Update, context: CallbackContext):
     )
 
     # Plot chart
-    chart_path = plot_price_chart(df, indicators, show_legend=preferences["show_legend"], show_volume=preferences["show_volume"])
+    chart_path = plot_price_chart(
+        df,
+        indicators,
+        show_legend=preferences["show_legend"],
+        show_volume=preferences["show_volume"],
+    )
     if chart_path is None:
         await update.message.reply_text("Error generating the chart. Please try again.")
         return

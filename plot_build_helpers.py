@@ -8,7 +8,12 @@ from typing import List, Dict
 from utils import logger
 
 
-def plot_price_chart(df: pd.DataFrame, indicators: Dict[str, bool], show_legend: bool =True, show_volume: bool=True):
+def plot_price_chart(
+    df: pd.DataFrame,
+    indicators: Dict[str, bool],
+    show_legend: bool = True,
+    show_volume: bool = True,
+):
     """
     Generate a candlestick chart with detected order blocks, FVGs, and support/resistance levels as horizontal lines.
     """

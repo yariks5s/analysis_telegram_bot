@@ -1,7 +1,5 @@
 class FVG:
-    def __init__(
-        self, start_index, end_index, start_price, end_price, fvg_type
-    ):
+    def __init__(self, start_index, end_index, start_price, end_price, fvg_type):
         """
         Initialize a Fair Value Gap (FVG) object.
 
@@ -23,7 +21,7 @@ class FVG:
         return (
             f"FVG(type={self.fvg_type}, start_index={self.start_index}, "
             f"end_index={self.end_index}, start_price={self.start_price}, "
-            f"end_price={self.end_price}"
+            f"end_price={self.end_price})"
         )
 
 
