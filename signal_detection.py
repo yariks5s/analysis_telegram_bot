@@ -130,24 +130,22 @@ def generate_price_prediction_signal_proba(
     # -------------------------------------------------------------
     if indicators.fvgs and indicators.fvgs.list:
         for fvg in indicators.fvgs.list:
-            if not fvg.covered:
-                # Determine if FVG is above or below the current price
-                # For Bullish FVG: start_price is the High of two periods ago, end_price is current Low
-                # For Bearish FVG: start_price is the Low of two periods ago, end_price is current High
-                # To determine position, compare current price with FVG range
-                if last_close > fvg.start_price and last_close > fvg.end_price:
-
-                    # FVG is below the current price
-                    bearish_score += W_FVG_BELOW
-                    reasons.append("Unfilled FVG below current price")
-                elif last_close < fvg.start_price and last_close < fvg.end_price:
-                    # FVG is above the current price
-                    bullish_score += W_FVG_ABOVE
-                    reasons.append("Unfilled FVG above current price")
-                else:
-                    # Price is within the FVG range; treat as neutral or consider specific logic
-                    # For simplicity, you might skip or handle differently
-                    reasons.append("Price is within FVG range; no score adjustment")
+            # Determine if FVG is above or below the current price
+            # For Bullish FVG: start_price is the High of two periods ago, end_price is current Low
+            # For Bearish FVG: start_price is the Low of two periods ago, end_price is current High
+            # To determine position, compare current price with FVG range
+            if last_close > fvg.start_price and last_close > fvg.end_price:
+                # FVG is below the current price
+                bearish_score += W_FVG_BELOW
+                reasons.append("Unfilled FVG below current price")
+            elif last_close < fvg.start_price and last_close < fvg.end_price:
+                # FVG is above the current price
+                bullish_score += W_FVG_ABOVE
+                reasons.append("Unfilled FVG above current price")
+            else:
+                # Price is within the FVG range; treat as neutral or consider specific logic
+                # For simplicity, you might skip or handle differently
+                reasons.append("Price is within FVG range; no score adjustment")
 
     # -------------------------------------------------------------
     # 4) Convert scores to final probability, confidence, signal
@@ -412,7 +410,7 @@ async def auto_signal_job(context):
                     input, create_true_preferences(), ()
                 )
 
-                chart_path = plot_price_chart(df, indicators)
+                chart_path = plot_price_chart(df, indicators, show_legend=preferences["show_legend"], show_volume=preferences["show_volume"])
 
                 await context.bot.send_message(
                     chat_id=chat_id,

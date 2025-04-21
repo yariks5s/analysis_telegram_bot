@@ -15,7 +15,9 @@ def init_db() -> None:
             order_blocks BOOLEAN DEFAULT 0,
             fvgs BOOLEAN DEFAULT 0,
             liquidity_levels BOOLEAN DEFAULT 0,
-            breaker_blocks BOOLEAN DEFAULT 0
+            breaker_blocks BOOLEAN DEFAULT 0,
+            show_legend BOOLEAN DEFAULT 1,
+            show_volume BOOLEAN DEFAULT 1
         )
     """
     )
@@ -59,6 +61,8 @@ def get_user_preferences(user_id: int) -> Dict[str, bool]:
             "fvgs": bool(row[2]),
             "liquidity_levels": bool(row[3]),
             "breaker_blocks": bool(row[4]),
+            "show_legend": bool(row[5]),
+            "show_volume": bool(row[6]),
         }
     else:
         return {
@@ -66,6 +70,8 @@ def get_user_preferences(user_id: int) -> Dict[str, bool]:
             "fvgs": False,
             "liquidity_levels": False,
             "breaker_blocks": False,
+            "show_legend": True,
+            "show_volume": True,
         }
 
 
@@ -104,6 +110,8 @@ def update_user_preferences(user_id: int, preferences: Dict[str, bool]) -> None:
                     preferences["fvgs"],
                     preferences["liquidity_levels"],
                     preferences["breaker_blocks"],
+                    preferences["show_legend"],
+                    preferences["show_volume"],
                     user_id,
                 ),
             )
@@ -119,6 +127,8 @@ def update_user_preferences(user_id: int, preferences: Dict[str, bool]) -> None:
                     preferences["fvgs"],
                     preferences["liquidity_levels"],
                     preferences["breaker_blocks"],
+                    preferences["show_legend"],
+                    preferences["show_volume"],
                 ),
             )
 

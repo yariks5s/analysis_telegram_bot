@@ -156,7 +156,7 @@ async def check_and_analyze(update, user_id, preferences, args):
     # Check if user selected indicators
     if not check_user_preferences(user_id):
         await update.message.reply_text(
-            "Please select indicators using /select_indicators before requesting a chart."
+            "Please select indicators using /preferences before requesting a chart."
         )
         return
 

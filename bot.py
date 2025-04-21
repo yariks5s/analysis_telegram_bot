@@ -62,7 +62,7 @@ async def send_crypto_chart(update: Update, context: CallbackContext):
     )
 
     # Plot chart
-    chart_path = plot_price_chart(df, indicators)
+    chart_path = plot_price_chart(df, indicators, show_legend=preferences["show_legend"], show_volume=preferences["show_volume"])
     if chart_path is None:
         await update.message.reply_text("Error generating the chart. Please try again.")
         return
@@ -164,7 +164,7 @@ if __name__ == "__main__":
 
     app.add_handler(CommandHandler("chart", send_crypto_chart))
     app.add_handler(CommandHandler("text_result", send_text_data))
-    app.add_handler(CommandHandler("select_indicators", select_indicators))
+    app.add_handler(CommandHandler("preferences", select_indicators))
     app.add_handler(
         CallbackQueryHandler(handle_indicator_selection, pattern=r"^indicator_")
     )
