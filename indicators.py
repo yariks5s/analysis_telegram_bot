@@ -231,15 +231,14 @@ def detect_fvgs(df: pd.DataFrame, min_fvg_ratio=0.0005):
     # Candidate FVG must occur after both extremes
     global_extreme_idx = min(global_high_idx, global_low_idx)
 
+    if global_extreme_idx < 5:
+        global_extreme_idx = 5
+
     for i in range(
         global_extreme_idx - 3, len(df)
     ):  # Skip candidates that occur before the later of the global extremes (including extrema candle)
         # Bullish FVG: current candle's low is greater than candle (i-2)'s high
         if df["Low"].iloc[i] > df["High"].iloc[i - 2]:
-            gap_size = df["Low"].iloc[i] - df["High"].iloc[i - 2]
-            if gap_size < min_fvg_ratio * last_close_price:
-                continue
-
             # We'll track coverage by scanning forward for the next MIN Low
             next_min = df["Low"].iloc[i]
             is_covered = False
@@ -263,6 +262,10 @@ def detect_fvgs(df: pd.DataFrame, min_fvg_ratio=0.0005):
             if not is_covered and next_min < top_boundary:
                 top_boundary = next_min
 
+            gap_size = top_boundary - df["High"].iloc[i - 2]
+            if gap_size < min_fvg_ratio * last_close_price:
+                continue
+
             fvgs.add(
                 FVG(
                     i - 2,
@@ -276,10 +279,6 @@ def detect_fvgs(df: pd.DataFrame, min_fvg_ratio=0.0005):
 
         # Bearish FVG: current candle's high is less than candle (i-2)'s low
         elif df["High"].iloc[i] < df["Low"].iloc[i - 2]:
-            gap_size = df["Low"].iloc[i - 2] - df["High"].iloc[i]
-            if gap_size < min_fvg_ratio * last_close_price:
-                continue
-
             # We'll track coverage by scanning forward for the next MAX High
             next_max = df["High"].iloc[i]
             is_covered = False
@@ -301,6 +300,10 @@ def detect_fvgs(df: pd.DataFrame, min_fvg_ratio=0.0005):
             # If partly covered, we adjust the FVG accordingly
             if not is_covered and next_max > bottom_boundary:
                 bottom_boundary = next_max
+
+            gap_size = df["Low"].iloc[i - 2] - bottom_boundary
+            if gap_size < min_fvg_ratio * last_close_price:
+                continue
 
             fvgs.add(
                 FVG(
