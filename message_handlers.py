@@ -244,10 +244,20 @@ async def handle_indicator_selection(update, _):
     # Save updated preferences in the database
     update_user_preferences(user_id, preferences)
 
+    # Build a fresh keyboard and compare to the one already on the message
+    new_markup = get_indicator_selection_keyboard(user_id)
+    old_markup = query.message.reply_markup
+    if old_markup and old_markup.to_dict() == new_markup.to_dict():
+        # nothing changed, so skip the edit entirely
+        logger.debug("No change in indicator keyboard—skipping edit")
+        return CHOOSING_ACTION
+
     # Update message with current selections and checkmarks
     await query.edit_message_reply_markup(
         reply_markup=get_indicator_selection_keyboard(user_id)
     )
+
+    return CHOOSING_ACTION
 
 
 async def select_indicators(update, _):

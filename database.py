@@ -102,7 +102,7 @@ def update_user_preferences(user_id: int, preferences: Dict[str, bool]) -> None:
             cursor.execute(
                 """
                 UPDATE user_preferences
-                SET order_blocks = ?, fvgs = ?, liquidity_levels = ?, breaker_blocks = ?
+                SET order_blocks = ?, fvgs = ?, liquidity_levels = ?, breaker_blocks = ?, show_legend = ?, show_volume = ?
                 WHERE user_id = ?
             """,
                 (
@@ -118,8 +118,8 @@ def update_user_preferences(user_id: int, preferences: Dict[str, bool]) -> None:
         else:
             cursor.execute(
                 """
-                INSERT INTO user_preferences (user_id, order_blocks, fvgs, liquidity_levels, breaker_blocks)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO user_preferences (user_id, order_blocks, fvgs, liquidity_levels, breaker_blocks, show_legend, show_volume)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     user_id,
