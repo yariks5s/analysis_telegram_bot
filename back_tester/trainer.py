@@ -14,11 +14,11 @@ from strategy import backtest_strategy
 from getTradingPairs import get_trading_pairs
 
 # Set up focused logging for training
-logger = logging.getLogger('training')
+logger = logging.getLogger("training")
 logger.setLevel(logging.INFO)
 
 # Create a formatter
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 
 # Create file handler for training logs
 training_log_file = f'training_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'
@@ -54,6 +54,7 @@ max_learning_rate = 0.1
 patience = 50
 history_size = 10
 
+
 class TrainingMetrics:
     def __init__(self):
         self.total_trades = 0
@@ -66,17 +67,25 @@ class TrainingMetrics:
         self.profit_per_trade = []
         self.loss_per_trade = []
 
-    def update(self, trade_log: List[dict], initial_balance: float, final_balance: float):
+    def update(
+        self, trade_log: List[dict], initial_balance: float, final_balance: float
+    ):
         self.total_trades += len(trade_log)
         self.total_revenue += final_balance - initial_balance
-        
+
         if trade_log:
-            entry_prices = [t['price'] for t in trade_log if t['type'] == 'buy']
-            exit_prices = [t['price'] for t in trade_log if t['type'] in ['sell', 'sell_end']]
-            entry_indices = [t['index'] for t in trade_log if t['type'] == 'buy']
-            exit_indices = [t['index'] for t in trade_log if t['type'] in ['sell', 'sell_end']]
-            
-            for entry, exit, entry_idx, exit_idx in zip(entry_prices, exit_prices, entry_indices, exit_indices):
+            entry_prices = [t["price"] for t in trade_log if t["type"] == "buy"]
+            exit_prices = [
+                t["price"] for t in trade_log if t["type"] in ["sell", "sell_end"]
+            ]
+            entry_indices = [t["index"] for t in trade_log if t["type"] == "buy"]
+            exit_indices = [
+                t["index"] for t in trade_log if t["type"] in ["sell", "sell_end"]
+            ]
+
+            for entry, exit, entry_idx, exit_idx in zip(
+                entry_prices, exit_prices, entry_indices, exit_indices
+            ):
                 profit = exit - entry
                 if profit > 0:
                     self.winning_trades += 1
@@ -89,48 +98,66 @@ class TrainingMetrics:
             self.peak_balance = final_balance
             self.current_drawdown = 0
         else:
-            self.current_drawdown = (self.peak_balance - final_balance) / self.peak_balance
+            self.current_drawdown = (
+                self.peak_balance - final_balance
+            ) / self.peak_balance
             self.max_drawdown = max(self.max_drawdown, self.current_drawdown)
 
     def get_metrics(self) -> dict:
-        win_rate = (self.winning_trades / self.total_trades * 100) if self.total_trades > 0 else 0
+        win_rate = (
+            (self.winning_trades / self.total_trades * 100)
+            if self.total_trades > 0
+            else 0
+        )
         avg_profit = np.mean(self.profit_per_trade) if self.profit_per_trade else 0
         avg_loss = np.mean(self.loss_per_trade) if self.loss_per_trade else 0
         avg_duration = np.mean(self.trade_durations) if self.trade_durations else 0
-        profit_factor = abs(sum(self.profit_per_trade) / sum(self.loss_per_trade)) if self.loss_per_trade and sum(self.loss_per_trade) != 0 else float('inf')
-        
+        profit_factor = (
+            abs(sum(self.profit_per_trade) / sum(self.loss_per_trade))
+            if self.loss_per_trade and sum(self.loss_per_trade) != 0
+            else float("inf")
+        )
+
         return {
-            'total_trades': self.total_trades,
-            'win_rate': win_rate,
-            'total_revenue': self.total_revenue,
-            'max_drawdown': self.max_drawdown * 100,
-            'avg_profit': avg_profit,
-            'avg_loss': avg_loss,
-            'profit_factor': profit_factor,
-            'avg_trade_duration': avg_duration
+            "total_trades": self.total_trades,
+            "win_rate": win_rate,
+            "total_revenue": self.total_revenue,
+            "max_drawdown": self.max_drawdown * 100,
+            "avg_profit": avg_profit,
+            "avg_loss": avg_loss,
+            "profit_factor": profit_factor,
+            "avg_trade_duration": avg_duration,
         }
+
 
 def calculate_fitness(metrics: TrainingMetrics) -> float:
     """Calculate a comprehensive fitness score based on multiple metrics"""
     if metrics.total_trades == 0:
         return -9999
-    
+
     # Normalize metrics
     win_rate = metrics.winning_trades / metrics.total_trades
-    profit_factor = abs(sum(metrics.profit_per_trade) / sum(metrics.loss_per_trade)) if metrics.loss_per_trade and sum(metrics.loss_per_trade) != 0 else 1
-    
+    profit_factor = (
+        abs(sum(metrics.profit_per_trade) / sum(metrics.loss_per_trade))
+        if metrics.loss_per_trade and sum(metrics.loss_per_trade) != 0
+        else 1
+    )
+
     # Weighted combination of metrics
     fitness = (
-        0.3 * win_rate +
-        0.2 * (1 - metrics.max_drawdown) +
-        0.2 * min(profit_factor, 5) / 5 +  # Cap profit factor at 5
-        0.2 * (metrics.total_revenue / 1000) +  # Normalize revenue
-        0.1 * (1 - min(metrics.current_drawdown, 1))  # Current drawdown penalty
+        0.3 * win_rate
+        + 0.2 * (1 - metrics.max_drawdown)
+        + 0.2 * min(profit_factor, 5) / 5  # Cap profit factor at 5
+        + 0.2 * (metrics.total_revenue / 1000)  # Normalize revenue
+        + 0.1 * (1 - min(metrics.current_drawdown, 1))  # Current drawdown penalty
     )
-    
+
     return fitness * 100  # Scale to percentage
 
-def evaluate_weights(weights: List[float], test_pairs: Optional[List[str]] = None) -> Tuple[float, Optional[TrainingMetrics]]:
+
+def evaluate_weights(
+    weights: List[float], test_pairs: Optional[List[str]] = None
+) -> Tuple[float, Optional[TrainingMetrics]]:
     try:
         pairs = test_pairs if test_pairs else get_trading_pairs()
         if not pairs:
@@ -154,17 +181,26 @@ def evaluate_weights(weights: List[float], test_pairs: Optional[List[str]] = Non
 
                 try:
                     final_balance, trades = backtest_strategy(
-                        symbol, interval, candles, window, initial_balance, weights=weights
+                        symbol,
+                        interval,
+                        candles,
+                        window,
+                        initial_balance,
+                        weights=weights,
                     )
-                    
+
                     if trades:  # Only count runs with actual trades
                         successful_runs += 1
-                        revenue_percent = ((final_balance - initial_balance) / initial_balance) * 100
+                        revenue_percent = (
+                            (final_balance - initial_balance) / initial_balance
+                        ) * 100
                         total_revenue_percent += revenue_percent
                         metrics.update(trades, initial_balance, final_balance)
-                        
+
                 except Exception as e:
-                    logger.warning(f"Error in backtest for {symbol} {interval}: {str(e)}")
+                    logger.warning(
+                        f"Error in backtest for {symbol} {interval}: {str(e)}"
+                    )
                     continue
 
         if successful_runs == 0:
@@ -179,10 +215,13 @@ def evaluate_weights(weights: List[float], test_pairs: Optional[List[str]] = Non
         logger.error(f"Error in evaluate_weights: {str(e)}")
         return -9999, None
 
-def optimize_weights(weights: List[float], iterations: int, learning_rate: float) -> List[float]:
+
+def optimize_weights(
+    weights: List[float], iterations: int, learning_rate: float
+) -> List[float]:
     best_weights = weights[:]
     best_score, best_metrics = evaluate_weights(best_weights)
-    
+
     if best_metrics:
         logger.info(f"Initial Score: {best_score:.5f}%")
         logger.info(f"Initial Metrics: {best_metrics.get_metrics()}")
@@ -193,12 +232,12 @@ def optimize_weights(weights: List[float], iterations: int, learning_rate: float
     no_improvement_count = 0
     score_history = deque(maxlen=history_size)
     velocity = [0.0] * len(weights)
-    
+
     for iteration in range(iterations):
         # Randomly select multiple weights to adjust
         num_weights_to_adjust = random.randint(1, 3)
         indices = random.sample(range(len(weights)), num_weights_to_adjust)
-        
+
         new_weights = best_weights[:]
         for index in indices:
             # Momentum-based weight adjustment
@@ -216,19 +255,27 @@ def optimize_weights(weights: List[float], iterations: int, learning_rate: float
             best_metrics = new_metrics
             no_improvement_count = 0
             logger.info(f"Iteration {iteration + 1}: New Best Score: {best_score:.5f}%")
-            logger.info(f"Metrics: {best_metrics.get_metrics() if best_metrics else 'N/A'}")
+            logger.info(
+                f"Metrics: {best_metrics.get_metrics() if best_metrics else 'N/A'}"
+            )
             logger.info(f"Weights: {best_weights}")
         else:
             no_improvement_count += 1
-            
+
             # Adaptive learning rate adjustment
             if no_improvement_count >= patience:
                 if len(score_history) >= history_size:
-                    recent_trend = np.mean(list(score_history)[-5:]) - np.mean(list(score_history)[:-5])
+                    recent_trend = np.mean(list(score_history)[-5:]) - np.mean(
+                        list(score_history)[:-5]
+                    )
                     if recent_trend < 0:
-                        current_learning_rate = max(min_learning_rate, current_learning_rate * 0.5)
+                        current_learning_rate = max(
+                            min_learning_rate, current_learning_rate * 0.5
+                        )
                     else:
-                        current_learning_rate = min(max_learning_rate, current_learning_rate * 1.1)
+                        current_learning_rate = min(
+                            max_learning_rate, current_learning_rate * 1.1
+                        )
                 no_improvement_count = 0
                 logger.info(f"Adjusting learning rate to {current_learning_rate}")
 
@@ -244,6 +291,7 @@ def optimize_weights(weights: List[float], iterations: int, learning_rate: float
     logger.info(f"Optimized Weights: {best_weights}")
 
     return best_weights
+
 
 if __name__ == "__main__":
     try:
