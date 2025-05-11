@@ -35,6 +35,8 @@ Todo:
 - [x] Optimize the process of normalizing the liquidity levels if no settings are specified
 - [x] Add a test for the task above (automatically create the right amount of liquidity levels if setting is not specified)
 - [x] Maybe do not add covered FVGs at all? UPD: Yes
+- [ ] Logging system
+- [ ] Disable info logging for training
 - [ ] Make the system that will set the right logic coefficients based on backtesting
 - [ ] If possible, make the bot to continue sending signals after it is restarted
 - [ ] Create a neural network and make it learn on own data

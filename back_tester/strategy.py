@@ -76,7 +76,7 @@ def backtest_strategy(  # TODO: LOGGING INSTEAD OF PRINTING
                 {"type": "buy", "price": entry_price, "index": i, "signal": signal}
             )
             print(
-                f"[Index {i}] BUY at {entry_price:.2f} | Reason: {reason.splitlines()[0]}"
+                f"[Index {i}] BUY at {entry_price:.5f} | Reason: {reason.splitlines()[0]}"
             )
         elif signal == "Bearish" and position > 0:
             # Sell signal: liquidate the position
@@ -84,7 +84,7 @@ def backtest_strategy(  # TODO: LOGGING INSTEAD OF PRINTING
             trade_log.append(
                 {"type": "sell", "price": price, "index": i, "signal": signal}
             )
-            print(f"[Index {i}] SELL at {price:.2f} | Reason: {reason.splitlines()[0]}")
+            print(f"[Index {i}] SELL at {price:.5f} | Reason: {reason.splitlines()[0]}")
             position = 0
             entry_price = None
 
