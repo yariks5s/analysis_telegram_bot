@@ -1,7 +1,7 @@
 import random
 import os
 import sys
-import numpy as np
+import numpy as np  # type: ignore
 from typing import List, Tuple, Optional, Dict
 import logging
 from datetime import datetime
