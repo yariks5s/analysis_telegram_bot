@@ -164,7 +164,7 @@ def evaluate_weights(
             logger.error("No trading pairs found")
             return -9999, None
 
-        num_pairs = min(5, len(pairs))
+        num_pairs = min(30, len(pairs))
         selected_pairs = random.sample(pairs, num_pairs)
         intervals = ["1m", "5m", "15m", "30m", "1h", "4h", "1d"]
         initial_balance = 1000.0
