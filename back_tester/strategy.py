@@ -1,6 +1,8 @@
 import os
 import sys
 from typing import List
+import random
+from datetime import datetime, timedelta
 
 project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(project_dir)
@@ -39,7 +41,15 @@ def backtest_strategy(  # TODO: LOGGING INSTEAD OF PRINTING
       trade_log: A list of trade events for review
     """
 
-    df = fetch_candles(symbol, candles, interval)
+    # Determine a random start time for fetching candles
+    end_time = datetime.now()
+    start_time = end_time - timedelta(days=730)  # Assuming 2 years of data availability
+    random_start_time = start_time + timedelta(
+        seconds=random.randint(0, int((end_time - start_time).total_seconds()))
+    )
+
+    # Fetch candles starting from the random start time
+    df = fetch_candles(symbol, candles, interval, start_time=random_start_time)
     if df is None or df.empty:
         raise ValueError("No data returned for backtesting.")
 
