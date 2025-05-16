@@ -155,7 +155,7 @@ TBD
 
 ## Contact
 
-For questions or support, open an issue or contact the maintainer (@yariks5s).
+For questions or support, open an issue or contact the maintainer ([@yariks5s](https://github.com/yariks5s)).
 
 ## Contibutions
 
