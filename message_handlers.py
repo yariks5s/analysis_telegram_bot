@@ -17,7 +17,7 @@ from database import (
 )
 from signal_detection import createSignalJob
 from utils import auto_signal_jobs, logger
-from utils import plural_helper
+from utils import plural_helper, logger
 
 ###############################################################################
 # States for Conversation

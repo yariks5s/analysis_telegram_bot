@@ -3,7 +3,7 @@ from datetime import datetime
 
 import requests  # type: ignore
 
-from utils import VALID_INTERVALS, logger, API_URL
+from utils import VALID_INTERVALS, API_URL, logger
 from indicators import (
     detect_order_blocks,
     detect_fvgs,
@@ -87,19 +87,19 @@ def fetch_candles(
         df_batch = fetch_ohlc_data(symbol, current_limit, interval, end=end_time_ms)
 
         if df_batch is None or df_batch.empty:
-            print("No more data returned. Stopping early.")
+            logger.info("No more data returned. Stopping early.")
             break
 
         # Concatenate the new batch with the existing DataFrame
         all_candles = pd.concat([all_candles, df_batch]).drop_duplicates()
 
-        print(
+        logger.info(
             f"Fetched {len(df_batch)} new candles. Total in memory: {len(all_candles)}"
         )
 
         # If the batch returned fewer candles than requested, assume no more data is available
         if len(df_batch) < current_limit:
-            print("Reached the earliest available data from the exchange.")
+            logger.info("Reached the earliest available data from the exchange.")
             break
 
         # Update `end_time_ms` to the timestamp of the earliest candle in the current batch minus 1 ms
@@ -178,3 +178,7 @@ def analyze_data(df: pd.DataFrame, preferences, liq_lev_tolerance):
         indicators.breaker_blocks = breaker_blocks
 
     return indicators
+
+
+# Example usage
+logger.info("Data fetching started")
