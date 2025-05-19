@@ -1,6 +1,29 @@
 import logging
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
+
+# Create a formatter
+formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
+
+# NOTE: Uncomment to enable logging to a file
+# Create file handler for training logs
+# log_file = f'logs_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'
+# file_handler = logging.FileHandler(log_file)
+# file_handler.setLevel(logging.INFO)
+# file_handler.setFormatter(formatter)
+# logger.addHandler(file_handler)
+
+# Create console handler for training logs
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+console_handler.setFormatter(formatter)
+
+# Add handlers to logger
+logger.addHandler(console_handler)
+
+# Prevent propagation to root logger
+logger.propagate = False
 
 VALID_INTERVALS = {
     "1m": "1",  # 1 minute

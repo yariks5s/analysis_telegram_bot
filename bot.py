@@ -20,7 +20,7 @@ from signal_detection import (
 )
 
 from database import get_user_preferences
-from utils import plural_helper
+from utils import plural_helper, logger
 
 from telegram import Update  # type: ignore
 from telegram.ext import (  # type: ignore
@@ -41,7 +41,7 @@ import logging
 
 # Configure logging
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 
 load_dotenv()
@@ -200,5 +200,8 @@ if __name__ == "__main__":
         lambda _: asyncio.create_task(initialize_jobs_handler(app)), when=0
     )
 
-    print("Bot is running...")
+    logger.info("Bot is running...")
     app.run_polling()
+
+    # Example usage
+    logger.info("Bot started")

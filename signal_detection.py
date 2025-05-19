@@ -14,7 +14,7 @@ from database import (
     get_signal_requests,
     user_signal_request_exists,
 )
-from utils import auto_signal_jobs, create_true_preferences
+from utils import auto_signal_jobs, create_true_preferences, logger
 
 from plot_build_helpers import plot_price_chart
 
@@ -220,7 +220,7 @@ async def multi_timeframe_analysis(
 
         if df is None or df.empty:
             # In case no data is returned or an error happened, skip
-            print(f"[multi_timeframe_analysis] No data for {symbol} on {tf}")
+            logger.info(f"[multi_timeframe_analysis] No data for {symbol} on {tf}")
             continue
 
         # 2) Analyze the data using your existing 'analyze_data' function,
@@ -428,7 +428,9 @@ async def auto_signal_job(context):
                 with open(chart_path, "rb") as chart_file:
                     await context.bot.send_photo(chat_id=chat_id, photo=chart_file)
         except Exception as e:
-            print(f"Error sending auto-signal message to user {user_id}: {str(e)}")
+            logger.info(
+                f"Error sending auto-signal message to user {user_id}: {str(e)}"
+            )
     else:
         # Optionally, no message is sent if the signal is too weak
         pass
@@ -527,12 +529,14 @@ async def initialize_jobs(application):
         chat_id = get_chat_id_for_user(user_id)
 
         if not chat_id:
-            print(f"No chat_id found for user {user_id}. Skipping job creation.")
+            logger.info(f"No chat_id found for user {user_id}. Skipping job creation.")
             continue
 
         job_key = (user_id, currency_pair)
         if job_key in auto_signal_jobs:
-            print(f"Job for user_id {user_id}, pair {currency_pair} already exists.")
+            logger.info(
+                f"Job for user_id {user_id}, pair {currency_pair} already exists."
+            )
             continue
 
         # Create a job
@@ -551,4 +555,4 @@ async def initialize_jobs(application):
 
         auto_signal_jobs[job_key] = job_ref
 
-    print("All user signal jobs have been initialized.")
+    logger.info("All user signal jobs have been initialized.")

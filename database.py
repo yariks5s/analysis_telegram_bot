@@ -1,5 +1,6 @@
 import sqlite3
 from typing import List, Dict
+from utils import logger
 
 
 def init_db() -> None:
@@ -134,7 +135,7 @@ def update_user_preferences(user_id: int, preferences: Dict[str, bool]) -> None:
 
         conn.commit()
     except sqlite3.Error as e:
-        print(f"Database error: {e}")
+        logger.error(f"Database error: {e}")
     finally:
         conn.close()
 
@@ -187,7 +188,7 @@ def upsert_user_signal_request(user_id: int, signals_request: Dict[str, any]) ->
 
         conn.commit()
     except sqlite3.Error as e:
-        print(f"Database error: {e}")
+        logger.error(f"Database error: {e}")
     finally:
         conn.close()
 
@@ -210,7 +211,7 @@ def delete_user_signal_request(user_id: int, currency_pair: str) -> None:
 
         conn.commit()
     except sqlite3.Error as e:
-        print(f"Database error: {e}")
+        logger.error(f"Database error: {e}")
     finally:
         conn.close()
 
@@ -233,7 +234,7 @@ def delete_all_user_signal_requests(user_id: int) -> None:
 
         conn.commit()
     except sqlite3.Error as e:
-        print(f"Database error: {e}")
+        logger.error(f"Database error: {e}")
     finally:
         conn.close()
 
@@ -274,7 +275,7 @@ def get_signal_requests():
             for row in rows
         ]
     except sqlite3.Error as e:
-        print(f"Database error during job initialization: {e}")
+        logger.error(f"Database error during job initialization: {e}")
     finally:
         conn.close()
 
