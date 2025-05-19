@@ -1,10 +1,9 @@
 import pandas as pd  # type: ignore
 from datetime import datetime
-from utils import logger
 
 import requests  # type: ignore
 
-from utils import VALID_INTERVALS, API_URL
+from utils import VALID_INTERVALS, API_URL, logger
 from indicators import (
     detect_order_blocks,
     detect_fvgs,
