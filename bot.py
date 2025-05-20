@@ -157,6 +157,41 @@ async def initialize_jobs_handler(application):
     await initialize_jobs(application)
 
 
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """
+    Sends a help message with usage instructions for the bot.
+    """
+    help_text = (
+        "<b>CryptoBot Help</b>\n\n"
+        "Here are the main commands you can use:\n\n"
+        "<b>/chart &lt;symbol&gt; &lt;length&gt; &lt;interval&gt; &lt;tolerance&gt;</b>\n"
+        "Get a candlestick chart with all enabled indicators.\n"
+        "- <b>symbol</b>: The trading pair, e.g. BTCUSDT\n"
+        "- <b>length</b>: Amount of candles to analyze\n"
+        "- <b>interval</b>: Candle interval (e.g. 1h, 15m)\n"
+        "- <b>tolerance</b>: Sensitivity for liquidity level detection (0-1, e.g. 0.05 = more levels, 0.2 = fewer, only strongest)\n"
+        "Example: <code>/chart BTCUSDT 48 1h 0.05</code>\n\n"
+        "<b>/text_result &lt;symbol&gt; &lt;length&gt; &lt;interval&gt; &lt;tolerance&gt;</b>\n"
+        "Get a text summary of all detected indicators.\n"
+        "Example: <code>/text_result ETHUSDT 24 15m 0.03</code>\n\n"
+        "<b>/preferences</b>\n"
+        "Interactive menu to select which indicators to use and chart options (legend, volume).\n\n"
+        "<b>/create_signal &lt;symbol&gt; &lt;minutes&gt; [&lt;show_chart&gt;]</b>\n"
+        "Start receiving auto-signals for a pair at a given frequency (in minutes).\n"
+        "- <b>show_chart</b> (optional): true/false, whether to include a chart with each signal (default: false)\n"
+        "Example: <code>/create_signal BTCUSDT 60 true</code>\n\n"
+        "<b>/delete_signal &lt;symbol&gt;</b>\n"
+        "Stop auto-signals for a pair.\n"
+        "Example: <code>/delete_signal BTCUSDT</code>\n\n"
+        "<b>/manage_signals</b>\n"
+        "Interactive menu to view, add, or delete your signal jobs.\n\n"
+        "You can have up to 10 active signal jobs per user.\n\n"
+        "Use /preferences to enable/disable indicators and chart options.\n\n"
+        "For more details, see the README or contact the maintainer (@yarik_is_working)."
+    )
+    await update.message.reply_text(help_text, parse_mode="HTML")
+
+
 if __name__ == "__main__":
     from database import init_db
 
@@ -194,6 +229,8 @@ if __name__ == "__main__":
         ],
     )
     app.add_handler(manage_signals_conv_handler)
+
+    app.add_handler(CommandHandler("help", help_command))
 
     # Initialize jobs after the bot starts
     app.job_queue.run_once(
