@@ -1,7 +1,17 @@
 import asyncio
+import os
+import logging
+from dotenv import load_dotenv
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    CallbackQueryHandler,
+    MessageHandler,
+    filters,
+    ConversationHandler,
+)
 
-from helpers import check_and_analyze, input_sanity_check_analyzing, check_signal_limit
-from plot_build_helpers import plot_price_chart
+from database import init_db
 from message_handlers import (
     select_indicators,
     handle_indicator_selection,
@@ -11,33 +21,11 @@ from message_handlers import (
     CHOOSING_ACTION,
     TYPING_SIGNAL_DATA,
 )
-
-from signal_detection import (
-    generate_price_prediction_signal_proba,
-    createSignalJob,
-    deleteSignalJob,
-    initialize_jobs,
-)
-
-from database import get_user_preferences
-from utils import plural_helper, logger
-
-from telegram import Update  # type: ignore
-from telegram.ext import (  # type: ignore
-    ApplicationBuilder,
-    CommandHandler,
-    ContextTypes,
-    CallbackContext,
-    CallbackQueryHandler,
-    MessageHandler,
-    filters,
-    ConversationHandler,
-)
-
-from dotenv import load_dotenv  # type: ignore
-
-import os
-import logging
+from signal_detection import initialize_jobs
+from commands.chart_commands import send_crypto_chart, send_text_data
+from commands.signal_commands import create_signal_command, delete_signal_command
+from commands.help_commands import help_command
+from utils import logger
 
 # Configure logging
 logging.basicConfig(
@@ -47,109 +35,6 @@ logging.basicConfig(
 load_dotenv()
 
 
-async def send_crypto_chart(update: Update, context: CallbackContext):
-    """
-    Telegram handler to fetch OHLC data, analyze indicators, and send the chart back to the user.
-    """
-    chat_id = update.effective_chat.id
-    user_id = update.effective_user.id
-
-    preferences = get_user_preferences(user_id)
-
-    # Analyze data
-    (indicators, df) = await check_and_analyze(
-        update, user_id, preferences, context.args
-    )
-
-    # Plot chart
-    chart_path = plot_price_chart(
-        df,
-        indicators,
-        show_legend=preferences["show_legend"],
-        show_volume=preferences["show_volume"],
-    )
-    if chart_path is None:
-        await update.message.reply_text("Error generating the chart. Please try again.")
-        return
-
-    # 1) Generate the probability-based signal:
-    _, _, _, reason_str = generate_price_prediction_signal_proba(df, indicators)
-
-    # Send the chart to the user
-    with open(chart_path, "rb") as f:
-        await context.bot.send_photo(chat_id=chat_id, photo=f)
-
-    await update.message.reply_text(
-        f"  {reason_str}"
-    )  # Indentation needed for correct representation of the message
-
-    df = df.reset_index(drop=True)
-
-
-async def send_text_data(update: Update, context: CallbackContext):
-    """
-    Telegram handler to fetch OHLC data for a user-specified crypto pair, time period, interval, and liquidity level detection tolerance
-    plot the candlestick chart, and send it back to the user.
-    Usage: /text_result <symbol> <hours> <interval> <tolerance>, e.g. /text_result BTCUSDT 42 15m 0.03
-    """
-    user_id = update.effective_user.id
-
-    preferences = get_user_preferences(user_id)
-    # Analyze data
-    (indicators, df) = await check_and_analyze(
-        update, user_id, preferences, context.args
-    )
-
-    await update.message.reply_text(str(indicators))
-
-    df = df.reset_index(drop=True)
-
-
-async def create_signal_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Command handler to create a signal job.
-    Usage: /create_signal <SYMBOL> <MINUTES> [<IS_WITH_CHART>]
-    Example: /create_signal BTCUSDT 60 True
-
-    Note: is_with_chart is an optional argunent. Default value is false
-    """
-    if await check_signal_limit(update):
-        return
-
-    args = context.args
-    pair = await input_sanity_check_analyzing(True, args, update)
-    if not pair:
-        await update.message.reply_text(
-            f"Usage: /create_signal <symbol> <period_in_minutes> [<is_with_chart>], you've sent {len(args)} argument{plural_helper(len(args))}."
-        )
-    else:
-        try:
-            await createSignalJob(pair[0], pair[1], pair[2], update, context)
-        except Exception as e:
-            print(f"Unexpected error: {e}")
-            await update.message.reply_text("❌ An unexpected error occurred.")
-
-
-async def delete_signal_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Command handler to delete a specific signal job.
-    Usage: /delete_signal <SYMBOL>
-    Example: /delete_signal BTCUSDT
-    """
-    args = context.args
-    pair = await input_sanity_check_analyzing(False, args, update)
-    if not pair:
-        await update.message.reply_text(
-            f"Usage: /delete_signal <symbol>, you've sent {len(args)} argument{plural_helper(len(args))}."
-        )
-    else:
-        try:
-            await deleteSignalJob(pair[0], update)
-        except Exception as e:
-            print(f"Unexpected error: {e}")
-            await update.message.reply_text("❌ An unexpected error occurred.")
-
-
 async def initialize_jobs_handler(application):
     """
     Initialize all user signal jobs from the database when the application starts.
@@ -157,61 +42,23 @@ async def initialize_jobs_handler(application):
     await initialize_jobs(application)
 
 
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Sends a help message with usage instructions for the bot.
-    """
-    help_text = (
-        "<b>CryptoBot Help</b>\n\n"
-        "Here are the main commands you can use:\n\n"
-        "<b>/chart &lt;symbol&gt; &lt;length&gt; &lt;interval&gt; &lt;tolerance&gt;</b>\n"
-        "Get a candlestick chart with all enabled indicators.\n"
-        "- <b>symbol</b>: The trading pair, e.g. BTCUSDT\n"
-        "- <b>length</b>: Amount of candles to analyze\n"
-        "- <b>interval</b>: Candle interval (e.g. 1h, 15m)\n"
-        "- <b>tolerance</b>: Sensitivity for liquidity level detection (0-1, e.g. 0.05 = more levels, 0.2 = fewer, only strongest)\n"
-        "Example: <code>/chart BTCUSDT 48 1h 0.05</code>\n\n"
-        "<b>/text_result &lt;symbol&gt; &lt;length&gt; &lt;interval&gt; &lt;tolerance&gt;</b>\n"
-        "Get a text summary of all detected indicators.\n"
-        "Example: <code>/text_result ETHUSDT 24 15m 0.03</code>\n\n"
-        "<b>/preferences</b>\n"
-        "Interactive menu to select which indicators to use and chart options (legend, volume).\n\n"
-        "<b>/create_signal &lt;symbol&gt; &lt;minutes&gt; [&lt;show_chart&gt;]</b>\n"
-        "Start receiving auto-signals for a pair at a given frequency (in minutes).\n"
-        "- <b>show_chart</b> (optional): true/false, whether to include a chart with each signal (default: false)\n"
-        "Example: <code>/create_signal BTCUSDT 60 true</code>\n\n"
-        "<b>/delete_signal &lt;symbol&gt;</b>\n"
-        "Stop auto-signals for a pair.\n"
-        "Example: <code>/delete_signal BTCUSDT</code>\n\n"
-        "<b>/manage_signals</b>\n"
-        "Interactive menu to view, add, or delete your signal jobs.\n\n"
-        "You can have up to 10 active signal jobs per user.\n\n"
-        "Use /preferences to enable/disable indicators and chart options.\n\n"
-        "For more details, see the README or contact the maintainer (@yarik_is_working)."
-    )
-    await update.message.reply_text(help_text, parse_mode="HTML")
-
-
-if __name__ == "__main__":
-    from database import init_db
-
-    init_db()
-    TOKEN = os.getenv("API_TELEGRAM_KEY")
-
-    app = ApplicationBuilder().token(TOKEN).build()
-
-    job_queue = app.job_queue
-
+def setup_handlers(app):
+    """Setup all command and callback handlers for the bot"""
+    # Chart commands
     app.add_handler(CommandHandler("chart", send_crypto_chart))
     app.add_handler(CommandHandler("text_result", send_text_data))
+
+    # Preference commands
     app.add_handler(CommandHandler("preferences", select_indicators))
     app.add_handler(
         CallbackQueryHandler(handle_indicator_selection, pattern=r"^indicator_")
     )
 
+    # Signal commands
     app.add_handler(CommandHandler("create_signal", create_signal_command))
     app.add_handler(CommandHandler("delete_signal", delete_signal_command))
 
+    # Signal management conversation handler
     manage_signals_conv_handler = ConversationHandler(
         entry_points=[CommandHandler("manage_signals", manage_signals)],
         states={
@@ -224,13 +71,23 @@ if __name__ == "__main__":
                 ),
             ],
         },
-        fallbacks=[
-            # Could add a "/cancel" fallback
-        ],
+        fallbacks=[],
     )
     app.add_handler(manage_signals_conv_handler)
 
+    # Help command
     app.add_handler(CommandHandler("help", help_command))
+
+
+def main():
+    """Main function to initialize and run the bot"""
+    init_db()
+    TOKEN = os.getenv("API_TELEGRAM_KEY")
+
+    app = ApplicationBuilder().token(TOKEN).build()
+
+    # Setup all handlers
+    setup_handlers(app)
 
     # Initialize jobs after the bot starts
     app.job_queue.run_once(
@@ -239,6 +96,8 @@ if __name__ == "__main__":
 
     logger.info("Bot is running...")
     app.run_polling()
-
-    # Example usage
     logger.info("Bot started")
+
+
+if __name__ == "__main__":
+    main()
