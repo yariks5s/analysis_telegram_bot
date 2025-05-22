@@ -34,28 +34,30 @@ logging.basicConfig(
 
 load_dotenv()
 
+
 async def initialize_jobs_handler(application):
     """
     Initialize all user signal jobs from the database when the application starts.
     """
     await initialize_jobs(application)
 
+
 def setup_handlers(app):
     """Setup all command and callback handlers for the bot"""
     # Chart commands
     app.add_handler(CommandHandler("chart", send_crypto_chart))
     app.add_handler(CommandHandler("text_result", send_text_data))
-    
+
     # Preference commands
     app.add_handler(CommandHandler("preferences", select_indicators))
     app.add_handler(
         CallbackQueryHandler(handle_indicator_selection, pattern=r"^indicator_")
     )
-    
+
     # Signal commands
     app.add_handler(CommandHandler("create_signal", create_signal_command))
     app.add_handler(CommandHandler("delete_signal", delete_signal_command))
-    
+
     # Signal management conversation handler
     manage_signals_conv_handler = ConversationHandler(
         entry_points=[CommandHandler("manage_signals", manage_signals)],
@@ -72,28 +74,30 @@ def setup_handlers(app):
         fallbacks=[],
     )
     app.add_handler(manage_signals_conv_handler)
-    
+
     # Help command
     app.add_handler(CommandHandler("help", help_command))
+
 
 def main():
     """Main function to initialize and run the bot"""
     init_db()
     TOKEN = os.getenv("API_TELEGRAM_KEY")
-    
+
     app = ApplicationBuilder().token(TOKEN).build()
-    
+
     # Setup all handlers
     setup_handlers(app)
-    
+
     # Initialize jobs after the bot starts
     app.job_queue.run_once(
         lambda _: asyncio.create_task(initialize_jobs_handler(app)), when=0
     )
-    
+
     logger.info("Bot is running...")
     app.run_polling()
     logger.info("Bot started")
+
 
 if __name__ == "__main__":
     main()

@@ -5,6 +5,7 @@ from plot_build_helpers import plot_price_chart
 from database import get_user_preferences
 from signal_detection import generate_price_prediction_signal_proba
 
+
 async def send_crypto_chart(update: Update, context: CallbackContext):
     """
     Telegram handler to fetch OHLC data, analyze indicators, and send the chart back to the user.
@@ -41,6 +42,7 @@ async def send_crypto_chart(update: Update, context: CallbackContext):
 
     df = df.reset_index(drop=True)
 
+
 async def send_text_data(update: Update, context: CallbackContext):
     """
     Telegram handler to fetch OHLC data for a user-specified crypto pair, time period, interval, and liquidity level detection tolerance
@@ -57,4 +59,4 @@ async def send_text_data(update: Update, context: CallbackContext):
 
     await update.message.reply_text(str(indicators))
 
-    df = df.reset_index(drop=True) 
+    df = df.reset_index(drop=True)

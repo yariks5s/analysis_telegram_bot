@@ -4,6 +4,7 @@ from helpers import check_signal_limit, input_sanity_check_analyzing
 from utils import plural_helper
 from signal_detection import createSignalJob, deleteSignalJob
 
+
 async def create_signal_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Command handler to create a signal job.
@@ -26,6 +27,7 @@ async def create_signal_command(update: Update, context: ContextTypes.DEFAULT_TY
             print(f"Unexpected error: {e}")
             await update.message.reply_text("❌ An unexpected error occurred.")
 
+
 async def delete_signal_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Command handler to delete a specific signal job.
@@ -43,4 +45,4 @@ async def delete_signal_command(update: Update, context: ContextTypes.DEFAULT_TY
             await deleteSignalJob(pair[0], update)
         except Exception as e:
             print(f"Unexpected error: {e}")
-            await update.message.reply_text("❌ An unexpected error occurred.") 
+            await update.message.reply_text("❌ An unexpected error occurred.")

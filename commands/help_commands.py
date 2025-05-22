@@ -48,6 +48,7 @@ COMMAND_HELPS = {
     ),
 }
 
+
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Sends a help message with usage instructions for the bot, or detailed help for a specific command if provided.
@@ -70,4 +71,4 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Example: <code>/help chart</code>\n\n"
             "For more details, see the README or contact the maintainer (@yarik_is_working)."
         )
-    await update.message.reply_text(help_text, parse_mode="HTML") 
+    await update.message.reply_text(help_text, parse_mode="HTML")
