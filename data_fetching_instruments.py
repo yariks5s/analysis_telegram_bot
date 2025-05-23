@@ -69,8 +69,16 @@ def fetch_candles(
         pd.DataFrame: A DataFrame containing up to `desired_total` recent candles.
                       If fewer are available, returns as many as possible.
     """
-    # Initialize an empty DataFrame with the expected columns
-    all_candles = pd.DataFrame(columns=["Open", "High", "Low", "Close", "Volume"])
+    # Initialize an empty DataFrame with the expected columns and dtypes
+    all_candles = pd.DataFrame(
+        {
+            "Open": pd.Series(dtype="float64"),
+            "High": pd.Series(dtype="float64"),
+            "Low": pd.Series(dtype="float64"),
+            "Close": pd.Series(dtype="float64"),
+            "Volume": pd.Series(dtype="float64"),
+        }
+    )
 
     # Current time in milliseconds since epoch
     end_time_ms = int(timestamp * 1000)
@@ -90,8 +98,15 @@ def fetch_candles(
             logger.info("No more data returned. Stopping early.")
             break
 
+        # Ensure df_batch has the same dtypes as all_candles
+        df_batch = df_batch.astype(all_candles.dtypes)
+
         # Concatenate the new batch with the existing DataFrame
-        all_candles = pd.concat([all_candles, df_batch]).drop_duplicates()
+        if all_candles.empty:
+            all_candles = df_batch
+        else:
+            all_candles = pd.concat([all_candles, df_batch], axis=0)
+            all_candles = all_candles[~all_candles.index.duplicated(keep="last")]
 
         logger.info(
             f"Fetched {len(df_batch)} new candles. Total in memory: {len(all_candles)}"
