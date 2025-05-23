@@ -6,12 +6,14 @@ from typing import List, Tuple, Optional, Dict
 import logging
 from datetime import datetime
 from collections import deque
+import uuid
 
 project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(project_dir)
 
 from strategy import backtest_strategy
 from getTradingPairs import get_trading_pairs
+from db_operations import ClickHouseDB
 
 # Set up focused logging for training
 logger = logging.getLogger("training")
@@ -37,6 +39,9 @@ logger.addHandler(console_handler)
 
 # Prevent propagation to root logger
 logger.propagate = False
+
+# Initialize ClickHouse database
+db = ClickHouseDB()
 
 # --- Initial Weight Configuration ---
 weights = [1.0, 1.0, 1.0, 1.0, 0.7, 0.7, 0.5, 0.5]
@@ -156,7 +161,9 @@ def calculate_fitness(metrics: TrainingMetrics) -> float:
 
 
 def evaluate_weights(
-    weights: List[float], test_pairs: Optional[List[str]] = None
+    weights: List[float],
+    test_pairs: Optional[List[str]] = None,
+    iteration_id: Optional[str] = None,
 ) -> Tuple[float, Optional[TrainingMetrics]]:
     try:
         pairs = test_pairs if test_pairs else get_trading_pairs()
@@ -180,13 +187,15 @@ def evaluate_weights(
                 window = int(candles * 0.6)
 
                 try:
-                    final_balance, trades = backtest_strategy(
+                    final_balance, trades, sub_iteration_id = backtest_strategy(
                         symbol,
                         interval,
                         candles,
                         window,
                         initial_balance,
                         weights=weights,
+                        iteration_id=iteration_id,
+                        db=db,
                     )
 
                     if trades:  # Only count runs with actual trades
@@ -196,6 +205,26 @@ def evaluate_weights(
                         ) * 100
                         total_revenue_percent += revenue_percent
                         metrics.update(trades, initial_balance, final_balance)
+
+                        # Store sub-iteration data
+                        if db and sub_iteration_id:
+                            sub_iteration_data = {
+                                "iteration_id": iteration_id,
+                                "symbol": symbol,
+                                "interval": interval,
+                                "candles": candles,
+                                "window": window,
+                                "initial_balance": initial_balance,
+                                "final_balance": final_balance,
+                                "total_trades": len(trades),
+                                "win_rate": (
+                                    metrics.winning_trades / metrics.total_trades * 100
+                                    if metrics.total_trades > 0
+                                    else 0
+                                ),
+                                "revenue": final_balance - initial_balance,
+                            }
+                            db.insert_sub_iteration(sub_iteration_data)
 
                 except Exception as e:
                     logger.warning(
@@ -220,12 +249,22 @@ def optimize_weights(
     weights: List[float], iterations: int, learning_rate: float
 ) -> List[float]:
     best_weights = weights[:]
-    best_score, best_metrics = evaluate_weights(best_weights)
+    iteration_id = str(uuid.uuid4())
+    best_score, best_metrics = evaluate_weights(best_weights, iteration_id=iteration_id)
 
     if best_metrics:
         logger.info(f"Initial Score: {best_score:.5f}%")
         logger.info(f"Initial Metrics: {best_metrics.get_metrics()}")
         logger.info(f"Initial Weights: {best_weights}")
+
+        # Store initial iteration data
+        iteration_data = {
+            "iteration_number": 0,
+            "weights": best_weights,
+            "fitness_score": best_score,
+            **best_metrics.get_metrics(),
+        }
+        db.insert_iteration(iteration_data)
 
     # Optimization state
     current_learning_rate = learning_rate
@@ -246,7 +285,20 @@ def optimize_weights(
             adjustment = current_learning_rate * velocity[index]
             new_weights[index] = max(0, min(2.0, new_weights[index] + adjustment))
 
-        new_score, new_metrics = evaluate_weights(new_weights)
+        new_score, new_metrics = evaluate_weights(
+            new_weights, iteration_id=iteration_id
+        )
+
+        if new_metrics:
+            # Store iteration data
+            iteration_data = {
+                "iteration_number": iteration + 1,
+                "weights": new_weights,
+                "fitness_score": new_score,
+                **new_metrics.get_metrics(),
+            }
+            db.insert_iteration(iteration_data)
+
         score_history.append(new_score)
 
         if new_score > best_score:

@@ -5,3 +5,10 @@ chatGPT_script.py
 **/__pycache__/
 preferences.db
 tech_debt.txt
+*.log
+back_tester/data/
+back_tester/store/
+back_tester/metadata/
+back_tester/preprocessed_configs/
+back_tester/uuid
+back_tester/status
