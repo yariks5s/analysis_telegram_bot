@@ -46,6 +46,26 @@ COMMAND_HELPS = {
         "<b>/help &lt;command&gt;</b>\nShow detailed help for a specific command.\n\n"
         "Example: <code>/help chart</code>"
     ),
+    "sql": (
+        "<b>/sql &lt;query&gt;</b>\n"
+        "Execute a custom SQL query against the database.\n\n"
+        "Example queries:\n"
+        "- <code>/sql SELECT * FROM trades LIMIT 5</code>\n"
+        "- <code>/sql SELECT symbol, COUNT(*) as trades FROM trades GROUP BY symbol</code>\n"
+        "- <code>/sql SELECT AVG(profit_loss) as avg_profit FROM trades WHERE symbol = 'BTCUSDT'</code>\n\n"
+        "Note: Results are limited to 50 rows for readability."
+    ),
+    "tables": (
+        "<b>/tables</b>\n"
+        "Show a list of all available tables in the database.\n\n"
+        "Use this command to see what tables you can query with /sql."
+    ),
+    "schema": (
+        "<b>/schema &lt;table_name&gt;</b>\n"
+        "Show the schema (structure) of a specific table.\n\n"
+        "Example: <code>/schema trades</code>\n\n"
+        "This will show you all columns and their data types in the specified table."
+    ),
 }
 
 
@@ -66,6 +86,9 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "<b>/create_signal &lt;symbol&gt; &lt;minutes&gt; [&lt;show_chart&gt;]</b>\n"
             "<b>/delete_signal &lt;symbol&gt;</b>\n"
             "<b>/manage_signals</b>\n"
+            "<b>/sql &lt;query&gt;</b>\n"
+            "<b>/tables</b>\n"
+            "<b>/schema &lt;table_name&gt;</b>\n"
             "<b>/help &lt;command&gt;</b>\n\n"
             "Type <code>/help &lt;command&gt;</code> to get detailed help for a specific command.\n\n"
             "Example: <code>/help chart</code>\n\n"
