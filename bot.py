@@ -25,6 +25,11 @@ from signal_detection import initialize_jobs
 from commands.chart_commands import send_crypto_chart, send_text_data
 from commands.signal_commands import create_signal_command, delete_signal_command
 from commands.help_commands import help_command
+from commands.db_commands import (
+    execute_sql_command,
+    show_tables_command,
+    describe_table_command,
+)
 from utils import logger
 
 # Configure logging
@@ -57,6 +62,11 @@ def setup_handlers(app):
     # Signal commands
     app.add_handler(CommandHandler("create_signal", create_signal_command))
     app.add_handler(CommandHandler("delete_signal", delete_signal_command))
+
+    # Database commands
+    app.add_handler(CommandHandler("sql", execute_sql_command))
+    app.add_handler(CommandHandler("tables", show_tables_command))
+    app.add_handler(CommandHandler("schema", describe_table_command))
 
     # Signal management conversation handler
     manage_signals_conv_handler = ConversationHandler(

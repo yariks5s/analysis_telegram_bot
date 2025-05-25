@@ -1,6 +1,6 @@
 from clickhouse_driver import Client
 from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 import logging
 import sys
 import subprocess
@@ -9,6 +9,7 @@ from queue import Queue
 import threading
 import time
 import uuid
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -23,36 +24,6 @@ class ClickHouseDB:
         flush_interval=5,
     ):
         try:
-            # Check if ClickHouse is installed
-            try:
-                subprocess.run(
-                    ["clickhouse", "--version"], capture_output=True, check=True
-                )
-            except (subprocess.CalledProcessError, FileNotFoundError):
-                logger.error("ClickHouse is not installed. Please install it using:")
-                logger.error("curl https://clickhouse.com/ | sh")
-                logger.error("Or download manually:")
-                logger.error(
-                    "1. curl -O https://builds.clickhouse.com/master/macos/clickhouse"
-                )
-                logger.error("2. chmod +x clickhouse")
-                logger.error("3. sudo mv clickhouse /usr/local/bin/")
-                self.client = None
-                return
-
-            # Check if ClickHouse server is running
-            try:
-                subprocess.run(
-                    ["clickhouse", "client", "--query", "SELECT 1"],
-                    capture_output=True,
-                    check=True,
-                )
-            except subprocess.CalledProcessError:
-                logger.error("ClickHouse server is not running. Please start it using:")
-                logger.error("clickhouse server")
-                self.client = None
-                return
-
             # Create a connection pool
             self.connection_pool = []
             self.pool_size = 3  # Number of connections in the pool
@@ -366,6 +337,164 @@ class ClickHouseDB:
         except Exception as e:
             logger.error(f"Failed to get sub-iterations: {str(e)}")
             return []
+
+    def execute_query(
+        self, query: str, params: Optional[Dict[str, Any]] = None
+    ) -> Union[List[Dict[str, Any]], str]:
+        """
+        Execute a custom SQL query and return the results.
+
+        Args:
+            query (str): The SQL query to execute
+            params (Optional[Dict[str, Any]]): Optional parameters for the query
+
+        Returns:
+            Union[List[Dict[str, Any]], str]: Query results as a list of dictionaries or error message
+        """
+        if not self.connection_pool:
+            return "Database not connected"
+
+        try:
+            client = self._get_connection()
+            if not client:
+                return "No available database connection"
+
+            # Execute the query
+            result = client.execute(query, params or {})
+
+            # If the query includes FORMAT clause, return raw result
+            if "FORMAT" in query.upper():
+                return result
+
+            # Get column names from the query
+            try:
+                # Try to get column names from the result
+                if result and len(result) > 0:
+                    column_names = [f"column_{i}" for i in range(len(result[0]))]
+                else:
+                    return "No results returned"
+
+                # Convert result to list of dictionaries
+                formatted_result = []
+                for row in result:
+                    formatted_result.append(dict(zip(column_names, row)))
+
+                return formatted_result
+            except Exception as e:
+                logger.error(f"Error formatting results: {str(e)}")
+                return result
+
+        except Exception as e:
+            error_msg = f"Error executing query: {str(e)}"
+            logger.error(error_msg)
+            return error_msg
+
+    def execute_query_to_dataframe(
+        self, query: str, params: Optional[Dict[str, Any]] = None
+    ) -> Union[pd.DataFrame, str]:
+        """
+        Execute a custom SQL query and return the results as a pandas DataFrame.
+
+        Args:
+            query (str): The SQL query to execute
+            params (Optional[Dict[str, Any]]): Optional parameters for the query
+
+        Returns:
+            Union[pd.DataFrame, str]: Query results as a pandas DataFrame or error message
+        """
+        if not self.connection_pool:
+            return "Database not connected"
+
+        try:
+            client = self._get_connection()
+            if not client:
+                return "No available database connection"
+
+            # Execute the query
+            result = client.execute(query, params or {})
+
+            # Get column names from the query
+            column_names = client.execute(f"DESCRIBE TABLE ({query})")
+            if not column_names:
+                # If DESCRIBE fails, try to get column names from the result
+                if result and len(result) > 0:
+                    column_names = [f"column_{i}" for i in range(len(result[0]))]
+                else:
+                    return "No results returned"
+
+            # Convert to DataFrame
+            df = pd.DataFrame(result, columns=column_names)
+            return df
+
+        except Exception as e:
+            error_msg = f"Error executing query: {str(e)}"
+            logger.error(error_msg)
+            return error_msg
+
+    def get_table_schema(self, table_name: str) -> Union[List[Dict[str, Any]], str]:
+        """
+        Get the schema of a specific table.
+
+        Args:
+            table_name (str): Name of the table
+
+        Returns:
+            Union[List[Dict[str, Any]], str]: Table schema or error message
+        """
+        if not self.connection_pool:
+            return "Database not connected"
+
+        try:
+            client = self._get_connection()
+            if not client:
+                return "No available database connection"
+
+            # Get table schema
+            schema = client.execute(f"DESCRIBE TABLE {table_name}")
+
+            # Format the result
+            formatted_schema = []
+            for column in schema:
+                formatted_schema.append(
+                    {
+                        "name": column[0],
+                        "type": column[1],
+                        "default": column[2],
+                        "compression_codec": column[3],
+                        "ttl": column[4],
+                    }
+                )
+
+            return formatted_schema
+
+        except Exception as e:
+            error_msg = f"Error getting table schema: {str(e)}"
+            logger.error(error_msg)
+            return error_msg
+
+    def get_available_tables(self) -> Union[List[str], str]:
+        """
+        Get a list of all available tables in the database.
+
+        Returns:
+            Union[List[str], str]: List of table names or error message
+        """
+        if not self.connection_pool:
+            return "Database not connected"
+
+        try:
+            client = self._get_connection()
+            if not client:
+                return "No available database connection"
+
+            # Get list of tables
+            tables = client.execute("SHOW TABLES")
+            return [table[0] for table in tables]
+
+        except Exception as e:
+            error_msg = f"Error getting available tables: {str(e)}"
+            logger.error(error_msg)
+            return error_msg
 
     def __del__(self):
         """Cleanup when the object is destroyed"""
