@@ -1,6 +1,5 @@
 from datetime import timedelta
 from typing import List, Dict, Tuple
-
 import pandas as pd  # type: ignore
 
 from helpers import fetch_candles, analyze_data, fetch_data_and_get_indicators
@@ -18,15 +17,176 @@ from utils import auto_signal_jobs, create_true_preferences, logger
 
 from plot_build_helpers import plot_price_chart
 
-from datetime import timedelta
 
+def detect_support_resistance(df: pd.DataFrame, window: int = 20, threshold: float = 0.02) -> Tuple[List[float], List[float]]:
+    """
+    Detect support and resistance levels using swing highs/lows and price clustering.
+    
+    Args:
+        df: DataFrame with OHLCV data
+        window: Window size for swing detection
+        threshold: Price threshold for clustering
+        
+    Returns:
+        Tuple of (support_levels, resistance_levels)
+    """
+    highs = df['High'].values
+    lows = df['Low'].values
+    
+    # Find swing highs and lows
+    swing_highs = []
+    swing_lows = []
+    
+    for i in range(window, len(df) - window):
+        # Check for swing high
+        if all(highs[i] > highs[i-window:i]) and all(highs[i] > highs[i+1:i+window+1]):
+            swing_highs.append(highs[i])
+        # Check for swing low
+        if all(lows[i] < lows[i-window:i]) and all(lows[i] < lows[i+1:i+window+1]):
+            swing_lows.append(lows[i])
+    
+    # Cluster price levels
+    def cluster_levels(levels: List[float], threshold: float) -> List[float]:
+        if not levels:
+            return []
+        levels = sorted(levels)
+        clusters = []
+        current_cluster = [levels[0]]
+        
+        for level in levels[1:]:
+            if (level - current_cluster[0]) / current_cluster[0] <= threshold:
+                current_cluster.append(level)
+            else:
+                clusters.append(sum(current_cluster) / len(current_cluster))
+                current_cluster = [level]
+        
+        if current_cluster:
+            clusters.append(sum(current_cluster) / len(current_cluster))
+        
+        return clusters
+    
+    support_levels = cluster_levels(swing_lows, threshold)
+    resistance_levels = cluster_levels(swing_highs, threshold)
+    
+    return support_levels, resistance_levels
+
+def detect_trend(df: pd.DataFrame, window: int = 20) -> str:
+    """
+    Detect the current trend using moving averages and price action.
+    
+    Returns:
+        "bullish", "bearish", or "neutral"
+    """
+    # Calculate EMAs
+    df['EMA20'] = df['Close'].ewm(span=window).mean()
+    df['EMA50'] = df['Close'].ewm(span=50).mean()
+    
+    # Get recent values
+    current_price = df['Close'].iloc[-1]
+    ema20 = df['EMA20'].iloc[-1]
+    ema50 = df['EMA50'].iloc[-1]
+    
+    # Calculate trend strength
+    price_above_ema20 = current_price > ema20
+    ema20_above_ema50 = ema20 > ema50
+    
+    # Calculate momentum
+    momentum = (current_price - df['Close'].iloc[-window]) / df['Close'].iloc[-window]
+    
+    if price_above_ema20 and ema20_above_ema50 and momentum > 0.01:
+        return "bullish"
+    elif not price_above_ema20 and not ema20_above_ema50 and momentum < -0.01:
+        return "bearish"
+    else:
+        return "neutral"
+
+def analyze_order_blocks(df: pd.DataFrame, window: int = 3) -> List[Dict]:
+    """
+    Enhanced order block detection with volume confirmation and price action patterns.
+    
+    Returns:
+        List of order blocks with their properties
+    """
+    order_blocks = []
+    
+    for i in range(window, len(df) - window):
+        # Bullish order block conditions
+        if (df['Close'].iloc[i] < df['Open'].iloc[i] and  # Bearish candle
+            df['Close'].iloc[i+1] > df['Open'].iloc[i+1] and  # Bullish candle
+            df['Volume'].iloc[i] > df['Volume'].iloc[i-1:i+1].mean() and  # Higher volume
+            df['Low'].iloc[i+1:i+window].min() > df['Low'].iloc[i]):  # Price holds above
+            
+            order_blocks.append({
+                'type': 'bullish',
+                'index': i,
+                'price': df['Low'].iloc[i],
+                'volume': df['Volume'].iloc[i],
+                'strength': df['Volume'].iloc[i] / df['Volume'].iloc[i-5:i].mean()
+            })
+        
+        # Bearish order block conditions
+        elif (df['Close'].iloc[i] > df['Open'].iloc[i] and  # Bullish candle
+              df['Close'].iloc[i+1] < df['Open'].iloc[i+1] and  # Bearish candle
+              df['Volume'].iloc[i] > df['Volume'].iloc[i-1:i+1].mean() and  # Higher volume
+              df['High'].iloc[i+1:i+window].max() < df['High'].iloc[i]):  # Price holds below
+            
+            order_blocks.append({
+                'type': 'bearish',
+                'index': i,
+                'price': df['High'].iloc[i],
+                'volume': df['Volume'].iloc[i],
+                'strength': df['Volume'].iloc[i] / df['Volume'].iloc[i-5:i].mean()
+            })
+    
+    return order_blocks
+
+def analyze_breaker_blocks(df: pd.DataFrame, window: int = 3) -> List[Dict]:
+    """
+    Enhanced breaker block detection with volume and price action confirmation.
+    
+    Returns:
+        List of breaker blocks with their properties
+    """
+    breaker_blocks = []
+    
+    for i in range(window, len(df) - window):
+        # Bullish breaker block conditions
+        if (df['Close'].iloc[i] > df['Open'].iloc[i] and  # Bullish candle
+            df['Close'].iloc[i] > df['High'].iloc[i-1:i].max() and  # Breaks above previous high
+            df['Volume'].iloc[i] > df['Volume'].iloc[i-1:i+1].mean() and  # Higher volume
+            df['Low'].iloc[i+1:i+window].min() > df['Low'].iloc[i]):  # Price holds above
+            
+            breaker_blocks.append({
+                'type': 'bullish',
+                'index': i,
+                'price': df['Low'].iloc[i],
+                'volume': df['Volume'].iloc[i],
+                'strength': df['Volume'].iloc[i] / df['Volume'].iloc[i-5:i].mean(),
+                'breakout_size': (df['Close'].iloc[i] - df['High'].iloc[i-1:i].max()) / df['High'].iloc[i-1:i].max()
+            })
+        
+        # Bearish breaker block conditions
+        elif (df['Close'].iloc[i] < df['Open'].iloc[i] and  # Bearish candle
+              df['Close'].iloc[i] < df['Low'].iloc[i-1:i].min() and  # Breaks below previous low
+              df['Volume'].iloc[i] > df['Volume'].iloc[i-1:i+1].mean() and  # Higher volume
+              df['High'].iloc[i+1:i+window].max() < df['High'].iloc[i]):  # Price holds below
+            
+            breaker_blocks.append({
+                'type': 'bearish',
+                'index': i,
+                'price': df['High'].iloc[i],
+                'volume': df['Volume'].iloc[i],
+                'strength': df['Volume'].iloc[i] / df['Volume'].iloc[i-5:i].mean(),
+                'breakout_size': (df['Low'].iloc[i-1:i].min() - df['Close'].iloc[i]) / df['Low'].iloc[i-1:i].min()
+            })
+    
+    return breaker_blocks
 
 def generate_price_prediction_signal_proba(
     df: pd.DataFrame, indicators, weights: list = []
 ) -> Tuple[str, float, float, str]:
     """
     Generates a single-timeframe signal with bullish/bearish/neutral outcome.
-    Treats all FVGs based on their position relative to the current price.
 
     Returns:
         (signal, probability_of_bullish, confidence, reason_str)
@@ -41,10 +201,11 @@ def generate_price_prediction_signal_proba(
     W_BEARISH_BREAKER = 1.0
     W_ABOVE_SUPPORT = 0.7
     W_BELOW_RESISTANCE = 0.7
-    W_FVG_ABOVE = 0.5  # Weight for FVGs above price
-    W_FVG_BELOW = 0.5  # Weight for FVGs below price
+    W_FVG_ABOVE = 0.5
+    W_FVG_BELOW = 0.5
+    W_TREND = 0.8
 
-    if weights and len(weights) == 8:
+    if weights and len(weights) == 9:
         W_BULLISH_OB = weights[0]
         W_BEARISH_OB = weights[1]
         W_BULLISH_BREAKER = weights[2]
@@ -53,81 +214,70 @@ def generate_price_prediction_signal_proba(
         W_BELOW_RESISTANCE = weights[5]
         W_FVG_ABOVE = weights[6]
         W_FVG_BELOW = weights[7]
+        W_TREND = weights[8]
 
     bullish_score = 0.0
     bearish_score = 0.0
 
-    # -------------------------------------------------------------
-    # 1) Order Blocks and Breaker Blocks
-    # -------------------------------------------------------------
-    if indicators.order_blocks and indicators.order_blocks.list:
-        for block in indicators.order_blocks.list[-3:]:
-            if block.block_type == "bullish" and block.index >= (len(df) - 3):
-                bullish_score += W_BULLISH_OB
-                reasons.append("Recent bullish order block found")
-                break
+    # Detect trend
+    trend = detect_trend(df)
+    if trend == "bullish":
+        bullish_score += W_TREND
+        reasons.append("Price is in a bullish trend")
+    elif trend == "bearish":
+        bearish_score += W_TREND
+        reasons.append("Price is in a bearish trend")
 
-    if indicators.order_blocks and indicators.order_blocks.list:
-        for block in indicators.order_blocks.list[-3:]:
-            if block.block_type == "bearish" and block.index >= (len(df) - 3):
-                bearish_score += W_BEARISH_OB
-                reasons.append("Recent bearish order block found")
-                break
+    # Enhanced support/resistance analysis
+    support_levels, resistance_levels = detect_support_resistance(df)
+    
+    # Find nearest support and resistance
+    nearest_support = max([s for s in support_levels if s < last_close], default=None)
+    nearest_resistance = min([r for r in resistance_levels if r > last_close], default=None)
+    
+    if nearest_support:
+        support_distance = (last_close - nearest_support) / last_close
+        if support_distance < 0.02:  # Within 2% of support
+            bullish_score += W_ABOVE_SUPPORT
+            reasons.append(f"Price near support level at {nearest_support:.2f}")
+    
+    if nearest_resistance:
+        resistance_distance = (nearest_resistance - last_close) / last_close
+        if resistance_distance < 0.02:  # Within 2% of resistance
+            bearish_score += W_BELOW_RESISTANCE
+            reasons.append(f"Price near resistance level at {nearest_resistance:.2f}")
 
-    if indicators.breaker_blocks and indicators.breaker_blocks.list:
-        for block in indicators.breaker_blocks.list[-3:]:
-            if block.block_type == "bullish" and block.index >= (len(df) - 4):
-                bullish_score += W_BULLISH_BREAKER
-                reasons.append("Recent bullish breaker block found")
-                break
+    # Enhanced order block analysis
+    order_blocks = analyze_order_blocks(df)
+    recent_blocks = [block for block in order_blocks if block['index'] >= len(df) - 10]
+    
+    for block in recent_blocks:
+        if block['type'] == 'bullish' and block['strength'] > 1.2:  # Strong bullish block
+            bullish_score += W_BULLISH_OB * block['strength']
+            reasons.append(f"Strong bullish order block found (strength: {block['strength']:.2f})")
+        elif block['type'] == 'bearish' and block['strength'] > 1.2:  # Strong bearish block
+            bearish_score += W_BEARISH_OB * block['strength']
+            reasons.append(f"Strong bearish order block found (strength: {block['strength']:.2f})")
 
-    if indicators.breaker_blocks and indicators.breaker_blocks.list:
-        for block in indicators.breaker_blocks.list[-3:]:
-            if block.block_type == "bearish" and block.index >= (len(df) - 4):
-                bearish_score += W_BEARISH_BREAKER
-                reasons.append("Recent bearish breaker block found")
-                break
+    # Enhanced breaker block analysis
+    breaker_blocks = analyze_breaker_blocks(df)
+    recent_breakers = [block for block in breaker_blocks if block['index'] >= len(df) - 10]
+    
+    for block in recent_breakers:
+        if block['type'] == 'bullish' and block['strength'] > 1.2 and block['breakout_size'] > 0.01:
+            bullish_score += W_BULLISH_BREAKER * block['strength'] * (1 + block['breakout_size'])
+            reasons.append(
+                f"Strong bullish breaker block found (strength: {block['strength']:.2f}, "
+                f"breakout: {block['breakout_size']*100:.1f}%)"
+            )
+        elif block['type'] == 'bearish' and block['strength'] > 1.2 and block['breakout_size'] > 0.01:
+            bearish_score += W_BEARISH_BREAKER * block['strength'] * (1 + block['breakout_size'])
+            reasons.append(
+                f"Strong bearish breaker block found (strength: {block['strength']:.2f}, "
+                f"breakout: {block['breakout_size']*100:.1f}%)"
+            )
 
-    # -------------------------------------------------------------
-    # 2) Liquidity Levels (Support / Resistance)
-    # -------------------------------------------------------------
-    above_support = False
-    below_resistance = False
-
-    # TODO!
-    # if indicators.liquidity_levels and indicators.liquidity_levels.list:
-    # Find last discovered support
-    # supports = [
-    #     lvl.price for lvl in indicators.liquidity_levels.list if lvl.is_support()
-    # ]
-    # if supports:
-    #     last_support = supports[-1]
-    #     if last_close > last_support:
-    #         above_support = True
-    #         reasons.append(
-    #             f"Price {last_close:.2f} is above support {last_support:.2f}"
-    #         )
-
-    # Find last discovered resistance
-    # resistances = [
-    #     lvl.price for lvl in indicators.liquidity_levels.list if lvl.is_resistance()
-    # ]
-    # if resistances:
-    #     last_resistance = resistances[-1]
-    #     if last_close < last_resistance:
-    #         below_resistance = True
-    #         reasons.append(
-    #             f"Price {last_close:.2f} is below resistance {last_resistance:.2f}"
-    #        )
-
-    if above_support:
-        bullish_score += W_ABOVE_SUPPORT
-    if below_resistance:
-        bearish_score += W_BELOW_RESISTANCE
-
-    # -------------------------------------------------------------
-    # 3) FVG Logic (Based on Position Relative to Current Price)
-    # -------------------------------------------------------------
+    # FVG Logic (Based on Position Relative to Current Price)
     if indicators.fvgs and indicators.fvgs.list:
         for fvg in indicators.fvgs.list:
             # Determine if FVG is above or below the current price
@@ -142,14 +292,8 @@ def generate_price_prediction_signal_proba(
                 # FVG is above the current price
                 bullish_score += W_FVG_ABOVE
                 reasons.append("Unfilled FVG above current price")
-            else:
-                # Price is within the FVG range; treat as neutral or consider specific logic
-                # For simplicity, you might skip or handle differently
-                reasons.append("Price is within FVG range; no score adjustment")
 
-    # -------------------------------------------------------------
-    # 4) Convert scores to final probability, confidence, signal
-    # -------------------------------------------------------------
+    # Convert scores to final probability
     eps = 1e-9
     total_score = bullish_score + bearish_score
     if total_score < eps:
@@ -160,20 +304,21 @@ def generate_price_prediction_signal_proba(
     # Clamp probability
     probability_of_bullish = max(0.001, min(probability_of_bullish, 0.999))
 
-    # Decide final signal
-    if probability_of_bullish >= 0.66:
+    # Decide final signal with trend confirmation
+    if probability_of_bullish >= 0.66 and trend != "bearish":
         signal = "Bullish"
-    elif probability_of_bullish <= 0.33:
+    elif probability_of_bullish <= 0.33 and trend != "bullish":
         signal = "Bearish"
     else:
         signal = "Neutral"
 
-    # Confidence is how far from 0.5 we are
+    # Calculate confidence
     confidence = abs(probability_of_bullish - 0.5) * 2.0
 
     # Compile reason string
     reason_str = (
         f"Signal: {signal}\n"
+        f"Trend: {trend}\n"
         f"Bullish Score: {bullish_score:.2f} | Bearish Score: {bearish_score:.2f}\n"
         f"Probability of Bullish: {probability_of_bullish:.3f}\n"
         f"Confidence: {confidence:.3f}\n\n"

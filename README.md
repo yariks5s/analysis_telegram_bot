@@ -198,6 +198,8 @@ You also have a chance to contribute to this project. Please create a pull reque
 - [x] Maybe do not add covered FVGs at all? UPD: Yes
 - [ ] Logging system
 - [ ] Disable info logging for training
+- [ ] Disclaimer in /help temporary debugging commands
+- [ ] Implement testing for proper backtesting
 - [ ] Multi language support
 - [ ] Implement advanced risk management tools (e.g., stop-loss/take-profit suggestions)
 - [ ] Allow users to set custom indicator parameters (e.g., ATR period, FVG min size)

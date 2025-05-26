@@ -44,7 +44,7 @@ logger.propagate = False
 db = ClickHouseDB()
 
 # --- Initial Weight Configuration ---
-weights = [1.0, 1.0, 1.0, 1.0, 0.7, 0.7, 0.5, 0.5]
+weights = [1.0, 1.0, 1.0, 1.0, 0.7, 0.7, 0.5, 0.5, 0.8]
 learning_rate = 0.05
 iterations = 1000
 evaluation_runs = 20
