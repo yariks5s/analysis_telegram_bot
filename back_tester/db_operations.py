@@ -10,6 +10,7 @@ import threading
 import time
 import uuid
 import pandas as pd
+from threading import Lock
 
 logger = logging.getLogger(__name__)
 
@@ -24,12 +25,14 @@ class ClickHouseDB:
         flush_interval=5,
     ):
         try:
-            # Create a connection pool
+            # Create a connection pool with locks
             self.connection_pool = []
+            self.connection_locks = []
             self.pool_size = 3  # Number of connections in the pool
             for _ in range(self.pool_size):
                 client = Client(host=host, port=port, database=database)
                 self.connection_pool.append(client)
+                self.connection_locks.append(Lock())
 
             self._init_tables()
 
@@ -63,17 +66,20 @@ class ClickHouseDB:
             self.client = None
 
     def _get_connection(self):
-        """Get a connection from the pool using round-robin"""
+        """Get a connection from the pool using round-robin with lock"""
         if not self.connection_pool:
-            return None
-        return self.connection_pool[threading.get_ident() % len(self.connection_pool)]
+            return None, None
+
+        # Get connection index using thread ID
+        conn_index = threading.get_ident() % len(self.connection_pool)
+        return self.connection_pool[conn_index], self.connection_locks[conn_index]
 
     def _init_tables(self):
         if not self.connection_pool:
             return
 
         try:
-            client = self._get_connection()
+            client, _ = self._get_connection()
             # Create database if it doesn't exist
             client.execute("CREATE DATABASE IF NOT EXISTS crypto_bot")
             client.execute("USE crypto_bot")
@@ -195,9 +201,10 @@ class ClickHouseDB:
                         break
 
                 if batch:
-                    client = self._get_connection()
+                    client, lock = self._get_connection()
                     if client:
-                        client.execute("INSERT INTO trades VALUES", batch)
+                        with lock:
+                            client.execute("INSERT INTO trades VALUES", batch)
             except Exception as e:
                 logger.error(f"Error processing trades batch: {str(e)}")
 
@@ -221,9 +228,10 @@ class ClickHouseDB:
                         break
 
                 if batch:
-                    client = self._get_connection()
+                    client, lock = self._get_connection()
                     if client:
-                        client.execute("INSERT INTO iterations VALUES", batch)
+                        with lock:
+                            client.execute("INSERT INTO iterations VALUES", batch)
             except Exception as e:
                 logger.error(f"Error processing iterations batch: {str(e)}")
 
@@ -247,9 +255,10 @@ class ClickHouseDB:
                         break
 
                 if batch:
-                    client = self._get_connection()
+                    client, lock = self._get_connection()
                     if client:
-                        client.execute("INSERT INTO sub_iterations VALUES", batch)
+                        with lock:
+                            client.execute("INSERT INTO sub_iterations VALUES", batch)
             except Exception as e:
                 logger.error(f"Error processing sub-iterations batch: {str(e)}")
 
@@ -304,7 +313,7 @@ class ClickHouseDB:
             return []
 
         try:
-            client = self._get_connection()
+            client, _ = self._get_connection()
             if not client:
                 return []
             query = """
@@ -325,7 +334,7 @@ class ClickHouseDB:
             return []
 
         try:
-            client = self._get_connection()
+            client, _ = self._get_connection()
             if not client:
                 return []
             query = """
@@ -355,34 +364,35 @@ class ClickHouseDB:
             return "Database not connected"
 
         try:
-            client = self._get_connection()
+            client, lock = self._get_connection()
             if not client:
                 return "No available database connection"
 
-            # Execute the query
-            result = client.execute(query, params or {})
+            # Execute the query with lock
+            with lock:
+                result = client.execute(query, params or {})
 
-            # If the query includes FORMAT clause, return raw result
-            if "FORMAT" in query.upper():
-                return result
+                # If the query includes FORMAT clause, return raw result
+                if "FORMAT" in query.upper():
+                    return result
 
-            # Get column names from the query
-            try:
-                # Try to get column names from the result
-                if result and len(result) > 0:
-                    column_names = [f"column_{i}" for i in range(len(result[0]))]
-                else:
-                    return "No results returned"
+                # Get column names from the query
+                try:
+                    # Try to get column names from the result
+                    if result and len(result) > 0:
+                        column_names = [f"column_{i}" for i in range(len(result[0]))]
+                    else:
+                        return "No results returned"
 
-                # Convert result to list of dictionaries
-                formatted_result = []
-                for row in result:
-                    formatted_result.append(dict(zip(column_names, row)))
+                    # Convert result to list of dictionaries
+                    formatted_result = []
+                    for row in result:
+                        formatted_result.append(dict(zip(column_names, row)))
 
-                return formatted_result
-            except Exception as e:
-                logger.error(f"Error formatting results: {str(e)}")
-                return result
+                    return formatted_result
+                except Exception as e:
+                    logger.error(f"Error formatting results: {str(e)}")
+                    return result
 
         except Exception as e:
             error_msg = f"Error executing query: {str(e)}"
@@ -406,25 +416,26 @@ class ClickHouseDB:
             return "Database not connected"
 
         try:
-            client = self._get_connection()
+            client, lock = self._get_connection()
             if not client:
                 return "No available database connection"
 
-            # Execute the query
-            result = client.execute(query, params or {})
+            # Execute the query with lock
+            with lock:
+                result = client.execute(query, params or {})
 
-            # Get column names from the query
-            column_names = client.execute(f"DESCRIBE TABLE ({query})")
-            if not column_names:
-                # If DESCRIBE fails, try to get column names from the result
-                if result and len(result) > 0:
-                    column_names = [f"column_{i}" for i in range(len(result[0]))]
-                else:
-                    return "No results returned"
+                # Get column names from the query
+                column_names = client.execute(f"DESCRIBE TABLE ({query})")
+                if not column_names:
+                    # If DESCRIBE fails, try to get column names from the result
+                    if result and len(result) > 0:
+                        column_names = [f"column_{i}" for i in range(len(result[0]))]
+                    else:
+                        return "No results returned"
 
-            # Convert to DataFrame
-            df = pd.DataFrame(result, columns=column_names)
-            return df
+                # Convert to DataFrame
+                df = pd.DataFrame(result, columns=column_names)
+                return df
 
         except Exception as e:
             error_msg = f"Error executing query: {str(e)}"
@@ -445,7 +456,7 @@ class ClickHouseDB:
             return "Database not connected"
 
         try:
-            client = self._get_connection()
+            client, _ = self._get_connection()
             if not client:
                 return "No available database connection"
 
@@ -483,7 +494,7 @@ class ClickHouseDB:
             return "Database not connected"
 
         try:
-            client = self._get_connection()
+            client, _ = self._get_connection()
             if not client:
                 return "No available database connection"
 
