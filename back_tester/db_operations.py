@@ -69,7 +69,7 @@ class ClickHouseDB:
         """Get a connection from the pool using round-robin with lock"""
         if not self.connection_pool:
             return None, None
-        
+
         # Get connection index using thread ID
         conn_index = threading.get_ident() % len(self.connection_pool)
         return self.connection_pool[conn_index], self.connection_locks[conn_index]
