@@ -42,6 +42,9 @@ def plot_price_chart(
     if indicators.breaker_blocks:
         add_breaker_blocks(ax, indicators.breaker_blocks)
 
+    if indicators.liquidity_pools:
+        add_liquidity_pools(ax, indicators.liquidity_pools)
+
     if show_legend:
         add_legend(ax, indicators)
 
@@ -99,6 +102,9 @@ def add_legend(ax, indicators):
                 label="Liquidity level",
             )
         )
+
+    if indicators.liquidity_pools:
+        handles.append(mpatches.Patch(color="cyan", alpha=0.2, label="Liquidity Pool"))
 
     ax[0].legend(handles=handles, loc="upper left")
 
@@ -173,3 +179,26 @@ def add_breaker_blocks(ax, breaker_blocks):
             color=color,
             alpha=0.05,
         )
+
+
+def add_liquidity_pools(ax, liquidity_pools):
+    """
+    Add liquidity pools to the chart as semi-transparent horizontal bands.
+    The opacity of each band is determined by the pool's strength.
+    """
+    for pool in liquidity_pools.list:
+        # Calculate the price range for the pool (using ATR or a fixed percentage)
+        price_range = pool.price * 0.001  # 0.1% of price as default range
+
+        # Create a horizontal band for the pool
+        ax[0].fill_between(
+            x=[0, len(ax[0].get_lines()[0].get_xdata())],
+            y1=[pool.price - price_range, pool.price - price_range],
+            y2=[pool.price + price_range, pool.price + price_range],
+            color="cyan",
+            alpha=0.2 * pool.strength,  # Scale opacity by pool strength
+            label="Liquidity Pool",
+        )
+
+        # Add a horizontal line at the pool's price level
+        ax[0].axhline(y=pool.price, color="cyan", linestyle=":", alpha=0.5, linewidth=1)

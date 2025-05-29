@@ -2,6 +2,7 @@ from IndicatorUtils.order_block_utils import OrderBlocks
 from IndicatorUtils.fvg_utils import FVGs
 from IndicatorUtils.liquidity_level_utils import LiquidityLevels
 from IndicatorUtils.breaker_block_utils import BreakerBlocks
+from IndicatorUtils.liquidity_pool_utils import LiquidityPools
 
 
 class Indicators:
@@ -13,6 +14,7 @@ class Indicators:
         self.fvgs = FVGs()
         self.liquidity_levels = LiquidityLevels()
         self.breaker_blocks = BreakerBlocks()
+        self.liquidity_pools = LiquidityPools()
 
     def __str__(self):
         """
@@ -23,7 +25,8 @@ class Indicators:
             f"**Order Blocks:**{self.order_blocks}\n\n"
             f"**Fair Value Gaps (FVGs):**{self.fvgs.non_verbose_str()}\n\n"
             f"**Liquidity Levels:**{self.liquidity_levels}\n\n"
-            f"**Breaker Blocks:**{self.breaker_blocks}\n"
+            f"**Breaker Blocks:**{self.breaker_blocks}\n\n"
+            f"**Liquidity Pools:**{self.liquidity_pools}\n"
         )
 
     def filter(self, selected):
@@ -39,4 +42,6 @@ class Indicators:
             filtered.liquidity_levels = self.liquidity_levels
         if selected.get("breaker_blocks"):
             filtered.breaker_blocks = self.breaker_blocks
+        if selected.get("liquidity_pools"):
+            filtered.liquidity_pools = self.liquidity_pools
         return filtered

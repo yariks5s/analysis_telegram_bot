@@ -60,6 +60,7 @@ def create_true_preferences():
     preferences["fvgs"] = True
     preferences["liquidity_levels"] = True
     preferences["breaker_blocks"] = True
+    preferences["liquidity_pools"] = True
 
     return preferences
 

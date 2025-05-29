@@ -18,7 +18,8 @@ def init_db() -> None:
             liquidity_levels BOOLEAN DEFAULT 0,
             breaker_blocks BOOLEAN DEFAULT 0,
             show_legend BOOLEAN DEFAULT 1,
-            show_volume BOOLEAN DEFAULT 1
+            show_volume BOOLEAN DEFAULT 1,
+            liquidity_pools BOOLEAN DEFAULT 1
         )
     """
     )
@@ -64,6 +65,7 @@ def get_user_preferences(user_id: int) -> Dict[str, bool]:
             "breaker_blocks": bool(row[4]),
             "show_legend": bool(row[5]),
             "show_volume": bool(row[6]),
+            "liquidity_pools": bool(row[7]) if len(row) > 7 else True,
         }
     else:
         return {
@@ -73,6 +75,7 @@ def get_user_preferences(user_id: int) -> Dict[str, bool]:
             "breaker_blocks": False,
             "show_legend": True,
             "show_volume": True,
+            "liquidity_pools": True,
         }
 
 
@@ -103,7 +106,8 @@ def update_user_preferences(user_id: int, preferences: Dict[str, bool]) -> None:
             cursor.execute(
                 """
                 UPDATE user_preferences
-                SET order_blocks = ?, fvgs = ?, liquidity_levels = ?, breaker_blocks = ?, show_legend = ?, show_volume = ?
+                SET order_blocks = ?, fvgs = ?, liquidity_levels = ?, breaker_blocks = ?, 
+                    show_legend = ?, show_volume = ?, liquidity_pools = ?
                 WHERE user_id = ?
             """,
                 (
@@ -113,14 +117,17 @@ def update_user_preferences(user_id: int, preferences: Dict[str, bool]) -> None:
                     preferences["breaker_blocks"],
                     preferences["show_legend"],
                     preferences["show_volume"],
+                    preferences["liquidity_pools"],
                     user_id,
                 ),
             )
         else:
             cursor.execute(
                 """
-                INSERT INTO user_preferences (user_id, order_blocks, fvgs, liquidity_levels, breaker_blocks, show_legend, show_volume)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO user_preferences 
+                    (user_id, order_blocks, fvgs, liquidity_levels, breaker_blocks, 
+                     show_legend, show_volume, liquidity_pools)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     user_id,
@@ -130,6 +137,7 @@ def update_user_preferences(user_id: int, preferences: Dict[str, bool]) -> None:
                     preferences["breaker_blocks"],
                     preferences["show_legend"],
                     preferences["show_volume"],
+                    preferences["liquidity_pools"],
                 ),
             )
 
