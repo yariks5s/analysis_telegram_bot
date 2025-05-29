@@ -206,6 +206,12 @@ def get_indicator_selection_keyboard(user_id):
                 callback_data="indicator_show_volume",
             ),
         ],
+        [
+            InlineKeyboardButton(
+                f"{'✔️ ' if selected['liquidity_pools'] else ''}Liquidity Pools",
+                callback_data="indicator_liquidity_pools",
+            ),
+        ],
         [InlineKeyboardButton("Done", callback_data="indicator_done")],
     ]
     return InlineKeyboardMarkup(keyboard)
@@ -232,6 +238,8 @@ async def handle_indicator_selection(update, _):
         preferences["liquidity_levels"] = not preferences["liquidity_levels"]
     elif data == "indicator_breaker_blocks":
         preferences["breaker_blocks"] = not preferences["breaker_blocks"]
+    elif data == "indicator_liquidity_pools":
+        preferences["liquidity_pools"] = not preferences["liquidity_pools"]
     elif data == "indicator_show_legend":
         preferences["show_legend"] = not preferences["show_legend"]
     elif data == "indicator_show_volume":

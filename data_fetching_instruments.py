@@ -9,6 +9,7 @@ from indicators import (
     detect_fvgs,
     detect_liquidity_levels,
     detect_breaker_blocks,
+    detect_liquidity_pools,
 )
 from IndicatorUtils.indicators import Indicators
 
@@ -191,6 +192,11 @@ def analyze_data(df: pd.DataFrame, preferences, liq_lev_tolerance):
         breaker_blocks = detect_breaker_blocks(df, liquidity_levels)
         logger.info(f"Detected Breaker Blocks: {breaker_blocks}")
         indicators.breaker_blocks = breaker_blocks
+
+    if preferences.get("liquidity_pools"):
+        liquidity_pools = detect_liquidity_pools(df)
+        logger.info(f"Detected Liquidity Pools: {liquidity_pools}")
+        indicators.liquidity_pools = liquidity_pools
 
     return indicators
 

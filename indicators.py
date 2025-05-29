@@ -5,6 +5,7 @@ from IndicatorUtils.order_block_utils import OrderBlock, OrderBlocks
 from IndicatorUtils.fvg_utils import FVG, FVGs
 from IndicatorUtils.liquidity_level_utils import LiquidityLevel, LiquidityLevels
 from IndicatorUtils.breaker_block_utils import BreakerBlock, BreakerBlocks
+from IndicatorUtils.liquidity_pool_utils import LiquidityPool, LiquidityPools
 
 from sklearn.cluster import DBSCAN  # type: ignore
 
@@ -647,3 +648,72 @@ def detect_breaker_blocks(df: pd.DataFrame, liquidity_levels: LiquidityLevels):
                 )
 
     return breaker_blocks
+
+
+def detect_liquidity_pools(
+    df: pd.DataFrame,
+    volume_threshold: float = 1.5,  # Volume multiplier above average
+    min_pool_size: int = 3,  # Minimum number of candles to form a pool
+    atr_multiplier: float = 0.5,  # Multiplier for ATR to determine price range
+    atr_period: int = 14,
+) -> LiquidityPools:
+    """
+    Detect liquidity pools based on volume concentration and price action.
+
+    A liquidity pool is identified when:
+    1. There is a concentration of volume above the average
+    2. Price action stays within a tight range (defined by ATR)
+    3. The pattern persists for at least min_pool_size candles
+
+    Parameters:
+        df (pd.DataFrame): DataFrame with columns ['Open', 'High', 'Low', 'Close', 'Volume'].
+        volume_threshold (float): Multiplier above average volume to consider significant.
+        min_pool_size (int): Minimum number of candles required to form a pool.
+        atr_multiplier (float): Multiplier for ATR to determine the price range.
+        atr_period (int): Period for ATR calculation.
+
+    Returns:
+        LiquidityPools: A container object holding all detected liquidity pools.
+    """
+    if "Volume" not in df.columns:
+        return LiquidityPools()
+
+    # Calculate average volume and ATR
+    avg_volume = df["Volume"].mean()
+    atr = compute_atr(df, period=atr_period)
+    price_range = atr * atr_multiplier
+
+    pools = LiquidityPools()
+    i = 0
+    while i < len(df) - min_pool_size:
+        # Check if we have enough volume concentration
+        if (
+            df["Volume"].iloc[i : i + min_pool_size].mean()
+            < avg_volume * volume_threshold
+        ):
+            i += 1
+            continue
+
+        # Calculate price range for potential pool
+        high = df["High"].iloc[i : i + min_pool_size].max()
+        low = df["Low"].iloc[i : i + min_pool_size].min()
+
+        if high - low > price_range.iloc[i]:
+            i += 1
+            continue
+
+        # Calculate pool metrics
+        pool_price = (high + low) / 2
+        pool_volume = df["Volume"].iloc[i : i + min_pool_size].sum()
+        pool_strength = min(
+            1.0, pool_volume / (avg_volume * min_pool_size * volume_threshold)
+        )
+
+        # Create and add the pool
+        pool = LiquidityPool(pool_price, pool_volume, pool_strength)
+        pools.add(pool)
+
+        # Skip the candles we've already processed
+        i += min_pool_size
+
+    return pools

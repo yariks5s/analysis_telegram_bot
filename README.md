@@ -198,6 +198,9 @@ You also have a chance to contribute to this project. Please create a pull reque
 - [x] Maybe do not add covered FVGs at all? UPD: Yes
 - [ ] Logging system
 - [ ] Disable info logging for training
+- [ ] Liquidity pools implementation
+- [ ] Tests for liquidity pools
+- [ ] Ability to show historical (not real-time) data
 - [ ] Disclaimer in /help temporary debugging commands
 - [ ] Implement testing for proper backtesting
 - [ ] Multi language support

@@ -224,6 +224,162 @@ def analyze_breaker_blocks(df: pd.DataFrame, window: int = 3) -> List[Dict]:
     return breaker_blocks
 
 
+def detect_sweep_of_highs(df: pd.DataFrame, window: int = 20) -> bool:
+    """
+    Detect if price has swept through a previous high.
+    A sweep occurs when price moves above a previous high and then reverses.
+    """
+    if len(df) < window:
+        return False
+
+    # Get the last window of data
+    recent_data = df.iloc[-window:].copy()
+    recent_data.reset_index(drop=True, inplace=True)
+
+    # Find the highest high in the window
+    highest_high = recent_data["High"].max()
+    highest_high_idx = recent_data["High"].idxmax()
+
+    # Check if price has moved above the highest high and then reversed
+    if (
+        highest_high_idx < len(recent_data) - 2
+    ):  # Ensure we have enough candles after the high
+        # Check if price moved above the high and then reversed
+        if (
+            recent_data["High"].iloc[-1] > highest_high
+            and recent_data["Close"].iloc[-1] < highest_high
+        ):
+            return True
+
+    return False
+
+
+def detect_sweep_of_lows(df: pd.DataFrame, window: int = 20) -> bool:
+    """
+    Detect if price has swept through a previous low.
+    A sweep occurs when price moves below a previous low and then reverses.
+    """
+    if len(df) < window:
+        return False
+
+    # Get the last window of data
+    recent_data = df.iloc[-window:].copy()
+    recent_data.reset_index(drop=True, inplace=True)
+
+    # Find the lowest low in the window
+    lowest_low = recent_data["Low"].min()
+    lowest_low_idx = recent_data["Low"].idxmin()
+
+    # Check if price has moved below the lowest low and then reversed
+    if (
+        lowest_low_idx < len(recent_data) - 2
+    ):  # Ensure we have enough candles after the low
+        # Check if price moved below the low and then reversed
+        if (
+            recent_data["Low"].iloc[-1] < lowest_low
+            and recent_data["Close"].iloc[-1] > lowest_low
+        ):
+            return True
+
+    return False
+
+
+def detect_structure_break_up(df: pd.DataFrame, window: int = 20) -> bool:
+    """
+    Detect if price has broken the structure upward.
+    A structure break up occurs when price makes a higher high after a series of lower highs.
+    """
+    if len(df) < window:
+        return False
+
+    # Get the last window of data
+    recent_data = df.iloc[-window:]
+
+    # Find the highest high before the last candle
+    prev_highs = recent_data["High"].iloc[:-1]
+    if len(prev_highs) < 3:  # Need at least 3 candles to establish a structure
+        return False
+
+    # Check if the last candle made a higher high
+    last_high = recent_data["High"].iloc[-1]
+    if last_high > prev_highs.max():
+        return True
+
+    return False
+
+
+def detect_structure_break_down(df: pd.DataFrame, window: int = 20) -> bool:
+    """
+    Detect if price has broken the structure downward.
+    A structure break down occurs when price makes a lower low after a series of higher lows.
+    """
+    if len(df) < window:
+        return False
+
+    # Get the last window of data
+    recent_data = df.iloc[-window:]
+
+    # Find the lowest low before the last candle
+    prev_lows = recent_data["Low"].iloc[:-1]
+    if len(prev_lows) < 3:  # Need at least 3 candles to establish a structure
+        return False
+
+    # Check if the last candle made a lower low
+    last_low = recent_data["Low"].iloc[-1]
+    if last_low < prev_lows.min():
+        return True
+
+    return False
+
+
+def detect_bullish_pin_bar(df: pd.DataFrame) -> bool:
+    """
+    Detect a bullish pin bar (hammer) pattern.
+    A bullish pin bar has a small body at the top and a long lower wick.
+    """
+    if len(df) < 1:
+        return False
+
+    last_candle = df.iloc[-1]
+    body_size = abs(last_candle["Close"] - last_candle["Open"])
+    lower_wick = min(last_candle["Open"], last_candle["Close"]) - last_candle["Low"]
+    upper_wick = last_candle["High"] - max(last_candle["Open"], last_candle["Close"])
+
+    # Check if it's a bullish pin bar
+    if (
+        body_size < lower_wick * 0.3  # Small body compared to lower wick
+        and upper_wick < lower_wick * 0.3  # Small upper wick
+        and last_candle["Close"] > last_candle["Open"]
+    ):  # Bullish close
+        return True
+
+    return False
+
+
+def detect_bearish_engulfing(df: pd.DataFrame) -> bool:
+    """
+    Detect a bearish engulfing pattern.
+    A bearish engulfing pattern occurs when a bearish candle completely engulfs the previous bullish candle.
+    """
+    if len(df) < 2:
+        return False
+
+    prev_candle = df.iloc[-2]
+    curr_candle = df.iloc[-1]
+
+    # Check if it's a bearish engulfing pattern
+    if (
+        prev_candle["Close"] > prev_candle["Open"]  # Previous candle is bullish
+        and curr_candle["Close"] < curr_candle["Open"]  # Current candle is bearish
+        and curr_candle["Open"]
+        > prev_candle["Close"]  # Current open is above previous close
+        and curr_candle["Close"] < prev_candle["Open"]
+    ):  # Current close is below previous open
+        return True
+
+    return False
+
+
 def generate_price_prediction_signal_proba(
     df: pd.DataFrame, indicators, weights: list = []
 ) -> Tuple[str, float, float, str]:
@@ -246,8 +402,16 @@ def generate_price_prediction_signal_proba(
     W_FVG_ABOVE = 0.5
     W_FVG_BELOW = 0.5
     W_TREND = 0.8
+    W_SWEEP_HIGHS = 1.2
+    W_SWEEP_LOWS = 1.2
+    W_STRUCTURE_BREAK = 1.0
+    W_PIN_BAR = 0.8
+    W_ENGULFING = 0.8
+    W_LIQUIDITY_POOL_ABOVE = 1.2  # Weight for liquidity pool above current price
+    W_LIQUIDITY_POOL_BELOW = 1.2  # Weight for liquidity pool below current price
+    W_LIQUIDITY_POOL_ROUND = 1.5  # Weight for liquidity pool at round numbers
 
-    if weights and len(weights) == 9:
+    if weights and len(weights) == 18:  # Updated for new weights
         W_BULLISH_OB = weights[0]
         W_BEARISH_OB = weights[1]
         W_BULLISH_BREAKER = weights[2]
@@ -257,6 +421,14 @@ def generate_price_prediction_signal_proba(
         W_FVG_ABOVE = weights[6]
         W_FVG_BELOW = weights[7]
         W_TREND = weights[8]
+        W_SWEEP_HIGHS = weights[9]
+        W_SWEEP_LOWS = weights[10]
+        W_STRUCTURE_BREAK = weights[11]
+        W_PIN_BAR = weights[12]
+        W_ENGULFING = weights[13]
+        W_LIQUIDITY_POOL_ABOVE = weights[14]
+        W_LIQUIDITY_POOL_BELOW = weights[15]
+        W_LIQUIDITY_POOL_ROUND = weights[16]
 
     bullish_score = 0.0
     bearish_score = 0.0
@@ -358,6 +530,155 @@ def generate_price_prediction_signal_proba(
                 # FVG is above the current price
                 bullish_score += W_FVG_ABOVE
                 reasons.append("Unfilled FVG above current price")
+
+    # New pattern detection logic
+    if detect_sweep_of_highs(df):
+        bearish_score += W_SWEEP_HIGHS
+        reasons.append("Price swept through previous highs")
+
+    if detect_sweep_of_lows(df):
+        bullish_score += W_SWEEP_LOWS
+        reasons.append("Price swept through previous lows")
+
+    if detect_structure_break_up(df):
+        bullish_score += W_STRUCTURE_BREAK
+        reasons.append("Price broke structure upward")
+
+    if detect_structure_break_down(df):
+        bearish_score += W_STRUCTURE_BREAK
+        reasons.append("Price broke structure downward")
+
+    if detect_bullish_pin_bar(df):
+        bullish_score += W_PIN_BAR
+        reasons.append("Bullish pin bar pattern detected")
+
+    if detect_bearish_engulfing(df):
+        bearish_score += W_ENGULFING
+        reasons.append("Bearish engulfing pattern detected")
+
+    # Enhanced liquidity pool analysis
+    if indicators.liquidity_pools and indicators.liquidity_pools.list:
+        # Define round numbers based on the current price level
+        current_price = last_close
+        price_magnitude = len(str(int(current_price)))
+        round_numbers = [
+            round(current_price / 10**i) * 10**i
+            for i in range(price_magnitude - 1, price_magnitude + 2)
+        ]
+
+        # Find local maximums and minimums for context
+        local_max_window = 20  # Window for detecting local extremes
+        local_maximums = []
+        local_minimums = []
+
+        for i in range(local_max_window, len(df) - local_max_window):
+            # Check for local maximum
+            if all(
+                df["High"].iloc[i] > df["High"].iloc[i - local_max_window : i]
+            ) and all(
+                df["High"].iloc[i] > df["High"].iloc[i + 1 : i + local_max_window + 1]
+            ):
+                local_maximums.append((i, df["High"].iloc[i]))
+
+            # Check for local minimum
+            if all(
+                df["Low"].iloc[i] < df["Low"].iloc[i - local_max_window : i]
+            ) and all(
+                df["Low"].iloc[i] < df["Low"].iloc[i + 1 : i + local_max_window + 1]
+            ):
+                local_minimums.append((i, df["Low"].iloc[i]))
+
+        for pool in indicators.liquidity_pools.list:
+            # Calculate distance to current price as a percentage
+            distance = abs(pool.price - last_close) / last_close
+
+            # Skip if pool is too far from current price
+            if distance > 0.05:  # 5% threshold
+                continue
+
+            # Determine if pool is at a round number
+            is_round_number = any(
+                abs(pool.price - round_num) / round_num < 0.001
+                for round_num in round_numbers
+            )
+
+            # Calculate pool impact based on strength and volume
+            pool_impact = pool.strength * (pool.volume / df["Volume"].mean())
+
+            # Generate detailed reason based on pool characteristics
+            pool_reason = []
+
+            # Check if pool is near a local maximum or minimum
+            is_near_max = any(
+                abs(pool.price - max_price) / max_price < 0.001
+                for _, max_price in local_maximums[-5:]  # Check last 5 maximums
+            )
+            is_near_min = any(
+                abs(pool.price - min_price) / min_price < 0.001
+                for _, min_price in local_minimums[-5:]  # Check last 5 minimums
+            )
+
+            # Add local extreme context
+            if is_near_max:
+                pool_reason.append("Located at recent local maximum")
+            elif is_near_min:
+                pool_reason.append("Located at recent local minimum")
+
+            # Add round number context if applicable
+            if is_round_number:
+                pool_reason.append(f"Round number level {pool.price:.2f}")
+
+            # Add volume context
+            volume_ratio = pool.volume / df["Volume"].mean()
+            if volume_ratio > 1.5:
+                pool_reason.append("High volume concentration")
+            elif volume_ratio > 1.2:
+                pool_reason.append("Above average volume")
+
+            # Add strength context
+            if pool.strength > 0.8:
+                pool_reason.append("Very strong pool")
+            elif pool.strength > 0.6:
+                pool_reason.append("Strong pool")
+
+            # Add distance context
+            if distance < 0.01:
+                pool_reason.append("Very close to current price")
+            elif distance < 0.02:
+                pool_reason.append("Close to current price")
+
+            if last_close > pool.price:
+                # Pool is below current price - potential support
+                if is_round_number:
+                    bullish_score += W_LIQUIDITY_POOL_ROUND * pool_impact
+                    reasons.append(
+                        f"Strong liquidity pool at round number {pool.price:.2f} below price "
+                        f"(strength: {pool.strength:.2f}, volume: {pool.volume:.2f})"
+                        f"\n  • {' | '.join(pool_reason)}"
+                    )
+                else:
+                    bullish_score += W_LIQUIDITY_POOL_BELOW * pool_impact
+                    reasons.append(
+                        f"Liquidity pool at {pool.price:.2f} below price "
+                        f"(strength: {pool.strength:.2f}, volume: {pool.volume:.2f})"
+                        f"\n  • {' | '.join(pool_reason)}"
+                    )
+            else:
+                # Pool is above current price - potential resistance
+                if is_round_number:
+                    bearish_score += W_LIQUIDITY_POOL_ROUND * pool_impact
+                    reasons.append(
+                        f"Strong liquidity pool at round number {pool.price:.2f} above price "
+                        f"(strength: {pool.strength:.2f}, volume: {pool.volume:.2f})"
+                        f"\n  • {' | '.join(pool_reason)}"
+                    )
+                else:
+                    bearish_score += W_LIQUIDITY_POOL_ABOVE * pool_impact
+                    reasons.append(
+                        f"Liquidity pool at {pool.price:.2f} above price "
+                        f"(strength: {pool.strength:.2f}, volume: {pool.volume:.2f})"
+                        f"\n  • {' | '.join(pool_reason)}"
+                    )
 
     # Convert scores to final probability
     eps = 1e-9
