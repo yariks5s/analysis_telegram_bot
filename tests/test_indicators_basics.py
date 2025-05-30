@@ -8,7 +8,7 @@ from indicators import (
     detect_fvgs,
     detect_liquidity_levels,
     detect_breaker_blocks,
-    detect_liquidity_pools
+    detect_liquidity_pools,
 )
 from IndicatorUtils.breaker_block_utils import BreakerBlocks
 from IndicatorUtils.fvg_utils import FVGs
@@ -36,6 +36,7 @@ def test_detect_breaker_blocks(sample_dataframe):
     levels = detect_liquidity_levels(sample_dataframe, stdev_multiplier={})
     breaker_blocks = detect_breaker_blocks(sample_dataframe, levels)
     assert isinstance(breaker_blocks, BreakerBlocks)
+
 
 def test_detect_liquidity_pools(sample_dataframe):
     liquidity_pools = detect_liquidity_pools(sample_dataframe)

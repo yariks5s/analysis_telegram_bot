@@ -93,6 +93,7 @@ def sample_preferences_bb():
         "liquidity_pools": False,
     }
 
+
 @pytest.fixture
 def sample_preferences_lp():
     return {
@@ -117,27 +118,33 @@ def sample_preferences_none():
 
 @pytest.fixture
 def three_ll_input():
-    json_path = os.path.join(os.path.dirname(__file__), "test_context/three_ll_input.json")
-    with open(json_path, 'r') as f:
+    json_path = os.path.join(
+        os.path.dirname(__file__), "test_context/three_ll_input.json"
+    )
+    with open(json_path, "r") as f:
         return json.load(f)
 
 
 @pytest.fixture
 def sample_response_for_ll():
-    json_path = os.path.join(os.path.dirname(__file__), "test_context/sample_response_for_ll.json")
-    with open(json_path, 'r') as f:
+    json_path = os.path.join(
+        os.path.dirname(__file__), "test_context/sample_response_for_ll.json"
+    )
+    with open(json_path, "r") as f:
         return json.load(f)
 
 
 @pytest.fixture
 def advanced_indicators():
-    json_path = os.path.join(os.path.dirname(__file__), "test_context/advanced_indicators.json")
-    with open(json_path, 'r') as f:
+    json_path = os.path.join(
+        os.path.dirname(__file__), "test_context/advanced_indicators.json"
+    )
+    with open(json_path, "r") as f:
         return json.load(f)
 
 
 @pytest.fixture
 def small_fvgs():
     json_path = os.path.join(os.path.dirname(__file__), "test_context/small_fvgs.json")
-    with open(json_path, 'r') as f:
+    with open(json_path, "r") as f:
         return json.load(f)

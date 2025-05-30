@@ -96,6 +96,7 @@ BreakerBlock(type=bullish, index=35, zone=(7.19e-06, 7.25e-06))
 BreakerBlock(type=bullish, index=36, zone=(7.18e-06, 7.25e-06))"""
     )
 
+
 def test_detect_liquidity_pools(dataframe):
     """Test detect_breaker_blocks function."""
 
