@@ -14,7 +14,7 @@ def setup_data(sample_response_for_ll):
 
 @pytest.fixture
 def dataframe(setup_data):
-    args, update = setup_data
+    args, _ = setup_data
     # Default values
     return fetch_from_json(args)
 
@@ -25,6 +25,7 @@ def test_all_preferences(dataframe, sample_preferences_all):
     assert indicators.breaker_blocks.list
     assert indicators.order_blocks.list
     assert indicators.fvgs.list
+    assert indicators.liquidity_pools.list
 
 
 def test_fvg_preferences(dataframe, sample_preferences_fvg):
@@ -32,6 +33,7 @@ def test_fvg_preferences(dataframe, sample_preferences_fvg):
     assert not indicators.liquidity_levels.list
     assert not indicators.breaker_blocks.list
     assert not indicators.order_blocks.list
+    assert not indicators.liquidity_pools.list
     assert indicators.fvgs.list
 
 
@@ -41,6 +43,7 @@ def test_ob_preferences(dataframe, sample_preferences_ob):
     assert not indicators.breaker_blocks.list
     assert indicators.order_blocks.list
     assert not indicators.fvgs.list
+    assert not indicators.liquidity_pools.list
 
 
 def test_ll_preferences(dataframe, sample_preferences_ll):
@@ -49,6 +52,7 @@ def test_ll_preferences(dataframe, sample_preferences_ll):
     assert not indicators.breaker_blocks.list
     assert not indicators.order_blocks.list
     assert not indicators.fvgs.list
+    assert not indicators.liquidity_pools.list
 
 
 def test_ll_bb_preferences(dataframe, sample_preferences_ll_bb):
@@ -59,6 +63,7 @@ def test_ll_bb_preferences(dataframe, sample_preferences_ll_bb):
     assert indicators.breaker_blocks.list
     assert not indicators.order_blocks.list
     assert not indicators.fvgs.list
+    assert not indicators.liquidity_pools.list
 
 
 def test_none_preferences(dataframe, sample_preferences_none):
@@ -69,6 +74,7 @@ def test_none_preferences(dataframe, sample_preferences_none):
     assert not indicators.breaker_blocks.list
     assert not indicators.order_blocks.list
     assert not indicators.fvgs.list
+    assert not indicators.liquidity_pools.list
 
 
 def test_bb_only_preferences(dataframe, sample_preferences_bb):
@@ -77,3 +83,13 @@ def test_bb_only_preferences(dataframe, sample_preferences_bb):
     assert not indicators.breaker_blocks.list
     assert not indicators.order_blocks.list
     assert not indicators.fvgs.list
+    assert not indicators.liquidity_pools.list
+
+
+def test_lp_preferences(dataframe, sample_preferences_lp):
+    indicators = analyze_data(dataframe, sample_preferences_lp, liq_lev_tolerance=0.05)
+    assert not indicators.liquidity_levels.list
+    assert not indicators.breaker_blocks.list
+    assert not indicators.order_blocks.list
+    assert not indicators.fvgs.list
+    assert indicators.liquidity_pools.list
