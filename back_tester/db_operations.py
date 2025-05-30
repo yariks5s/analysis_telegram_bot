@@ -20,7 +20,7 @@ class ClickHouseDB:
         self,
         host="localhost",
         port=9000,
-        database="crypto_bot",
+        database="crypto_bot_with_trend_optimized",
         batch_size=1000,
         flush_interval=5,
     ):
@@ -81,8 +81,8 @@ class ClickHouseDB:
         try:
             client, _ = self._get_connection()
             # Create database if it doesn't exist
-            client.execute("CREATE DATABASE IF NOT EXISTS crypto_bot")
-            client.execute("USE crypto_bot")
+            client.execute("CREATE DATABASE IF NOT EXISTS crypto_bot_with_trend")
+            client.execute("USE crypto_bot_with_trend")
 
             # Create trades table with async insert settings
             client.execute(

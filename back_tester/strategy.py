@@ -75,6 +75,8 @@ def backtest_strategy(
     # Use all indicators enabled by default in backtesting
     preferences = create_true_preferences()
 
+    print(f"Coin: {symbol}, timestamp: {random_start_time.timestamp()}")
+
     for i in range(window, len(df)):
         current_window = df.iloc[i - window : i]
         current_time = df.index[i]
@@ -90,13 +92,14 @@ def backtest_strategy(
 
         # Simple trading logic: go long when Bullish; exit when Bearish.
         if signal == "Bullish" and position == 0:
-            # Buy signal: use all available balance to buy the asset
-            position = balance / price
+            # Buy signal: use starting balance to buy the asset
+            position = initial_balance / price
             entry_price = price
             entry_time = current_time
             entry_index = i
             entry_signal = signal
-            balance = 0  # all-in
+            balance -= initial_balance
+
             trade_log.append(
                 {
                     "type": "buy",
@@ -111,7 +114,7 @@ def backtest_strategy(
             )
         elif signal == "Bearish" and position > 0:
             # Sell signal: liquidate the position
-            balance = position * price
+            balance += position * price
             trade_log.append(
                 {
                     "type": "sell",
@@ -154,7 +157,7 @@ def backtest_strategy(
     if position > 0:
         final_price = df["Close"].iloc[-1]
         final_time = df.index[-1]
-        balance = position * final_price
+        balance += position * final_price
         trade_log.append(
             {
                 "type": "sell_end",
@@ -164,7 +167,9 @@ def backtest_strategy(
                 "timestamp": final_time,
             }
         )
-        print(f"[Final] SELL at {final_price:.2f}")
+        print(f"[Final] SELL at {final_price:5f}")
+
+        print(f"Cumulative balance after this iteration: {balance:5f}")
 
         # Store final trade in database if available
         if db and entry_time and entry_index:

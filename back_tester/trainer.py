@@ -44,7 +44,7 @@ logger.propagate = False
 db = ClickHouseDB()
 
 # --- Initial Weight Configuration ---
-weights = [1.0, 1.0, 1.0, 1.0, 0.7, 0.7, 0.5, 0.5, 0.8]
+weights = [1.0, 1.0, 0.7, 0.5, 0.8]
 learning_rate = 0.05
 iterations = 1000
 evaluation_runs = 20
@@ -227,7 +227,7 @@ def evaluate_weights(
                             db.insert_sub_iteration(sub_iteration_data)
 
                 except Exception as e:
-                    logger.warning(
+                    print(
                         f"Error in backtest for {symbol} {interval}: {str(e)}"
                     )
                     continue
@@ -253,9 +253,8 @@ def optimize_weights(
     best_score, best_metrics = evaluate_weights(best_weights, iteration_id=iteration_id)
 
     if best_metrics:
-        logger.info(f"Initial Score: {best_score:.5f}%")
-        logger.info(f"Initial Metrics: {best_metrics.get_metrics()}")
-        logger.info(f"Initial Weights: {best_weights}")
+        logger.info(f"Inserting iteration #0 into the database")
+        logger.info(f"Best metrics so far!")
 
         # Store initial iteration data
         iteration_data = {
@@ -265,6 +264,10 @@ def optimize_weights(
             **best_metrics.get_metrics(),
         }
         db.insert_iteration(iteration_data)
+
+    logger.info(f"Initial Score: {best_score:.5f}%")
+    logger.info(f"Initial Metrics: {best_metrics.get_metrics()}")
+    logger.info(f"Initial Weights: {best_weights}")
 
     # Optimization state
     current_learning_rate = learning_rate
@@ -290,6 +293,7 @@ def optimize_weights(
         )
 
         if new_metrics:
+            logger.info(f"Inserting iteration #{iteration + 1} into the database")
             # Store iteration data
             iteration_data = {
                 "iteration_number": iteration + 1,
@@ -312,6 +316,10 @@ def optimize_weights(
             )
             logger.info(f"Weights: {best_weights}")
         else:
+            logger.info(f"Iteration {iteration + 1}: New Score: {new_score:.5f}%")
+            logger.info(
+                f"Metrics: {new_metrics.get_metrics() if new_metrics else 'N/A'}"
+            )
             no_improvement_count += 1
 
             # Adaptive learning rate adjustment
