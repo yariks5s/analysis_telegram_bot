@@ -35,6 +35,7 @@ def sample_preferences_all():
         "fvgs": True,
         "liquidity_levels": True,
         "breaker_blocks": True,
+        "liquidity_pools": True,
     }
 
 
@@ -45,6 +46,7 @@ def sample_preferences_ob():
         "fvgs": False,
         "liquidity_levels": False,
         "breaker_blocks": False,
+        "liquidity_pools": False,
     }
 
 
@@ -55,6 +57,7 @@ def sample_preferences_fvg():
         "fvgs": True,
         "liquidity_levels": False,
         "breaker_blocks": False,
+        "liquidity_pools": False,
     }
 
 
@@ -65,6 +68,7 @@ def sample_preferences_ll():
         "fvgs": False,
         "liquidity_levels": True,
         "breaker_blocks": False,
+        "liquidity_pools": False,
     }
 
 
@@ -75,6 +79,7 @@ def sample_preferences_ll_bb():
         "fvgs": False,
         "liquidity_levels": True,
         "breaker_blocks": True,
+        "liquidity_pools": False,
     }
 
 
@@ -85,6 +90,17 @@ def sample_preferences_bb():
         "fvgs": False,
         "liquidity_levels": False,
         "breaker_blocks": True,
+        "liquidity_pools": False,
+    }
+
+@pytest.fixture
+def sample_preferences_lp():
+    return {
+        "order_blocks": False,
+        "fvgs": False,
+        "liquidity_levels": False,
+        "breaker_blocks": False,
+        "liquidity_pools": True,
     }
 
 
@@ -95,6 +111,7 @@ def sample_preferences_none():
         "fvgs": False,
         "liquidity_levels": False,
         "breaker_blocks": False,
+        "liquidity_pools": False,
     }
 
 
@@ -108,5 +125,19 @@ def three_ll_input():
 @pytest.fixture
 def sample_response_for_ll():
     json_path = os.path.join(os.path.dirname(__file__), "test_context/sample_response_for_ll.json")
+    with open(json_path, 'r') as f:
+        return json.load(f)
+
+
+@pytest.fixture
+def advanced_indicators():
+    json_path = os.path.join(os.path.dirname(__file__), "test_context/advanced_indicators.json")
+    with open(json_path, 'r') as f:
+        return json.load(f)
+
+
+@pytest.fixture
+def small_fvgs():
+    json_path = os.path.join(os.path.dirname(__file__), "test_context/small_fvgs.json")
     with open(json_path, 'r') as f:
         return json.load(f)
