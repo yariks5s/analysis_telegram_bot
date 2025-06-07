@@ -255,7 +255,7 @@ def optimize_weights(
     logger.info(f"Initial Score: {best_score:.5f}%")
     logger.info(f"Initial Metrics: {best_metrics.get_metrics()}")
     logger.info(f"Initial Weights: {best_weights}")
-    
+
     if best_metrics:
         # Store initial iteration data
         iteration_data = {
@@ -302,11 +302,8 @@ def optimize_weights(
         score_history.append(new_score)
 
         logger.info(f"Iteration {iteration + 1}: New Score: {new_score:.5f}%")
-        logger.info(
-            f"Metrics: {new_metrics.get_metrics() if new_metrics else 'N/A'}"
-        )
+        logger.info(f"Metrics: {new_metrics.get_metrics() if new_metrics else 'N/A'}")
         logger.info(f"Weights: {new_weights}")
-        
 
         if new_score > best_score:
             best_weights = new_weights

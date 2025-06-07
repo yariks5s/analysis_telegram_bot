@@ -136,8 +136,9 @@ def analyze_order_blocks(df: pd.DataFrame, window: int = 3) -> List[Dict]:
                     "index": i,
                     "price": df["Low"].iloc[i],
                     "volume": df["Volume"].iloc[i],
-                    "strength": df["Volume"].iloc[i]
-                    / mean_volume if mean_volume != 0 else 1,
+                    "strength": (
+                        df["Volume"].iloc[i] / mean_volume if mean_volume != 0 else 1
+                    ),
                 }
             )
 
@@ -156,8 +157,9 @@ def analyze_order_blocks(df: pd.DataFrame, window: int = 3) -> List[Dict]:
                     "index": i,
                     "price": df["High"].iloc[i],
                     "volume": df["Volume"].iloc[i],
-                    "strength": df["Volume"].iloc[i]
-                    / mean_volume if mean_volume != 0 else 1,
+                    "strength": (
+                        df["Volume"].iloc[i] / mean_volume if mean_volume != 0 else 1
+                    ),
                 }
             )
 
@@ -192,12 +194,14 @@ def analyze_breaker_blocks(df: pd.DataFrame, window: int = 3) -> List[Dict]:
                     "index": i,
                     "price": df["Low"].iloc[i],
                     "volume": df["Volume"].iloc[i],
-                    "strength": df["Volume"].iloc[i]
-                    / mean_volume if mean_volume != 0 else 1,
+                    "strength": (
+                        df["Volume"].iloc[i] / mean_volume if mean_volume != 0 else 1
+                    ),
                     "breakout_size": (
-                        df["Close"].iloc[i] - max_high
-                    )
-                    / max_high if max_high != 0 else 1,
+                        (df["Close"].iloc[i] - max_high) / max_high
+                        if max_high != 0
+                        else 1
+                    ),
                 }
             )
 
@@ -217,12 +221,14 @@ def analyze_breaker_blocks(df: pd.DataFrame, window: int = 3) -> List[Dict]:
                     "index": i,
                     "price": df["High"].iloc[i],
                     "volume": df["Volume"].iloc[i],
-                    "strength": df["Volume"].iloc[i]
-                    / mean_volume if mean_volume != 0 else 1,
+                    "strength": (
+                        df["Volume"].iloc[i] / mean_volume if mean_volume != 0 else 1
+                    ),
                     "breakout_size": (
-                        max_high - df["Close"].iloc[i]
-                    )
-                    / max_high if max_high != 0 else 1,
+                        (max_high - df["Close"].iloc[i]) / max_high
+                        if max_high != 0
+                        else 1
+                    ),
                 }
             )
 
