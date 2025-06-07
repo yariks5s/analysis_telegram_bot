@@ -84,6 +84,8 @@ def detect_trend(df: pd.DataFrame, window: int = 20) -> str:
     Returns:
         "bullish", "bearish", or "neutral"
     """
+    df = df.copy()
+
     # Calculate EMAs
     df["EMA20"] = df["Close"].ewm(span=window).mean()
     df["EMA50"] = df["Close"].ewm(span=50).mean()
@@ -118,6 +120,7 @@ def analyze_order_blocks(df: pd.DataFrame, window: int = 3) -> List[Dict]:
     order_blocks = []
 
     for i in range(window, len(df) - window):
+        mean_volume = df["Volume"].iloc[i - 5 : i].mean()
         # Bullish order block conditions
         if (
             df["Close"].iloc[i] < df["Open"].iloc[i]  # Bearish candle
@@ -133,8 +136,9 @@ def analyze_order_blocks(df: pd.DataFrame, window: int = 3) -> List[Dict]:
                     "index": i,
                     "price": df["Low"].iloc[i],
                     "volume": df["Volume"].iloc[i],
-                    "strength": df["Volume"].iloc[i]
-                    / df["Volume"].iloc[i - 5 : i].mean(),
+                    "strength": (
+                        df["Volume"].iloc[i] / mean_volume if mean_volume != 0 else 1
+                    ),
                 }
             )
 
@@ -153,8 +157,9 @@ def analyze_order_blocks(df: pd.DataFrame, window: int = 3) -> List[Dict]:
                     "index": i,
                     "price": df["High"].iloc[i],
                     "volume": df["Volume"].iloc[i],
-                    "strength": df["Volume"].iloc[i]
-                    / df["Volume"].iloc[i - 5 : i].mean(),
+                    "strength": (
+                        df["Volume"].iloc[i] / mean_volume if mean_volume != 0 else 1
+                    ),
                 }
             )
 
@@ -171,6 +176,8 @@ def analyze_breaker_blocks(df: pd.DataFrame, window: int = 3) -> List[Dict]:
     breaker_blocks = []
 
     for i in range(window, len(df) - window):
+        mean_volume = df["Volume"].iloc[i - 5 : i].mean()
+        max_high = df["High"].iloc[i - 1 : i].max()
         # Bullish breaker block conditions
         if (
             df["Close"].iloc[i] > df["Open"].iloc[i]  # Bullish candle
@@ -187,12 +194,14 @@ def analyze_breaker_blocks(df: pd.DataFrame, window: int = 3) -> List[Dict]:
                     "index": i,
                     "price": df["Low"].iloc[i],
                     "volume": df["Volume"].iloc[i],
-                    "strength": df["Volume"].iloc[i]
-                    / df["Volume"].iloc[i - 5 : i].mean(),
+                    "strength": (
+                        df["Volume"].iloc[i] / mean_volume if mean_volume != 0 else 1
+                    ),
                     "breakout_size": (
-                        df["Close"].iloc[i] - df["High"].iloc[i - 1 : i].max()
-                    )
-                    / df["High"].iloc[i - 1 : i].max(),
+                        (df["Close"].iloc[i] - max_high) / max_high
+                        if max_high != 0
+                        else 1
+                    ),
                 }
             )
 
@@ -212,12 +221,14 @@ def analyze_breaker_blocks(df: pd.DataFrame, window: int = 3) -> List[Dict]:
                     "index": i,
                     "price": df["High"].iloc[i],
                     "volume": df["Volume"].iloc[i],
-                    "strength": df["Volume"].iloc[i]
-                    / df["Volume"].iloc[i - 5 : i].mean(),
+                    "strength": (
+                        df["Volume"].iloc[i] / mean_volume if mean_volume != 0 else 1
+                    ),
                     "breakout_size": (
-                        df["Low"].iloc[i - 1 : i].min() - df["Close"].iloc[i]
-                    )
-                    / df["Low"].iloc[i - 1 : i].min(),
+                        (max_high - df["Close"].iloc[i]) / max_high
+                        if max_high != 0
+                        else 1
+                    ),
                 }
             )
 
@@ -598,8 +609,8 @@ def generate_price_prediction_signal_proba(
 
             # Determine if pool is at a round number
             is_round_number = any(
-                abs(pool.price - round_num) / round_num < 0.001
-                for round_num in round_numbers
+                (rn != 0) and (abs(pool.price - rn) / rn < 0.001)
+                for rn in round_numbers
             )
 
             # Calculate pool impact based on strength and volume
