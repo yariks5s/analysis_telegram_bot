@@ -2,11 +2,12 @@ import random
 import os
 import sys
 import numpy as np  # type: ignore
-from typing import List, Tuple, Optional, Dict, Any
+from typing import List, Tuple, Optional, Dict, Any, Union
 import logging
 from datetime import datetime
 from collections import deque
 import uuid
+import pandas as pd
 
 project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(project_dir)
@@ -14,6 +15,7 @@ sys.path.append(project_dir)
 from strategy import backtest_strategy
 from getTradingPairs import get_trading_pairs
 from db_operations import ClickHouseDB
+from data_fetching_instruments import fetch_candles
 
 # Set up focused logging for training
 logger = logging.getLogger("training")
@@ -60,8 +62,8 @@ weights = [
     0.6,
 ]  # Updated for new weights
 learning_rate = 0.05
-iterations = 1000
-evaluation_runs = 20
+iterations = 2
+evaluation_runs = 2
 min_candles_required = 300
 max_candles = 600
 risk_percentage = 1.0  # Default risk per trade
@@ -86,28 +88,42 @@ class TrainingMetrics:
         self.max_drawdown = 0.0
         self.current_drawdown = 0.0
         self.peak_balance = 0.0
-        self.avg_risk_reward = 0.0  # Added missing attribute
-        self.avg_position_size = 0.0  # Added missing attribute
-        self.tp_success_rate = 0.0  # Added missing attribute
-        self.tp1_hits = 0  # Added missing attribute
-        self.tp2_hits = 0  # Added missing attribute
-        self.tp3_hits = 0  # Added missing attribute
-        self.stop_loss_hits = 0  # Added missing attribute
-        self.risk_percentage = 0.0  # Added missing attribute
+        self.avg_risk_reward = 0.0
+        self.avg_position_size = 0.0
+        self.tp_success_rate = 0.0
+        self.tp1_hits = 0
+        self.tp2_hits = 0
+        self.tp3_hits = 0
+        self.stop_loss_hits = 0
+        self.risk_percentage = 0.0
+        self.profit_per_trade = []
+        self.loss_per_trade = []
 
-    def update(self, trade_result: Dict[str, Any]):
-        """Update metrics with trade result"""
+    def update(self, trade_result: Union[Dict[str, Any], List[Dict[str, Any]]]):
+        """Update metrics with trade result(s)"""
+        if isinstance(trade_result, list):
+            # Handle list of trades
+            for trade in trade_result:
+                self._update_single_trade(trade)
+        else:
+            # Handle single trade dictionary
+            self._update_single_trade(trade_result)
+
+    def _update_single_trade(self, trade: Dict[str, Any]):
+        """Update metrics with a single trade result"""
         self.total_trades += 1
-        profit = trade_result.get("profit_loss", 0.0)
+        profit = trade.get("profit", 0.0)
         self.total_profit += profit
 
         if profit > 0:
             self.winning_trades += 1
+            self.profit_per_trade.append(profit)
         else:
             self.losing_trades += 1
+            self.loss_per_trade.append(abs(profit))
 
         # Update drawdown
-        current_balance = trade_result.get("balance", 0.0)
+        current_balance = trade.get("balance", 0.0)
         if current_balance > self.peak_balance:
             self.peak_balance = current_balance
         else:
@@ -119,15 +135,17 @@ class TrainingMetrics:
         # Update risk management metrics
         self.avg_risk_reward = (
             self.avg_risk_reward * (self.total_trades - 1)
-            + trade_result.get("risk_reward_ratio", 0.0)
+            + trade.get("risk_reward_ratio", 0.0)
         ) / self.total_trades
         self.avg_position_size = (
             self.avg_position_size * (self.total_trades - 1)
-            + trade_result.get("position_size", 0.0)
+            + trade.get(
+                "amount", 0.0
+            )  # Changed from position_size to amount to match the data structure
         ) / self.total_trades
 
         # Update take profit and stop loss hits
-        trade_type = trade_result.get("trade_type", "")
+        trade_type = trade.get("trade_type", "")
         if trade_type == "tp1":
             self.tp1_hits += 1
         elif trade_type == "tp2":
@@ -147,7 +165,7 @@ class TrainingMetrics:
             ) / total_exits
 
         # Update risk percentage
-        self.risk_percentage = trade_result.get("risk_percentage", 0.0)
+        self.risk_percentage = trade.get("risk_percentage", 0.0)
 
     def get_metrics(self) -> Dict[str, Any]:
         """Get current metrics as dictionary"""
@@ -233,16 +251,17 @@ def evaluate_weights(
                 window = int(candles * 0.6)
 
                 try:
-                    final_balance, trades, sub_iteration_id = backtest_strategy(
-                        symbol,
-                        interval,
-                        candles,
-                        window,
-                        initial_balance,
+                    # Fetch data for the symbol and interval
+                    df = fetch_candles(symbol, candles, interval)
+                    if df is None or len(df) < min_candles_required:
+                        logger.warning(f"Not enough data for {symbol} {interval}")
+                        continue
+
+                    final_balance, trades = backtest_strategy(
+                        df=df,
                         weights=weights,
-                        risk_percentage=risk_percentage,
-                        iteration_id=iteration_id,
                         db=db,
+                        iteration_id=iteration_id,
                     )
 
                     if trades:  # Only count runs with actual trades
@@ -254,7 +273,7 @@ def evaluate_weights(
                         metrics.update(trades)
 
                         # Store sub-iteration data
-                        if db and sub_iteration_id:
+                        if db and iteration_id:
                             sub_iteration_data = {
                                 "iteration_id": iteration_id,
                                 "symbol": symbol,
@@ -281,9 +300,7 @@ def evaluate_weights(
                             db.insert_sub_iteration(sub_iteration_data)
 
                 except Exception as e:
-                    logger.warning(
-                        f"Error in backtest for {symbol} {interval}: {str(e)}"
-                    )
+                    raise e
                     continue
 
         if successful_runs == 0:
@@ -295,7 +312,7 @@ def evaluate_weights(
         return fitness_score, metrics
 
     except Exception as e:
-        logger.error(f"Error in evaluate_weights: {str(e)}")
+        raise e
         return -9999, None
 
 
