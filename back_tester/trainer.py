@@ -326,6 +326,45 @@ def optimize_weights(
             best_fitness = fitness
             best_weights = test_weights.copy()
             no_improvement_count = 0
+
+            # Insert iteration data into database
+            if metrics:
+                iteration_data = {
+                    "iteration_id": str(uuid.uuid4()),
+                    "iteration_number": i,
+                    "weights": test_weights,
+                    "fitness_score": fitness,
+                    "total_trades": metrics.total_trades,
+                    "win_rate": metrics.winning_trades
+                    / max(1, metrics.total_trades)
+                    * 100,
+                    "total_revenue": metrics.total_profit,
+                    "max_drawdown": metrics.max_drawdown,
+                    "avg_profit": (
+                        metrics.total_profit / max(1, metrics.winning_trades)
+                        if metrics.winning_trades > 0
+                        else 0
+                    ),
+                    "avg_loss": (
+                        abs(metrics.total_profit) / max(1, metrics.losing_trades)
+                        if metrics.losing_trades > 0
+                        else 0
+                    ),
+                    "profit_factor": (
+                        abs(metrics.total_profit) / max(1, abs(metrics.total_profit))
+                        if metrics.total_profit < 0
+                        else float("inf")
+                    ),
+                    "avg_trade_duration": 0,  # This would need to be tracked in metrics
+                    "tp1_hits": metrics.tp1_hits,
+                    "tp2_hits": metrics.tp2_hits,
+                    "tp3_hits": metrics.tp3_hits,
+                    "stop_loss_hits": metrics.stop_loss_hits,
+                    "avg_risk_reward": metrics.avg_risk_reward,
+                    "avg_position_size": metrics.avg_position_size,
+                    "risk_percentage": metrics.risk_percentage,
+                }
+                db.insert_iteration(iteration_data)
         else:
             no_improvement_count += 1
 

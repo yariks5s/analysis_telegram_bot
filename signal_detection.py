@@ -557,31 +557,59 @@ def calculate_take_profit_levels(
         # Find resistance levels that could act as targets
         potential_targets = [r for r in resistance_levels if r > entry_price]
         if potential_targets:
-            # Adjust targets to be just below resistance
-            tp1 = (
-                min(tp1, potential_targets[0] * 0.995)
-                if len(potential_targets) > 0
-                else tp1
+            # Adjust targets to be just below resistance, but ensure they're still above entry
+            tp1 = max(
+                entry_price * 1.001,  # Ensure at least 0.1% above entry
+                (
+                    min(tp1, potential_targets[0] * 0.995)
+                    if len(potential_targets) > 0
+                    else tp1
+                ),
             )
-            tp2 = (
-                min(tp2, potential_targets[1] * 0.995)
-                if len(potential_targets) > 1
-                else tp2
+            tp2 = max(
+                tp1 * 1.001,  # Ensure at least 0.1% above tp1
+                (
+                    min(tp2, potential_targets[1] * 0.995)
+                    if len(potential_targets) > 1
+                    else tp2
+                ),
+            )
+            tp3 = max(
+                tp2 * 1.001,  # Ensure at least 0.1% above tp2
+                (
+                    min(tp3, potential_targets[2] * 0.995)
+                    if len(potential_targets) > 2
+                    else tp3
+                ),
             )
     else:
         # Find support levels that could act as targets
         potential_targets = [s for s in support_levels if s < entry_price]
         if potential_targets:
-            # Adjust targets to be just above support
-            tp1 = (
-                max(tp1, potential_targets[0] * 1.005)
-                if len(potential_targets) > 0
-                else tp1
+            # Adjust targets to be just above support, but ensure they're still below entry
+            tp1 = min(
+                entry_price * 0.999,  # Ensure at least 0.1% below entry
+                (
+                    max(tp1, potential_targets[0] * 1.005)
+                    if len(potential_targets) > 0
+                    else tp1
+                ),
             )
-            tp2 = (
-                max(tp2, potential_targets[1] * 1.005)
-                if len(potential_targets) > 1
-                else tp2
+            tp2 = min(
+                tp1 * 0.999,  # Ensure at least 0.1% below tp1
+                (
+                    max(tp2, potential_targets[1] * 1.005)
+                    if len(potential_targets) > 1
+                    else tp2
+                ),
+            )
+            tp3 = min(
+                tp2 * 0.999,  # Ensure at least 0.1% below tp2
+                (
+                    max(tp3, potential_targets[2] * 1.005)
+                    if len(potential_targets) > 2
+                    else tp3
+                ),
             )
 
     return tp1, tp2, tp3
