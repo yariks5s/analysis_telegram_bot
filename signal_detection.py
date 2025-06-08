@@ -611,11 +611,15 @@ def analyze_market_correlation(df: pd.DataFrame, btc_df: pd.DataFrame = None) ->
     # Volume analysis
     current_volume = df["Volume"].iloc[-1]
     avg_volume = df["Volume"].rolling(window=20).mean().iloc[-1]
-    market_analysis["volume_ratio"] = current_volume / avg_volume
+    market_analysis["volume_ratio"] = current_volume / max(
+        avg_volume, 1e-10
+    )  # Prevent division by zero
 
     # Volatility analysis
     atr = calculate_atr(df)
-    market_analysis["volatility"] = atr.iloc[-1] / df["Close"].iloc[-1]
+    market_analysis["volatility"] = atr.iloc[-1] / max(
+        df["Close"].iloc[-1], 1e-10
+    )  # Prevent division by zero
 
     # RSI for momentum
     market_analysis["rsi"] = calculate_rsi(df["Close"]).iloc[-1]
@@ -629,6 +633,24 @@ def analyze_market_correlation(df: pd.DataFrame, btc_df: pd.DataFrame = None) ->
     market_analysis["structure_score"] = calculate_market_structure_score(df)
 
     return market_analysis
+
+
+def calculate_position_size(
+    account_balance: float, risk_percentage: float, entry_price: float, stop_loss: float
+) -> Dict[str, float]:
+    """Calculate position size based on account risk"""
+    risk_amount = account_balance * (risk_percentage / 100)
+    price_difference = abs(entry_price - stop_loss)
+    position_size = risk_amount / max(
+        price_difference, 1e-10
+    )  # Prevent division by zero
+
+    return {
+        "position_size": position_size,
+        "position_value": position_size * entry_price,
+        "risk_amount": risk_amount,
+        "risk_percentage": risk_percentage,
+    }
 
 
 def generate_price_prediction_signal_proba(

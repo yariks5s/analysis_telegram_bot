@@ -76,117 +76,96 @@ history_size = 10
 
 
 class TrainingMetrics:
+    """Class to track training metrics"""
+
     def __init__(self):
         self.total_trades = 0
         self.winning_trades = 0
-        self.total_revenue = 0
-        self.max_drawdown = 0
-        self.current_drawdown = 0
-        self.peak_balance = 0
-        self.trade_durations = []
-        self.profit_per_trade = []
-        self.loss_per_trade = []
-        self.tp1_hits = 0
-        self.tp2_hits = 0
-        self.tp3_hits = 0
-        self.stop_loss_hits = 0
-        self.risk_reward_ratios = []
-        self.position_sizes = []
+        self.losing_trades = 0
+        self.total_profit = 0.0
+        self.max_drawdown = 0.0
+        self.current_drawdown = 0.0
+        self.peak_balance = 0.0
+        self.avg_risk_reward = 0.0  # Added missing attribute
+        self.avg_position_size = 0.0  # Added missing attribute
+        self.tp_success_rate = 0.0  # Added missing attribute
+        self.tp1_hits = 0  # Added missing attribute
+        self.tp2_hits = 0  # Added missing attribute
+        self.tp3_hits = 0  # Added missing attribute
+        self.stop_loss_hits = 0  # Added missing attribute
+        self.risk_percentage = 0.0  # Added missing attribute
 
-    def update(
-        self, trade_log: List[dict], initial_balance: float, final_balance: float
-    ):
-        self.total_trades += len([t for t in trade_log if t["type"] == "buy"])
-        self.total_revenue += final_balance - initial_balance
+    def update(self, trade_result: Dict[str, Any]):
+        """Update metrics with trade result"""
+        self.total_trades += 1
+        profit = trade_result.get("profit_loss", 0.0)
+        self.total_profit += profit
 
-        if trade_log:
-            # Track take profit and stop loss hits
-            for trade in trade_log:
-                if trade["type"] == "tp1":
-                    self.tp1_hits += 1
-                elif trade["type"] == "tp2":
-                    self.tp2_hits += 1
-                elif trade["type"] == "tp3":
-                    self.tp3_hits += 1
-                elif trade["type"] == "stop_loss":
-                    self.stop_loss_hits += 1
+        if profit > 0:
+            self.winning_trades += 1
+        else:
+            self.losing_trades += 1
 
-            # Calculate profits and losses
-            for i in range(len(trade_log)):
-                if trade_log[i]["type"] == "buy":
-                    # Find the corresponding exit trade
-                    exit_trade = None
-                    for j in range(i + 1, len(trade_log)):
-                        if trade_log[j]["type"] in ["tp3", "stop_loss", "sell_end"]:
-                            exit_trade = trade_log[j]
-                            break
-
-                    if exit_trade:
-                        profit = (
-                            exit_trade["price"] - trade_log[i]["price"]
-                        ) * trade_log[i]["amount"]
-                        if profit > 0:
-                            self.winning_trades += 1
-                            self.profit_per_trade.append(profit)
-                        else:
-                            self.loss_per_trade.append(profit)
-
-                        # Track risk/reward ratio and position size
-                        if "risk_reward_ratio" in trade_log[i]:
-                            self.risk_reward_ratios.append(
-                                trade_log[i]["risk_reward_ratio"]
-                            )
-                        if "amount" in trade_log[i]:
-                            self.position_sizes.append(trade_log[i]["amount"])
-
-                        # Track trade duration
-                        self.trade_durations.append(
-                            exit_trade["index"] - trade_log[i]["index"]
-                        )
-
-        if final_balance > self.peak_balance:
-            self.peak_balance = final_balance
-            self.current_drawdown = 0
+        # Update drawdown
+        current_balance = trade_result.get("balance", 0.0)
+        if current_balance > self.peak_balance:
+            self.peak_balance = current_balance
         else:
             self.current_drawdown = (
-                self.peak_balance - final_balance
+                self.peak_balance - current_balance
             ) / self.peak_balance
             self.max_drawdown = max(self.max_drawdown, self.current_drawdown)
 
-    def get_metrics(self) -> dict:
-        win_rate = (
-            (self.winning_trades / self.total_trades * 100)
-            if self.total_trades > 0
-            else 0
-        )
-        avg_profit = np.mean(self.profit_per_trade) if self.profit_per_trade else 0
-        avg_loss = np.mean(self.loss_per_trade) if self.loss_per_trade else 0
-        avg_duration = np.mean(self.trade_durations) if self.trade_durations else 0
-        profit_factor = (
-            abs(sum(self.profit_per_trade) / sum(self.loss_per_trade))
-            if self.loss_per_trade and sum(self.loss_per_trade) != 0
-            else float("inf")
-        )
-        avg_risk_reward = (
-            np.mean(self.risk_reward_ratios) if self.risk_reward_ratios else 0
-        )
-        avg_position_size = np.mean(self.position_sizes) if self.position_sizes else 0
+        # Update risk management metrics
+        self.avg_risk_reward = (
+            self.avg_risk_reward * (self.total_trades - 1)
+            + trade_result.get("risk_reward_ratio", 0.0)
+        ) / self.total_trades
+        self.avg_position_size = (
+            self.avg_position_size * (self.total_trades - 1)
+            + trade_result.get("position_size", 0.0)
+        ) / self.total_trades
 
+        # Update take profit and stop loss hits
+        trade_type = trade_result.get("trade_type", "")
+        if trade_type == "tp1":
+            self.tp1_hits += 1
+        elif trade_type == "tp2":
+            self.tp2_hits += 1
+        elif trade_type == "tp3":
+            self.tp3_hits += 1
+        elif trade_type == "stop_loss":
+            self.stop_loss_hits += 1
+
+        # Calculate take profit success rate
+        total_exits = (
+            self.tp1_hits + self.tp2_hits + self.tp3_hits + self.stop_loss_hits
+        )
+        if total_exits > 0:
+            self.tp_success_rate = (
+                self.tp1_hits + self.tp2_hits + self.tp3_hits
+            ) / total_exits
+
+        # Update risk percentage
+        self.risk_percentage = trade_result.get("risk_percentage", 0.0)
+
+    def get_metrics(self) -> Dict[str, Any]:
+        """Get current metrics as dictionary"""
         return {
             "total_trades": self.total_trades,
-            "win_rate": win_rate,
-            "total_revenue": self.total_revenue,
-            "max_drawdown": self.max_drawdown * 100,
-            "avg_profit": avg_profit,
-            "avg_loss": avg_loss,
-            "profit_factor": profit_factor,
-            "avg_trade_duration": avg_duration,
+            "winning_trades": self.winning_trades,
+            "losing_trades": self.losing_trades,
+            "total_profit": self.total_profit,
+            "max_drawdown": self.max_drawdown,
+            "win_rate": self.winning_trades / max(1, self.total_trades),
+            "avg_risk_reward": self.avg_risk_reward,
+            "avg_position_size": self.avg_position_size,
+            "tp_success_rate": self.tp_success_rate,
             "tp1_hits": self.tp1_hits,
             "tp2_hits": self.tp2_hits,
             "tp3_hits": self.tp3_hits,
             "stop_loss_hits": self.stop_loss_hits,
-            "avg_risk_reward": avg_risk_reward,
-            "avg_position_size": avg_position_size,
+            "risk_percentage": self.risk_percentage,
         }
 
 
@@ -218,7 +197,7 @@ def calculate_fitness(metrics: TrainingMetrics) -> float:
         0.25 * win_rate
         + 0.15 * (1 - metrics.max_drawdown)
         + 0.15 * min(profit_factor, 5) / 5  # Cap profit factor at 5
-        + 0.15 * (metrics.total_revenue / 1000)  # Normalize revenue
+        + 0.15 * (metrics.total_profit / 1000)  # Normalize revenue
         + 0.10 * (1 - min(metrics.current_drawdown, 1))  # Current drawdown penalty
         + 0.10 * tp_success_rate  # Take profit success rate
         + 0.10 * min(metrics.avg_risk_reward, 3) / 3  # Risk/reward ratio (capped at 3)
@@ -272,7 +251,7 @@ def evaluate_weights(
                             (final_balance - initial_balance) / initial_balance
                         ) * 100
                         total_revenue_percent += revenue_percent
-                        metrics.update(trades, initial_balance, final_balance)
+                        metrics.update(trades)
 
                         # Store sub-iteration data
                         if db and sub_iteration_id:
@@ -295,27 +274,9 @@ def evaluate_weights(
                                 "avg_risk_reward": metrics.get_metrics()[
                                     "avg_risk_reward"
                                 ],
-                                "tp_success_rate": (
-                                    (
-                                        metrics.tp1_hits
-                                        + metrics.tp2_hits
-                                        + metrics.tp3_hits
-                                    )
-                                    / (
-                                        metrics.tp1_hits
-                                        + metrics.tp2_hits
-                                        + metrics.tp3_hits
-                                        + metrics.stop_loss_hits
-                                    )
-                                    if (
-                                        metrics.tp1_hits
-                                        + metrics.tp2_hits
-                                        + metrics.tp3_hits
-                                        + metrics.stop_loss_hits
-                                    )
-                                    > 0
-                                    else 0
-                                ),
+                                "tp_success_rate": metrics.get_metrics()[
+                                    "tp_success_rate"
+                                ],
                             }
                             db.insert_sub_iteration(sub_iteration_data)
 
@@ -357,15 +318,14 @@ def optimize_weights(
         # Evaluate fitness
         fitness, metrics = evaluate_weights(test_weights)
 
+        logger.info(f"Iteration {i}: New fitness {fitness:.2f}")
+        if metrics:
+            logger.info(f"Metrics: {metrics.get_metrics()}")
+
         if fitness > best_fitness:
             best_fitness = fitness
             best_weights = test_weights.copy()
             no_improvement_count = 0
-
-            # Log improvement
-            logger.info(f"Iteration {i}: New best fitness {fitness:.2f}")
-            if metrics:
-                logger.info(f"Metrics: {metrics.get_metrics()}")
         else:
             no_improvement_count += 1
 
