@@ -12,3 +12,9 @@ back_tester/metadata/
 back_tester/preprocessed_configs/
 back_tester/uuid
 back_tester/status
+data/
+metadata/
+store/
+preprocessed_configs/
+uuid
+status
