@@ -2,7 +2,7 @@ import random
 import os
 import sys
 import numpy as np  # type: ignore
-from typing import List, Tuple, Optional, Dict
+from typing import List, Tuple, Optional, Dict, Any
 import logging
 from datetime import datetime
 from collections import deque
@@ -44,12 +44,27 @@ logger.propagate = False
 db = ClickHouseDB()
 
 # --- Initial Weight Configuration ---
-weights = [1.0, 1.0, 1.0, 1.0, 0.7, 0.7, 0.5, 0.5, 0.8]
+weights = [
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    0.7,
+    0.7,
+    0.5,
+    0.5,
+    0.8,
+    1.2,
+    1.2,
+    1.5,
+    0.6,
+]  # Updated for new weights
 learning_rate = 0.05
 iterations = 1000
 evaluation_runs = 20
 min_candles_required = 300
 max_candles = 600
+risk_percentage = 1.0  # Default risk per trade
 
 # Optimization parameters
 momentum = 0.9
@@ -71,33 +86,63 @@ class TrainingMetrics:
         self.trade_durations = []
         self.profit_per_trade = []
         self.loss_per_trade = []
+        self.tp1_hits = 0
+        self.tp2_hits = 0
+        self.tp3_hits = 0
+        self.stop_loss_hits = 0
+        self.risk_reward_ratios = []
+        self.position_sizes = []
 
     def update(
         self, trade_log: List[dict], initial_balance: float, final_balance: float
     ):
-        self.total_trades += len(trade_log)
+        self.total_trades += len([t for t in trade_log if t["type"] == "buy"])
         self.total_revenue += final_balance - initial_balance
 
         if trade_log:
-            entry_prices = [t["price"] for t in trade_log if t["type"] == "buy"]
-            exit_prices = [
-                t["price"] for t in trade_log if t["type"] in ["sell", "sell_end"]
-            ]
-            entry_indices = [t["index"] for t in trade_log if t["type"] == "buy"]
-            exit_indices = [
-                t["index"] for t in trade_log if t["type"] in ["sell", "sell_end"]
-            ]
+            # Track take profit and stop loss hits
+            for trade in trade_log:
+                if trade["type"] == "tp1":
+                    self.tp1_hits += 1
+                elif trade["type"] == "tp2":
+                    self.tp2_hits += 1
+                elif trade["type"] == "tp3":
+                    self.tp3_hits += 1
+                elif trade["type"] == "stop_loss":
+                    self.stop_loss_hits += 1
 
-            for entry, exit, entry_idx, exit_idx in zip(
-                entry_prices, exit_prices, entry_indices, exit_indices
-            ):
-                profit = exit - entry
-                if profit > 0:
-                    self.winning_trades += 1
-                    self.profit_per_trade.append(profit)
-                else:
-                    self.loss_per_trade.append(profit)
-                self.trade_durations.append(exit_idx - entry_idx)
+            # Calculate profits and losses
+            for i in range(len(trade_log)):
+                if trade_log[i]["type"] == "buy":
+                    # Find the corresponding exit trade
+                    exit_trade = None
+                    for j in range(i + 1, len(trade_log)):
+                        if trade_log[j]["type"] in ["tp3", "stop_loss", "sell_end"]:
+                            exit_trade = trade_log[j]
+                            break
+
+                    if exit_trade:
+                        profit = (
+                            exit_trade["price"] - trade_log[i]["price"]
+                        ) * trade_log[i]["amount"]
+                        if profit > 0:
+                            self.winning_trades += 1
+                            self.profit_per_trade.append(profit)
+                        else:
+                            self.loss_per_trade.append(profit)
+
+                        # Track risk/reward ratio and position size
+                        if "risk_reward_ratio" in trade_log[i]:
+                            self.risk_reward_ratios.append(
+                                trade_log[i]["risk_reward_ratio"]
+                            )
+                        if "amount" in trade_log[i]:
+                            self.position_sizes.append(trade_log[i]["amount"])
+
+                        # Track trade duration
+                        self.trade_durations.append(
+                            exit_trade["index"] - trade_log[i]["index"]
+                        )
 
         if final_balance > self.peak_balance:
             self.peak_balance = final_balance
@@ -122,6 +167,10 @@ class TrainingMetrics:
             if self.loss_per_trade and sum(self.loss_per_trade) != 0
             else float("inf")
         )
+        avg_risk_reward = (
+            np.mean(self.risk_reward_ratios) if self.risk_reward_ratios else 0
+        )
+        avg_position_size = np.mean(self.position_sizes) if self.position_sizes else 0
 
         return {
             "total_trades": self.total_trades,
@@ -132,6 +181,12 @@ class TrainingMetrics:
             "avg_loss": avg_loss,
             "profit_factor": profit_factor,
             "avg_trade_duration": avg_duration,
+            "tp1_hits": self.tp1_hits,
+            "tp2_hits": self.tp2_hits,
+            "tp3_hits": self.tp3_hits,
+            "stop_loss_hits": self.stop_loss_hits,
+            "avg_risk_reward": avg_risk_reward,
+            "avg_position_size": avg_position_size,
         }
 
 
@@ -148,13 +203,25 @@ def calculate_fitness(metrics: TrainingMetrics) -> float:
         else 1
     )
 
+    # Calculate take profit success rate
+    total_exits = (
+        metrics.tp1_hits + metrics.tp2_hits + metrics.tp3_hits + metrics.stop_loss_hits
+    )
+    tp_success_rate = (
+        (metrics.tp1_hits + metrics.tp2_hits + metrics.tp3_hits) / total_exits
+        if total_exits > 0
+        else 0
+    )
+
     # Weighted combination of metrics
     fitness = (
-        0.3 * win_rate
-        + 0.2 * (1 - metrics.max_drawdown)
-        + 0.2 * min(profit_factor, 5) / 5  # Cap profit factor at 5
-        + 0.2 * (metrics.total_revenue / 1000)  # Normalize revenue
-        + 0.1 * (1 - min(metrics.current_drawdown, 1))  # Current drawdown penalty
+        0.25 * win_rate
+        + 0.15 * (1 - metrics.max_drawdown)
+        + 0.15 * min(profit_factor, 5) / 5  # Cap profit factor at 5
+        + 0.15 * (metrics.total_revenue / 1000)  # Normalize revenue
+        + 0.10 * (1 - min(metrics.current_drawdown, 1))  # Current drawdown penalty
+        + 0.10 * tp_success_rate  # Take profit success rate
+        + 0.10 * min(metrics.avg_risk_reward, 3) / 3  # Risk/reward ratio (capped at 3)
     )
 
     return fitness * 100  # Scale to percentage
@@ -194,6 +261,7 @@ def evaluate_weights(
                         window,
                         initial_balance,
                         weights=weights,
+                        risk_percentage=risk_percentage,
                         iteration_id=iteration_id,
                         db=db,
                     )
@@ -223,6 +291,31 @@ def evaluate_weights(
                                     else 0
                                 ),
                                 "revenue": final_balance - initial_balance,
+                                "risk_percentage": risk_percentage,
+                                "avg_risk_reward": metrics.get_metrics()[
+                                    "avg_risk_reward"
+                                ],
+                                "tp_success_rate": (
+                                    (
+                                        metrics.tp1_hits
+                                        + metrics.tp2_hits
+                                        + metrics.tp3_hits
+                                    )
+                                    / (
+                                        metrics.tp1_hits
+                                        + metrics.tp2_hits
+                                        + metrics.tp3_hits
+                                        + metrics.stop_loss_hits
+                                    )
+                                    if (
+                                        metrics.tp1_hits
+                                        + metrics.tp2_hits
+                                        + metrics.tp3_hits
+                                        + metrics.stop_loss_hits
+                                    )
+                                    > 0
+                                    else 0
+                                ),
                             }
                             db.insert_sub_iteration(sub_iteration_data)
 
@@ -248,106 +341,62 @@ def evaluate_weights(
 def optimize_weights(
     weights: List[float], iterations: int, learning_rate: float
 ) -> List[float]:
-    best_weights = weights[:]
-    iteration_id = str(uuid.uuid4())
-    best_score, best_metrics = evaluate_weights(best_weights, iteration_id=iteration_id)
-
-    if best_metrics:
-        logger.info(f"Initial Score: {best_score:.5f}%")
-        logger.info(f"Initial Metrics: {best_metrics.get_metrics()}")
-        logger.info(f"Initial Weights: {best_weights}")
-
-        # Store initial iteration data
-        iteration_data = {
-            "iteration_number": 0,
-            "weights": best_weights,
-            "fitness_score": best_score,
-            **best_metrics.get_metrics(),
-        }
-        db.insert_iteration(iteration_data)
-
-    # Optimization state
-    current_learning_rate = learning_rate
+    """Optimize weights using gradient descent with momentum"""
+    best_weights = weights.copy()
+    best_fitness = -float("inf")
     no_improvement_count = 0
-    score_history = deque(maxlen=history_size)
-    velocity = [0.0] * len(weights)
+    history = deque(maxlen=history_size)
 
-    for iteration in range(iterations):
-        # Randomly select multiple weights to adjust
-        num_weights_to_adjust = random.randint(1, 3)
-        indices = random.sample(range(len(weights)), num_weights_to_adjust)
+    for i in range(iterations):
+        # Generate random perturbations
+        perturbations = np.random.normal(0, 0.1, len(weights))
 
-        new_weights = best_weights[:]
-        for index in indices:
-            # Momentum-based weight adjustment
-            gradient = random.choice([-1, 1])
-            velocity[index] = momentum * velocity[index] + (1 - momentum) * gradient
-            adjustment = current_learning_rate * velocity[index]
-            new_weights[index] = max(0, min(2.0, new_weights[index] + adjustment))
+        # Apply perturbations to weights
+        test_weights = [w + p for w, p in zip(weights, perturbations)]
 
-        new_score, new_metrics = evaluate_weights(
-            new_weights, iteration_id=iteration_id
-        )
+        # Evaluate fitness
+        fitness, metrics = evaluate_weights(test_weights)
 
-        if new_metrics:
-            # Store iteration data
-            iteration_data = {
-                "iteration_number": iteration + 1,
-                "weights": new_weights,
-                "fitness_score": new_score,
-                **new_metrics.get_metrics(),
-            }
-            db.insert_iteration(iteration_data)
-
-        score_history.append(new_score)
-
-        if new_score > best_score:
-            best_weights = new_weights
-            best_score = new_score
-            best_metrics = new_metrics
+        if fitness > best_fitness:
+            best_fitness = fitness
+            best_weights = test_weights.copy()
             no_improvement_count = 0
-            logger.info(f"Iteration {iteration + 1}: New Best Score: {best_score:.5f}%")
-            logger.info(
-                f"Metrics: {best_metrics.get_metrics() if best_metrics else 'N/A'}"
-            )
-            logger.info(f"Weights: {best_weights}")
+
+            # Log improvement
+            logger.info(f"Iteration {i}: New best fitness {fitness:.2f}")
+            if metrics:
+                logger.info(f"Metrics: {metrics.get_metrics()}")
         else:
             no_improvement_count += 1
 
-            # Adaptive learning rate adjustment
-            if no_improvement_count >= patience:
-                if len(score_history) >= history_size:
-                    recent_trend = np.mean(list(score_history)[-5:]) - np.mean(
-                        list(score_history)[:-5]
-                    )
-                    if recent_trend < 0:
-                        current_learning_rate = max(
-                            min_learning_rate, current_learning_rate * 0.5
-                        )
-                    else:
-                        current_learning_rate = min(
-                            max_learning_rate, current_learning_rate * 1.1
-                        )
-                no_improvement_count = 0
-                logger.info(f"Adjusting learning rate to {current_learning_rate}")
-
-        # Early stopping if we've found a good solution
-        if best_score > 50 and no_improvement_count > patience * 2:
-            logger.info("Early stopping: Found good solution")
+        # Early stopping
+        if no_improvement_count >= patience:
+            logger.info(f"Early stopping at iteration {i}")
             break
 
-    logger.info("\nOptimization Complete!")
-    logger.info(f"Final Optimized Score: {best_score:.5f}%")
-    if best_metrics:
-        logger.info(f"Final Metrics: {best_metrics.get_metrics()}")
-    logger.info(f"Optimized Weights: {best_weights}")
+        # Update weights using momentum
+        for j in range(len(weights)):
+            velocity[j] = momentum * velocity[j] + learning_rate * perturbations[j]
+            weights[j] += velocity[j]
+
+        # Adjust learning rate
+        if len(history) >= history_size:
+            if all(f < fitness for f in history):
+                learning_rate = max(learning_rate * 0.95, min_learning_rate)
+            elif all(f > fitness for f in history):
+                learning_rate = min(learning_rate * 1.05, max_learning_rate)
+
+        history.append(fitness)
 
     return best_weights
 
 
 if __name__ == "__main__":
-    try:
-        optimized_weights = optimize_weights(weights, iterations, learning_rate)
-    except Exception as e:
-        logger.error(f"Training failed: {str(e)}")
-        sys.exit(1)
+    # Train the model
+    best_weights = optimize_weights(weights, iterations, learning_rate)
+    logger.info(f"Best weights found: {best_weights}")
+
+    # Evaluate final performance
+    fitness, metrics = evaluate_weights(best_weights)
+    if metrics:
+        logger.info(f"Final metrics: {metrics.get_metrics()}")

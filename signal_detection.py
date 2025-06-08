@@ -1,6 +1,9 @@
 from datetime import timedelta
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional, Any
 import pandas as pd  # type: ignore
+import numpy as np  # type: ignore
+from dataclasses import dataclass
+from enum import Enum
 
 from helpers import fetch_candles, analyze_data, fetch_data_and_get_indicators
 from database import (
@@ -16,6 +19,80 @@ from database import (
 from utils import auto_signal_jobs, create_true_preferences, logger
 
 from plot_build_helpers import plot_price_chart
+
+
+@dataclass
+class TradingSignal:
+    """Enhanced signal class with risk management"""
+
+    symbol: str
+    signal_type: str  # "Bullish", "Bearish", "Neutral"
+    probability: float
+    confidence: float
+    entry_price: float
+    stop_loss: float
+    take_profit_1: float
+    take_profit_2: float
+    take_profit_3: float
+    risk_reward_ratio: float
+    position_size: float
+    max_risk_amount: float
+    reasons: List[str]
+    market_conditions: Dict[str, any]
+    timestamp: pd.Timestamp
+
+
+class MarketRegime(Enum):
+    """Market regime classification"""
+
+    TRENDING_UP = "trending_up"
+    TRENDING_DOWN = "trending_down"
+    RANGING = "ranging"
+    VOLATILE = "volatile"
+    QUIET = "quiet"
+
+
+def calculate_atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
+    """Calculate Average True Range for volatility"""
+    high_low = df["High"] - df["Low"]
+    high_close = np.abs(df["High"] - df["Close"].shift())
+    low_close = np.abs(df["Low"] - df["Close"].shift())
+
+    true_range = pd.concat([high_low, high_close, low_close], axis=1).max(axis=1)
+    atr = true_range.rolling(window=period).mean()
+    return atr
+
+
+def calculate_rsi(series: pd.Series, period: int = 14) -> pd.Series:
+    """Calculate RSI for momentum confirmation"""
+    delta = series.diff()
+    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+
+    rs = gain / loss
+    rsi = 100 - (100 / (1 + rs))
+    return rsi
+
+
+def calculate_market_structure_score(df: pd.DataFrame) -> float:
+    """Calculate market structure score based on higher highs/lows"""
+    window = 20
+    highs = df["High"].rolling(window=window).max()
+    lows = df["Low"].rolling(window=window).min()
+
+    # Count higher highs and higher lows
+    hh = (highs.diff() > 0).sum()
+    hl = (lows.diff() > 0).sum()
+
+    # Count lower highs and lower lows
+    lh = (highs.diff() < 0).sum()
+    ll = (lows.diff() < 0).sum()
+
+    # Calculate structure score (-1 to 1)
+    bullish_score = (hh + hl) / (window * 2)
+    bearish_score = (lh + ll) / (window * 2)
+
+    return bullish_score - bearish_score
 
 
 def detect_support_resistance(
@@ -78,34 +155,61 @@ def detect_support_resistance(
 
 
 def detect_trend(df: pd.DataFrame, window: int = 20) -> str:
-    """
-    Detect the current trend using moving averages and price action.
+    """Detect trend using EMAs"""
+    # Create a copy of the DataFrame to avoid SettingWithCopyWarning
+    df = df.copy()
 
-    Returns:
-        "bullish", "bearish", or "neutral"
-    """
-    # Calculate EMAs
-    df["EMA20"] = df["Close"].ewm(span=window).mean()
-    df["EMA50"] = df["Close"].ewm(span=50).mean()
+    # Calculate EMAs using .loc to avoid the warning
+    df.loc[:, "EMA20"] = df["Close"].ewm(span=window).mean()
+    df.loc[:, "EMA50"] = df["Close"].ewm(span=50).mean()
 
-    # Get recent values
-    current_price = df["Close"].iloc[-1]
+    # Get the last values
     ema20 = df["EMA20"].iloc[-1]
     ema50 = df["EMA50"].iloc[-1]
 
-    # Calculate trend strength
-    price_above_ema20 = current_price > ema20
-    ema20_above_ema50 = ema20 > ema50
-
-    # Calculate momentum
-    momentum = (current_price - df["Close"].iloc[-window]) / df["Close"].iloc[-window]
-
-    if price_above_ema20 and ema20_above_ema50 and momentum > 0.01:
-        return "bullish"
-    elif not price_above_ema20 and not ema20_above_ema50 and momentum < -0.01:
-        return "bearish"
+    # Determine trend
+    if ema20 > ema50:
+        return "uptrend"
+    elif ema20 < ema50:
+        return "downtrend"
     else:
-        return "neutral"
+        return "sideways"
+
+
+# Enhanced market regime detection
+def detect_market_regime(df: pd.DataFrame) -> MarketRegime:
+    """Detect current market regime for better signal filtering"""
+    # Calculate volatility
+    returns = df["Close"].pct_change()
+    volatility = returns.rolling(window=20).std().iloc[-1]
+    avg_volatility = returns.rolling(window=100).std().mean()
+
+    # Calculate trend strength using ADX
+    atr = calculate_atr(df)
+    dm_plus = df["High"].diff()
+    dm_minus = -df["Low"].diff()
+
+    dm_plus = dm_plus.where(dm_plus > 0, 0)
+    dm_minus = dm_minus.where(dm_minus > 0, 0)
+
+    di_plus = 100 * (dm_plus.rolling(14).mean() / atr)
+    di_minus = 100 * (dm_minus.rolling(14).mean() / atr)
+
+    dx = 100 * np.abs(di_plus - di_minus) / (di_plus + di_minus)
+    adx = dx.rolling(14).mean().iloc[-1]
+
+    # Determine regime
+    if volatility > avg_volatility * 1.5:
+        return MarketRegime.VOLATILE
+    elif volatility < avg_volatility * 0.5:
+        return MarketRegime.QUIET
+    elif adx > 25:
+        if di_plus.iloc[-1] > di_minus.iloc[-1]:
+            return MarketRegime.TRENDING_UP
+        else:
+            return MarketRegime.TRENDING_DOWN
+    else:
+        return MarketRegime.RANGING
 
 
 def analyze_order_blocks(df: pd.DataFrame, window: int = 3) -> List[Dict]:
@@ -121,10 +225,11 @@ def analyze_order_blocks(df: pd.DataFrame, window: int = 3) -> List[Dict]:
         # Bullish order block conditions
         if (
             df["Close"].iloc[i] < df["Open"].iloc[i]  # Bearish candle
-            and df["Close"].iloc[i + 1] > df["Open"].iloc[i + 1]  # Bullish candle
+            and df["Close"].iloc[i]
+            < df["Low"].iloc[i - 1 : i].min()  # Breaks below previous low
             and df["Volume"].iloc[i]
             > df["Volume"].iloc[i - 1 : i + 1].mean()  # Higher volume
-            and df["Low"].iloc[i + 1 : i + window].min() > df["Low"].iloc[i]
+            and df["High"].iloc[i + 1 : i + window].max() > df["High"].iloc[i]
         ):  # Price holds above
 
             order_blocks.append(
@@ -134,17 +239,18 @@ def analyze_order_blocks(df: pd.DataFrame, window: int = 3) -> List[Dict]:
                     "price": df["Low"].iloc[i],
                     "volume": df["Volume"].iloc[i],
                     "strength": df["Volume"].iloc[i]
-                    / df["Volume"].iloc[i - 5 : i].mean(),
+                    / max(df["Volume"].iloc[i - 5 : i].mean(), 1e-10),
                 }
             )
 
         # Bearish order block conditions
         elif (
             df["Close"].iloc[i] > df["Open"].iloc[i]  # Bullish candle
-            and df["Close"].iloc[i + 1] < df["Open"].iloc[i + 1]  # Bearish candle
+            and df["Close"].iloc[i]
+            > df["High"].iloc[i - 1 : i].max()  # Breaks above previous high
             and df["Volume"].iloc[i]
             > df["Volume"].iloc[i - 1 : i + 1].mean()  # Higher volume
-            and df["High"].iloc[i + 1 : i + window].max() < df["High"].iloc[i]
+            and df["Low"].iloc[i + 1 : i + window].min() < df["Low"].iloc[i]
         ):  # Price holds below
 
             order_blocks.append(
@@ -154,7 +260,7 @@ def analyze_order_blocks(df: pd.DataFrame, window: int = 3) -> List[Dict]:
                     "price": df["High"].iloc[i],
                     "volume": df["Volume"].iloc[i],
                     "strength": df["Volume"].iloc[i]
-                    / df["Volume"].iloc[i - 5 : i].mean(),
+                    / max(df["Volume"].iloc[i - 5 : i].mean(), 1e-10),
                 }
             )
 
@@ -181,6 +287,9 @@ def analyze_breaker_blocks(df: pd.DataFrame, window: int = 3) -> List[Dict]:
             and df["Low"].iloc[i + 1 : i + window].min() > df["Low"].iloc[i]
         ):  # Price holds above
 
+            prev_high = df["High"].iloc[i - 1 : i].max()
+            breakout_size = (df["Close"].iloc[i] - prev_high) / max(prev_high, 1e-10)
+
             breaker_blocks.append(
                 {
                     "type": "bullish",
@@ -188,11 +297,8 @@ def analyze_breaker_blocks(df: pd.DataFrame, window: int = 3) -> List[Dict]:
                     "price": df["Low"].iloc[i],
                     "volume": df["Volume"].iloc[i],
                     "strength": df["Volume"].iloc[i]
-                    / df["Volume"].iloc[i - 5 : i].mean(),
-                    "breakout_size": (
-                        df["Close"].iloc[i] - df["High"].iloc[i - 1 : i].max()
-                    )
-                    / df["High"].iloc[i - 1 : i].max(),
+                    / max(df["Volume"].iloc[i - 5 : i].mean(), 1e-10),
+                    "breakout_size": breakout_size,
                 }
             )
 
@@ -206,6 +312,9 @@ def analyze_breaker_blocks(df: pd.DataFrame, window: int = 3) -> List[Dict]:
             and df["High"].iloc[i + 1 : i + window].max() < df["High"].iloc[i]
         ):  # Price holds below
 
+            prev_low = df["Low"].iloc[i - 1 : i].min()
+            breakout_size = (prev_low - df["Close"].iloc[i]) / max(prev_low, 1e-10)
+
             breaker_blocks.append(
                 {
                     "type": "bearish",
@@ -213,11 +322,8 @@ def analyze_breaker_blocks(df: pd.DataFrame, window: int = 3) -> List[Dict]:
                     "price": df["High"].iloc[i],
                     "volume": df["Volume"].iloc[i],
                     "strength": df["Volume"].iloc[i]
-                    / df["Volume"].iloc[i - 5 : i].mean(),
-                    "breakout_size": (
-                        df["Low"].iloc[i - 1 : i].min() - df["Close"].iloc[i]
-                    )
-                    / df["Low"].iloc[i - 1 : i].min(),
+                    / max(df["Volume"].iloc[i - 5 : i].mean(), 1e-10),
+                    "breakout_size": breakout_size,
                 }
             )
 
@@ -380,14 +486,165 @@ def detect_bearish_engulfing(df: pd.DataFrame) -> bool:
     return False
 
 
+# Risk Management Functions
+def calculate_dynamic_stop_loss(
+    df: pd.DataFrame, signal_type: str, entry_price: float, atr_multiplier: float = 2.0
+) -> float:
+    """Calculate dynamic stop loss based on ATR and market structure"""
+    atr = calculate_atr(df)
+    current_atr = atr.iloc[-1]
+
+    # Find recent support/resistance levels
+    support_levels, resistance_levels = detect_support_resistance(df)
+
+    if signal_type == "Bullish":
+        # ATR-based stop
+        atr_stop = entry_price - (current_atr * atr_multiplier)
+
+        # Structure-based stop (below recent support)
+        structure_stop = max([s for s in support_levels if s < entry_price], default=0)
+        if structure_stop > 0:
+            structure_stop *= 0.995  # 0.5% below support
+
+        # Use the higher of the two (closer to entry)
+        stop_loss = max(atr_stop, structure_stop) if structure_stop > 0 else atr_stop
+
+    else:  # Bearish
+        # ATR-based stop
+        atr_stop = entry_price + (current_atr * atr_multiplier)
+
+        # Structure-based stop (above recent resistance)
+        structure_stop = min(
+            [r for r in resistance_levels if r > entry_price], default=float("inf")
+        )
+        if structure_stop != float("inf"):
+            structure_stop *= 1.005  # 0.5% above resistance
+
+        # Use the lower of the two (closer to entry)
+        stop_loss = (
+            min(atr_stop, structure_stop)
+            if structure_stop != float("inf")
+            else atr_stop
+        )
+
+    return stop_loss
+
+
+def calculate_take_profit_levels(
+    df: pd.DataFrame,
+    signal_type: str,
+    entry_price: float,
+    stop_loss: float,
+    risk_reward_ratios: List[float] = [1.5, 2.0, 3.0],
+) -> Tuple[float, float, float]:
+    """Calculate multiple take profit levels based on R:R and market structure"""
+    risk = abs(entry_price - stop_loss)
+
+    # Basic R:R based targets
+    if signal_type == "Bullish":
+        tp1 = entry_price + (risk * risk_reward_ratios[0])
+        tp2 = entry_price + (risk * risk_reward_ratios[1])
+        tp3 = entry_price + (risk * risk_reward_ratios[2])
+    else:
+        tp1 = entry_price - (risk * risk_reward_ratios[0])
+        tp2 = entry_price - (risk * risk_reward_ratios[1])
+        tp3 = entry_price - (risk * risk_reward_ratios[2])
+
+    # Adjust based on market structure
+    support_levels, resistance_levels = detect_support_resistance(df)
+
+    if signal_type == "Bullish":
+        # Find resistance levels that could act as targets
+        potential_targets = [r for r in resistance_levels if r > entry_price]
+        if potential_targets:
+            # Adjust targets to be just below resistance
+            tp1 = (
+                min(tp1, potential_targets[0] * 0.995)
+                if len(potential_targets) > 0
+                else tp1
+            )
+            tp2 = (
+                min(tp2, potential_targets[1] * 0.995)
+                if len(potential_targets) > 1
+                else tp2
+            )
+    else:
+        # Find support levels that could act as targets
+        potential_targets = [s for s in support_levels if s < entry_price]
+        if potential_targets:
+            # Adjust targets to be just above support
+            tp1 = (
+                max(tp1, potential_targets[0] * 1.005)
+                if len(potential_targets) > 0
+                else tp1
+            )
+            tp2 = (
+                max(tp2, potential_targets[1] * 1.005)
+                if len(potential_targets) > 1
+                else tp2
+            )
+
+    return tp1, tp2, tp3
+
+
+def calculate_position_size(
+    account_balance: float, risk_percentage: float, entry_price: float, stop_loss: float
+) -> Dict[str, float]:
+    """Calculate position size based on account risk"""
+    risk_amount = account_balance * (risk_percentage / 100)
+    price_difference = abs(entry_price - stop_loss)
+    position_size = risk_amount / price_difference
+
+    return {
+        "position_size": position_size,
+        "position_value": position_size * entry_price,
+        "risk_amount": risk_amount,
+        "risk_percentage": risk_percentage,
+    }
+
+
+# Market context analysis
+def analyze_market_correlation(df: pd.DataFrame, btc_df: pd.DataFrame = None) -> Dict:
+    """Analyze correlation with BTC and market conditions"""
+    market_analysis = {}
+
+    # Volume analysis
+    current_volume = df["Volume"].iloc[-1]
+    avg_volume = df["Volume"].rolling(window=20).mean().iloc[-1]
+    market_analysis["volume_ratio"] = current_volume / avg_volume
+
+    # Volatility analysis
+    atr = calculate_atr(df)
+    market_analysis["volatility"] = atr.iloc[-1] / df["Close"].iloc[-1]
+
+    # RSI for momentum
+    market_analysis["rsi"] = calculate_rsi(df["Close"]).iloc[-1]
+
+    # If BTC data is provided, calculate correlation
+    if btc_df is not None and len(btc_df) == len(df):
+        correlation = df["Close"].pct_change().corr(btc_df["Close"].pct_change())
+        market_analysis["btc_correlation"] = correlation
+
+    # Market structure
+    market_analysis["structure_score"] = calculate_market_structure_score(df)
+
+    return market_analysis
+
+
 def generate_price_prediction_signal_proba(
-    df: pd.DataFrame, indicators, weights: list = []
-) -> Tuple[str, float, float, str]:
+    df: pd.DataFrame,
+    indicators,
+    weights: list = [],
+    account_balance: float = 10000,
+    risk_percentage: float = 1.0,
+    btc_df: pd.DataFrame = None,
+) -> Tuple[str, float, float, str, Optional[TradingSignal]]:
     """
     Generates a single-timeframe signal with bullish/bearish/neutral outcome.
+    Now includes risk management and returns a TradingSignal object.
 
     Returns:
-        (signal, probability_of_bullish, confidence, reason_str)
+        (signal, probability_of_bullish, confidence, reason_str, trading_signal)
     """
     last_close = df["Close"].iloc[-1]
     reasons = []
@@ -410,8 +667,9 @@ def generate_price_prediction_signal_proba(
     W_LIQUIDITY_POOL_ABOVE = 1.2  # Weight for liquidity pool above current price
     W_LIQUIDITY_POOL_BELOW = 1.2  # Weight for liquidity pool below current price
     W_LIQUIDITY_POOL_ROUND = 1.5  # Weight for liquidity pool at round numbers
+    W_RSI_EXTREME = 0.6  # NEW: Weight for RSI extremes
 
-    if weights and len(weights) == 18:  # Updated for new weights
+    if weights and len(weights) >= 16:  # Updated for new weights
         W_BULLISH_OB = weights[0]
         W_BEARISH_OB = weights[1]
         W_BULLISH_BREAKER = weights[2]
@@ -428,19 +686,33 @@ def generate_price_prediction_signal_proba(
         W_ENGULFING = weights[13]
         W_LIQUIDITY_POOL_ABOVE = weights[14]
         W_LIQUIDITY_POOL_BELOW = weights[15]
-        W_LIQUIDITY_POOL_ROUND = weights[16]
+        W_LIQUIDITY_POOL_ROUND = weights[16] if len(weights) > 16 else 1.5
+        W_RSI_EXTREME = weights[17] if len(weights) > 17 else 0.6
 
     bullish_score = 0.0
     bearish_score = 0.0
 
+    # NEW: Market context analysis
+    market_context = analyze_market_correlation(df, btc_df)
+    market_regime = detect_market_regime(df)
+
+    # NEW: RSI analysis
+    if "rsi" in market_context:
+        if market_context["rsi"] < 30:
+            bullish_score += W_RSI_EXTREME
+            reasons.append(f"RSI oversold at {market_context['rsi']:.1f}")
+        elif market_context["rsi"] > 70:
+            bearish_score += W_RSI_EXTREME
+            reasons.append(f"RSI overbought at {market_context['rsi']:.1f}")
+
     # Detect trend
     trend = detect_trend(df)
-    if trend == "bullish":
+    if trend == "uptrend":
         bullish_score += W_TREND
-        reasons.append("Price is in a bullish trend")
-    elif trend == "bearish":
+        reasons.append("Price is in an uptrend")
+    elif trend == "downtrend":
         bearish_score += W_TREND
-        reasons.append("Price is in a bearish trend")
+        reasons.append("Price is in a downtrend")
 
     # Enhanced support/resistance analysis
     support_levels, resistance_levels = detect_support_resistance(df)
@@ -598,12 +870,14 @@ def generate_price_prediction_signal_proba(
 
             # Determine if pool is at a round number
             is_round_number = any(
-                abs(pool.price - round_num) / round_num < 0.001
+                abs(pool.price - round_num) / max(abs(round_num), 1e-10) < 0.001
                 for round_num in round_numbers
             )
 
             # Calculate pool impact based on strength and volume
-            pool_impact = pool.strength * (pool.volume / df["Volume"].mean())
+            pool_impact = pool.strength * (
+                pool.volume / max(df["Volume"].mean(), 1e-10)
+            )
 
             # Generate detailed reason based on pool characteristics
             pool_reason = []
@@ -692,15 +966,20 @@ def generate_price_prediction_signal_proba(
     probability_of_bullish = max(0.001, min(probability_of_bullish, 0.999))
 
     # Decide final signal with trend confirmation
-    if probability_of_bullish >= 0.66 and trend != "bearish":
+    if probability_of_bullish >= 0.66 and trend != "downtrend":
         signal = "Bullish"
-    elif probability_of_bullish <= 0.33 and trend != "bullish":
+    elif probability_of_bullish <= 0.33 and trend != "uptrend":
         signal = "Bearish"
     else:
         signal = "Neutral"
 
     # Calculate confidence
     confidence = abs(probability_of_bullish - 0.5) * 2.0
+
+    # Add market context to reasons
+    reasons.append(f"Market Regime: {market_regime.value}")
+    reasons.append(f"Volume Ratio: {market_context['volume_ratio']:.2f}")
+    reasons.append(f"Volatility: {market_context['volatility']*100:.2f}%")
 
     # Compile reason string
     reason_str = (
@@ -713,22 +992,61 @@ def generate_price_prediction_signal_proba(
     if reasons:
         reason_str += "Reasons:\n- " + "\n- ".join(reasons)
 
-    return signal, probability_of_bullish, confidence, reason_str
+    # Create TradingSignal object if signal is not neutral or confidence is high
+    trading_signal = None
+    if signal != "Neutral" or confidence > 0.3:
+        entry_price = last_close
+
+        # Calculate stop loss
+        stop_loss = calculate_dynamic_stop_loss(df, signal, entry_price)
+
+        # Calculate take profit levels
+        tp1, tp2, tp3 = calculate_take_profit_levels(df, signal, entry_price, stop_loss)
+
+        # Calculate risk/reward ratio
+        risk = abs(entry_price - stop_loss)
+        reward = abs(tp2 - entry_price)  # Using TP2 as primary target
+        risk_reward_ratio = reward / risk if risk > 0 else 0
+
+        # Calculate position size
+        position_sizing = calculate_position_size(
+            account_balance, risk_percentage, entry_price, stop_loss
+        )
+
+        trading_signal = TradingSignal(
+            symbol=df.attrs.get("symbol", "UNKNOWN"),
+            signal_type=signal,
+            probability=probability_of_bullish,
+            confidence=confidence,
+            entry_price=entry_price,
+            stop_loss=stop_loss,
+            take_profit_1=tp1,
+            take_profit_2=tp2,
+            take_profit_3=tp3,
+            risk_reward_ratio=risk_reward_ratio,
+            position_size=position_sizing["position_size"],
+            max_risk_amount=position_sizing["risk_amount"],
+            reasons=reasons,
+            market_conditions=market_context,
+            timestamp=pd.Timestamp.now(),
+        )
+
+    return signal, probability_of_bullish, confidence, reason_str, trading_signal
 
 
-###############################################################################
 # Multi-timeframe Analysis
-###############################################################################
 async def multi_timeframe_analysis(
     symbol: str,
     preferences: Dict[str, bool],
     timeframes: List[str],
     candles_per_tf: int = 300,
     liq_lev_tolerance: float = 0.05,
+    account_balance: float = 10000,
+    risk_percentage: float = 1.0,
 ) -> Dict[str, Dict[str, any]]:
     """
     Fetches OHLCV data for multiple timeframes (e.g., 1h, 4h, 1d) and analyzes
-    them using your 'analyze_data' function.
+    them using your 'analyze_data' function. Now includes risk management.
 
     Parameters:
         symbol (str): The symbol/currency pair to fetch (e.g. "BTCUSDT")
@@ -736,15 +1054,23 @@ async def multi_timeframe_analysis(
         timeframes (List[str]): List of timeframes to analyze (e.g., ["1h", "4h", "1d"])
         candles_per_tf (int): How many candles to fetch for each timeframe
         liq_lev_tolerance (float): The tolerance for liquidity level detection
+        account_balance (float): Account balance for position sizing
+        risk_percentage (float): Risk percentage per trade
 
     Returns:
         A dictionary containing, for each timeframe:
             {
                 "df": pandas DataFrame with the OHLCV data,
-                "indicators": your Indicators object
+                "indicators": your Indicators object,
+                "trading_signal": TradingSignal object if applicable
             }
     """
     mtf_results = {}
+
+    # Fetch BTC data for correlation (if not BTC itself)
+    btc_df = None
+    if symbol != "BTCUSDT":
+        btc_df = fetch_candles("BTCUSDT", candles_per_tf, "1h")
 
     for tf in timeframes:
         # 1) Fetch historical data for the desired timeframe
@@ -755,28 +1081,44 @@ async def multi_timeframe_analysis(
             logger.info(f"[multi_timeframe_analysis] No data for {symbol} on {tf}")
             continue
 
+        # Add symbol attribute for reference
+        df.attrs["symbol"] = symbol
+
         # 2) Analyze the data using your existing 'analyze_data' function,
         #    which returns an Indicators() object with order blocks, FVG, etc.
         indicators = analyze_data(df, preferences, liq_lev_tolerance)
 
-        # 3) Store the results
-        mtf_results[tf] = {"df": df, "indicators": indicators}
+        # 3) Generate enhanced signal with risk management
+        signal, prob, conf, reasons, trading_signal = (
+            generate_price_prediction_signal_proba(
+                df, indicators, [], account_balance, risk_percentage, btc_df
+            )
+        )
+
+        # 4) Store the results
+        mtf_results[tf] = {
+            "df": df,
+            "indicators": indicators,
+            "signal": signal,
+            "probability": prob,
+            "confidence": conf,
+            "reasons": reasons,
+            "trading_signal": trading_signal,
+        }
 
     return mtf_results
 
 
-###############################################################################
 # Multi-timeframe Aggregation of Signals
-###############################################################################
 def generate_multi_tf_signal_proba(
     mtf_results: Dict[str, Dict[str, any]],
-) -> (str, float, float, str):  # type: ignore
+) -> Tuple[str, float, float, str, Optional[TradingSignal]]:
     """
     Aggregates signals from multiple timeframes. For each timeframe, we use
     'generate_price_prediction_signal_proba()' to produce an individual signal
     (Bullish/Bearish/Neutral) along with a probability of bullishness.
 
-    Then we weight them together for a final probability & final signal.
+    Now also returns the best TradingSignal object.
 
     Parameters:
         mtf_results (dict): As returned by `multi_timeframe_analysis`.
@@ -784,22 +1126,25 @@ def generate_multi_tf_signal_proba(
             {
                 "1h": {
                     "df": <DataFrame>,
-                    "indicators": <Indicators>
+                    "indicators": <Indicators>,
+                    "trading_signal": <TradingSignal>
                 },
                 "4h": {
                     "df": <DataFrame>,
-                    "indicators": <Indicators>
+                    "indicators": <Indicators>,
+                    "trading_signal": <TradingSignal>
                 },
                 ...
             }
 
     Returns:
-        (final_signal, final_probability_of_bullish, confidence, reason_str)
+        (final_signal, final_probability_of_bullish, confidence, reason_str, best_trading_signal)
 
         - final_signal (str): "Bullish", "Bearish", or "Neutral"
         - final_probability_of_bullish (float): aggregated probability in [0.001..0.999]
         - confidence (float): how far from 0.5 the final probability is, scaled to [0..1]
         - reason_str (str): textual explanation that includes breakdown from each timeframe
+        - best_trading_signal (TradingSignal): The best signal object for execution
     """
     # Example weighting for each timeframe:
     # You can tweak these or make them user-configurable.
@@ -816,16 +1161,15 @@ def generate_multi_tf_signal_proba(
     reasons = []
     total_weight = 0.0
     weighted_prob_sum = 0.0
+    trading_signals = []
 
     # 1) Loop through each timeframe's results
     for tf, data in mtf_results.items():
-        df = data["df"]
-        indicators = data["indicators"]
-
-        # Use your existing single-timeframe function to get the signal
-        signal, prob_bullish, confidence, reason_str = (
-            generate_price_prediction_signal_proba(df, indicators)
-        )
+        signal = data.get("signal", "Neutral")
+        prob_bullish = data.get("probability", 0.5)
+        confidence = data.get("confidence", 0.0)
+        reason_str = data.get("reasons", "")
+        trading_signal = data.get("trading_signal")
 
         # 2) Retrieve a weight for that timeframe, default to 0.2 if not specified
         w = timeframe_weights.get(tf, 0.2)
@@ -834,7 +1178,11 @@ def generate_multi_tf_signal_proba(
         # 3) Accumulate weighted probability
         weighted_prob_sum += prob_bullish * w
 
-        # 4) Collect textual explanation for each timeframe
+        # 4) Collect trading signals
+        if trading_signal:
+            trading_signals.append((tf, trading_signal))
+
+        # 5) Collect textual explanation for each timeframe
         reasons.append(
             f"Timeframe: {tf}\n"
             f"Signal: {signal}\n"
@@ -851,15 +1199,16 @@ def generate_multi_tf_signal_proba(
             0.5,
             0.0,
             "No timeframes data were available, defaulting to Neutral",
+            None,
         )
 
-    # 5) Compute the final aggregated bullish probability
+    # 6) Compute the final aggregated bullish probability
     final_prob = weighted_prob_sum / total_weight
 
-    # 6) Clamp the probability within [0.001..0.999]
+    # 7) Clamp the probability within [0.001..0.999]
     final_prob = max(0.001, min(final_prob, 0.999))
 
-    # 7) Determine final signal by thresholds
+    # 8) Determine final signal by thresholds
     if final_prob >= 0.66:
         final_signal = "Bullish"
     elif final_prob <= 0.33:
@@ -867,11 +1216,20 @@ def generate_multi_tf_signal_proba(
     else:
         final_signal = "Neutral"
 
-    # 8) Calculate overall confidence
+    # 9) Calculate overall confidence
     #    (distance from 0.5 scaled to [0..1])
     confidence = abs(final_prob - 0.5) * 2.0
 
-    # 9) Combine all timeframe reasons into one final reason string
+    # 10) Select the best trading signal (highest R:R with good confidence)
+    best_trading_signal = None
+    if trading_signals:
+        # Sort by risk/reward ratio * confidence
+        trading_signals.sort(
+            key=lambda x: x[1].risk_reward_ratio * x[1].confidence, reverse=True
+        )
+        best_trading_signal = trading_signals[0][1]
+
+    # 11) Combine all timeframe reasons into one final reason string
     final_reasons_str = (
         f"Final Aggregated Signal: {final_signal}\n"
         f"Aggregated Probability of Bullish: {final_prob:.3f}\n"
@@ -879,23 +1237,104 @@ def generate_multi_tf_signal_proba(
         "Detailed breakdown by timeframe:\n" + "\n".join(reasons)
     )
 
-    return final_signal, final_prob, confidence, final_reasons_str
+    return final_signal, final_prob, confidence, final_reasons_str, best_trading_signal
 
 
-###############################################################################
+# Signal quality validation
+def validate_signal_quality(signal: TradingSignal) -> Tuple[bool, List[str]]:
+    """
+    Validate signal quality before sending to user
+    """
+    issues = []
+
+    # Check risk/reward ratio
+    if signal.risk_reward_ratio < 1.5:
+        issues.append("Risk/Reward ratio below 1.5")
+
+    # Check confidence
+    if signal.confidence < 0.5:
+        issues.append("Low confidence signal")
+
+    # Check market conditions
+    if signal.market_conditions.get("volume_ratio", 0) < 0.5:
+        issues.append("Low volume - potential false signal")
+
+    # Check position size
+    if signal.position_size * signal.entry_price > signal.max_risk_amount * 10:
+        issues.append("Position size too large for account")
+
+    # Signal is valid if no critical issues
+    is_valid = len(issues) == 0 or (len(issues) == 1 and signal.confidence > 0.7)
+
+    return is_valid, issues
+
+
+# Enhanced message formatting
+def format_enhanced_signal_message(
+    signal: TradingSignal, issues: List[str] = []
+) -> str:
+    """Format enhanced signal message with all details"""
+    message = f"""
+🎯 **SIGNAL ALERT - {signal.symbol}** 🎯
+
+📊 **Signal Type:** {signal.signal_type}
+💪 **Confidence:** {signal.confidence:.1%}
+🎲 **Probability:** {signal.probability:.1%}
+
+💰 **TRADE SETUP:**
+━━━━━━━━━━━━━━━━━━
+📍 **Entry Price:** ${signal.entry_price:.4f}
+🛑 **Stop Loss:** ${signal.stop_loss:.4f} ({abs(signal.entry_price - signal.stop_loss)/signal.entry_price*100:.1f}%)
+🎯 **Take Profit 1:** ${signal.take_profit_1:.4f} ({abs(signal.take_profit_1 - signal.entry_price)/signal.entry_price*100:.1f}%)
+🎯 **Take Profit 2:** ${signal.take_profit_2:.4f} ({abs(signal.take_profit_2 - signal.entry_price)/signal.entry_price*100:.1f}%)
+🎯 **Take Profit 3:** ${signal.take_profit_3:.4f} ({abs(signal.take_profit_3 - signal.entry_price)/signal.entry_price*100:.1f}%)
+
+📈 **Risk Management:**
+━━━━━━━━━━━━━━━━━━
+⚖️ **Risk/Reward:** {signal.risk_reward_ratio:.2f}
+💵 **Position Size:** {signal.position_size:.4f} units
+💸 **Risk Amount:** ${signal.max_risk_amount:.2f}
+
+🔄 **Market Conditions:**
+━━━━━━━━━━━━━━━━━━
+📊 **Volume:** {signal.market_conditions.get('volume_ratio', 0):.1f}x average
+📉 **Volatility:** {signal.market_conditions.get('volatility', 0)*100:.1f}%
+📈 **Structure:** {signal.market_conditions.get('structure_score', 0):.2f}
+📊 **RSI:** {signal.market_conditions.get('rsi', 50):.1f}
+"""
+
+    if issues:
+        message += f"\n⚠️ **Warnings:**\n"
+        for issue in issues[:3]:
+            message += f"• {issue}\n"
+
+    # Add top 3 reasons
+    message += f"\n📝 **Key Reasons:**\n"
+    for reason in signal.reasons[:3]:
+        message += f"• {reason}\n"
+
+    message += (
+        f"\n⏰ *Generated at {signal.timestamp.strftime('%Y-%m-%d %H:%M:%S')} UTC*"
+    )
+
+    return message
+
+
 # Updated Auto-Signal Job with Multi-Timeframe Analysis
-###############################################################################
 async def auto_signal_job(context):
     """
     This function is called periodically by the Telegram JobQueue (run_repeating).
     Instead of analyzing a single timeframe, it uses the multi-timeframe analysis
     to produce a more reliable signal. Then it decides whether to send a message.
+    Now includes risk management and signal validation.
     """
     job_data = context.job.data
     user_id = job_data["user_id"]
     chat_id = job_data["chat_id"]
     currency_pair = job_data["currency_pair"]
     is_with_chart = job_data["is_with_chart"]
+    account_balance = job_data.get("account_balance", 10000)  # NEW
+    risk_percentage = job_data.get("risk_percentage", 1.0)  # NEW
 
     # 1) Fetch user preferences from the database
     preferences = get_user_preferences(user_id)
@@ -904,14 +1343,15 @@ async def auto_signal_job(context):
     if all(not value for value in preferences.values()):
         preferences = {k: True for k in preferences}
 
-    # 2) Perform multi-timeframe analysis
-    #    For example, let's fetch "15m", "1h", "4h" data. Adjust as needed.
+    # 2) Perform multi-timeframe analysis with risk management
     mtf_results = await multi_timeframe_analysis(
         symbol=currency_pair,
         preferences=preferences,
         timeframes=["15m", "1h", "4h"],
         candles_per_tf=300,
         liq_lev_tolerance=0.05,
+        account_balance=account_balance,
+        risk_percentage=risk_percentage,
     )
 
     # If we have no data/timeframes, abort
@@ -922,17 +1362,30 @@ async def auto_signal_job(context):
         return
 
     # 3) Generate an aggregated signal from all timeframes
-    final_signal, final_prob, confidence, reason_str = generate_multi_tf_signal_proba(
-        mtf_results
+    final_signal, final_prob, confidence, reason_str, best_trading_signal = (
+        generate_multi_tf_signal_proba(mtf_results)
     )
 
-    # 4) Decide if we want to send the signal to the user
+    # 4) NEW: Validate signal quality if we have a trading signal
+    if best_trading_signal:
+        is_valid, issues = validate_signal_quality(best_trading_signal)
+
+        # Skip if signal is invalid and confidence is low
+        if not is_valid and best_trading_signal.confidence < 0.8:
+            return
+
+        # Format enhanced message
+        message = format_enhanced_signal_message(best_trading_signal, issues)
+    else:
+        # Use basic message format
+        message = f"[Auto-Signal for {currency_pair}]\n\n{reason_str}"
+
+    # 5) Decide if we want to send the signal to the user
     #    For instance, we can require a minimum confidence or a non-neutral signal
     if confidence > 0.0 or final_signal != "Neutral":
         try:
             await context.bot.send_message(
-                chat_id=chat_id,
-                text=(f"[Auto-Signal for {currency_pair}]\n\n" f"{reason_str}"),
+                chat_id=chat_id, text=message, parse_mode="Markdown"
             )
             if is_with_chart:
                 interval_count = 200
@@ -968,15 +1421,19 @@ async def auto_signal_job(context):
         pass
 
 
-###############################################################################
-# Creating and Deleting Signal Jobs (Example usage remains similar)
-###############################################################################
+# Creating and Deleting Signal Jobs
 async def createSignalJob(
-    symbol: str, period_minutes: int, is_with_chart: bool, update, context
+    symbol: str,
+    period_minutes: int,
+    is_with_chart: bool,
+    update,
+    context,
+    account_balance: float = 10000,
+    risk_percentage: float = 1.0,
 ):
     """
     Creates a repeating job for auto-signal analysis (multi-timeframe).
-    The code below is largely the same as your existing function.
+    Now includes risk management parameters.
     """
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
@@ -993,6 +1450,8 @@ async def createSignalJob(
         "currency_pair": symbol,
         "frequency_minutes": period_minutes,
         "is_with_chart": is_with_chart,
+        "account_balance": account_balance,  # NEW
+        "risk_percentage": risk_percentage,  # NEW
     }
     upsert_user_signal_request(user_id, signals_request)
 
@@ -1015,6 +1474,8 @@ async def createSignalJob(
             "chat_id": chat_id,
             "currency_pair": symbol,
             "is_with_chart": is_with_chart,
+            "account_balance": account_balance,  # NEW
+            "risk_percentage": risk_percentage,  # NEW
         },
     )
 
@@ -1023,6 +1484,8 @@ async def createSignalJob(
 
     await update.message.reply_text(
         f"✅ Auto-signals started for {symbol}, every {period_minutes} minute(s)."
+        f"\n💰 Account Balance: ${account_balance}"
+        f"\n⚠️ Risk per trade: {risk_percentage}%"
     )
 
 
@@ -1045,9 +1508,7 @@ async def deleteSignalJob(currency_pair, update):
         await update.message.reply_text(f"No auto-signals running for {currency_pair}.")
 
 
-###############################################################################
-# Initialization of all Jobs at Startup (remains as in your code)
-###############################################################################
+# Initialization of all Jobs at Startup
 async def initialize_jobs(application):
     """
     Called once at bot start-up to restore all jobs from the database.
@@ -1058,6 +1519,9 @@ async def initialize_jobs(application):
         user_id = req["user_id"]
         currency_pair = req["currency_pair"]
         frequency_minutes = req["frequency_minutes"]
+        is_with_chart = req.get("is_with_chart", False)
+        account_balance = req.get("account_balance", 10000)
+        risk_percentage = req.get("risk_percentage", 1.0)
         chat_id = get_chat_id_for_user(user_id)
 
         if not chat_id:
@@ -1076,6 +1540,9 @@ async def initialize_jobs(application):
             "user_id": user_id,
             "chat_id": chat_id,
             "currency_pair": currency_pair,
+            "is_with_chart": is_with_chart,
+            "account_balance": account_balance,
+            "risk_percentage": risk_percentage,
         }
         job_ref = application.job_queue.run_repeating(
             callback=auto_signal_job,
@@ -1088,3 +1555,75 @@ async def initialize_jobs(application):
         auto_signal_jobs[job_key] = job_ref
 
     logger.info("All user signal jobs have been initialized.")
+
+
+# Performance Tracking (Optional - for future implementation)
+class PerformanceTracker:
+    """Track and analyze signal performance for optimization"""
+
+    def __init__(self):
+        self.signals_history = []
+        self.performance_metrics = {}
+
+    def record_signal(self, signal: TradingSignal):
+        """Record a signal for tracking"""
+        self.signals_history.append(
+            {"timestamp": signal.timestamp, "signal": signal, "status": "open"}
+        )
+
+    def calculate_performance_metrics(self) -> Dict:
+        """Calculate win rate, average R:R, etc."""
+        # Implementation for tracking performance
+        pass
+
+
+def analyze_liquidity_levels(
+    df: pd.DataFrame, tolerance: float = 0.001
+) -> List[Dict[str, Any]]:
+    """Analyze liquidity levels in the market"""
+    liquidity_levels = []
+
+    # Round numbers to analyze
+    round_numbers = [
+        0.1,
+        0.2,
+        0.5,
+        1.0,
+        2.0,
+        5.0,
+        10.0,
+        20.0,
+        50.0,
+        100.0,
+        200.0,
+        500.0,
+        1000.0,
+    ]
+
+    # Analyze each price point
+    for i in range(len(df)):
+        price = df["Close"].iloc[i]
+        volume = df["Volume"].iloc[i]
+
+        # Check if price is near a round number
+        for round_num in round_numbers:
+            # Avoid division by zero by checking if round_num is zero
+            if round_num == 0:
+                continue
+
+            # Calculate relative distance to round number
+            relative_distance = abs(price - round_num) / round_num
+
+            # If price is close to round number and volume is significant
+            if relative_distance < tolerance and volume > df["Volume"].mean():
+                liquidity_levels.append(
+                    {
+                        "price": price,
+                        "round_number": round_num,
+                        "volume": volume,
+                        "timestamp": df.index[i],
+                        "relative_distance": relative_distance,
+                    }
+                )
+
+    return liquidity_levels
