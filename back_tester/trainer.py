@@ -252,11 +252,11 @@ def optimize_weights(
     iteration_id = str(uuid.uuid4())
     best_score, best_metrics = evaluate_weights(best_weights, iteration_id=iteration_id)
 
-    if best_metrics:
-        logger.info(f"Initial Score: {best_score:.5f}%")
-        logger.info(f"Initial Metrics: {best_metrics.get_metrics()}")
-        logger.info(f"Initial Weights: {best_weights}")
+    logger.info(f"Initial Score: {best_score:.5f}%")
+    logger.info(f"Initial Metrics: {best_metrics.get_metrics()}")
+    logger.info(f"Initial Weights: {best_weights}")
 
+    if best_metrics:
         # Store initial iteration data
         iteration_data = {
             "iteration_number": 0,
@@ -301,16 +301,15 @@ def optimize_weights(
 
         score_history.append(new_score)
 
+        logger.info(f"Iteration {iteration + 1}: New Score: {new_score:.5f}%")
+        logger.info(f"Metrics: {new_metrics.get_metrics() if new_metrics else 'N/A'}")
+        logger.info(f"Weights: {new_weights}")
+
         if new_score > best_score:
             best_weights = new_weights
             best_score = new_score
             best_metrics = new_metrics
             no_improvement_count = 0
-            logger.info(f"Iteration {iteration + 1}: New Best Score: {best_score:.5f}%")
-            logger.info(
-                f"Metrics: {best_metrics.get_metrics() if best_metrics else 'N/A'}"
-            )
-            logger.info(f"Weights: {best_weights}")
         else:
             no_improvement_count += 1
 
