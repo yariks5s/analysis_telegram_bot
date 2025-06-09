@@ -557,59 +557,31 @@ def calculate_take_profit_levels(
         # Find resistance levels that could act as targets
         potential_targets = [r for r in resistance_levels if r > entry_price]
         if potential_targets:
-            # Adjust targets to be just below resistance, but ensure they're still above entry
-            tp1 = max(
-                entry_price * 1.001,  # Ensure at least 0.1% above entry
-                (
-                    min(tp1, potential_targets[0] * 0.995)
-                    if len(potential_targets) > 0
-                    else tp1
-                ),
+            # Adjust targets to be just below resistance
+            tp1 = (
+                min(tp1, potential_targets[0] * 0.995)
+                if len(potential_targets) > 0
+                else tp1
             )
-            tp2 = max(
-                tp1 * 1.001,  # Ensure at least 0.1% above tp1
-                (
-                    min(tp2, potential_targets[1] * 0.995)
-                    if len(potential_targets) > 1
-                    else tp2
-                ),
-            )
-            tp3 = max(
-                tp2 * 1.001,  # Ensure at least 0.1% above tp2
-                (
-                    min(tp3, potential_targets[2] * 0.995)
-                    if len(potential_targets) > 2
-                    else tp3
-                ),
+            tp2 = (
+                min(tp2, potential_targets[1] * 0.995)
+                if len(potential_targets) > 1
+                else tp2
             )
     else:
         # Find support levels that could act as targets
         potential_targets = [s for s in support_levels if s < entry_price]
         if potential_targets:
-            # Adjust targets to be just above support, but ensure they're still below entry
-            tp1 = min(
-                entry_price * 0.999,  # Ensure at least 0.1% below entry
-                (
-                    max(tp1, potential_targets[0] * 1.005)
-                    if len(potential_targets) > 0
-                    else tp1
-                ),
+            # Adjust targets to be just above support
+            tp1 = (
+                max(tp1, potential_targets[0] * 1.005)
+                if len(potential_targets) > 0
+                else tp1
             )
-            tp2 = min(
-                tp1 * 0.999,  # Ensure at least 0.1% below tp1
-                (
-                    max(tp2, potential_targets[1] * 1.005)
-                    if len(potential_targets) > 1
-                    else tp2
-                ),
-            )
-            tp3 = min(
-                tp2 * 0.999,  # Ensure at least 0.1% below tp2
-                (
-                    max(tp3, potential_targets[2] * 1.005)
-                    if len(potential_targets) > 2
-                    else tp3
-                ),
+            tp2 = (
+                max(tp2, potential_targets[1] * 1.005)
+                if len(potential_targets) > 1
+                else tp2
             )
 
     return tp1, tp2, tp3
@@ -621,12 +593,7 @@ def calculate_position_size(
     """Calculate position size based on account risk"""
     risk_amount = account_balance * (risk_percentage / 100)
     price_difference = abs(entry_price - stop_loss)
-
-    # Prevent division by zero
-    if price_difference == 0:
-        position_size = 0
-    else:
-        position_size = risk_amount / price_difference
+    position_size = risk_amount / price_difference
 
     return {
         "position_size": position_size,
@@ -668,6 +635,24 @@ def analyze_market_correlation(df: pd.DataFrame, btc_df: pd.DataFrame = None) ->
     return market_analysis
 
 
+def calculate_position_size(
+    account_balance: float, risk_percentage: float, entry_price: float, stop_loss: float
+) -> Dict[str, float]:
+    """Calculate position size based on account risk"""
+    risk_amount = account_balance * (risk_percentage / 100)
+    price_difference = abs(entry_price - stop_loss)
+    position_size = risk_amount / max(
+        price_difference, 1e-10
+    )  # Prevent division by zero
+
+    return {
+        "position_size": position_size,
+        "position_value": position_size * entry_price,
+        "risk_amount": risk_amount,
+        "risk_percentage": risk_percentage,
+    }
+
+
 def generate_price_prediction_signal_proba(
     df: pd.DataFrame,
     indicators,
@@ -683,12 +668,7 @@ def generate_price_prediction_signal_proba(
     Returns:
         (signal, probability_of_bullish, confidence, reason_str, trading_signal)
     """
-    # Ensure all price values are float
-    df = df.copy()
-    for col in ["Open", "High", "Low", "Close"]:
-        df[col] = df[col].astype(float)
-
-    last_close = float(df["Close"].iloc[-1])
+    last_close = df["Close"].iloc[-1]
     reasons = []
 
     # Weights for each condition
@@ -711,42 +691,41 @@ def generate_price_prediction_signal_proba(
     W_LIQUIDITY_POOL_ROUND = 1.5  # Weight for liquidity pool at round numbers
     W_RSI_EXTREME = 0.6  # NEW: Weight for RSI extremes
 
-    if weights and len(weights) >= 16:
-        W_BULLISH_OB = float(weights[0])
-        W_BEARISH_OB = float(weights[1])
-        W_BULLISH_BREAKER = float(weights[2])
-        W_BEARISH_BREAKER = float(weights[3])
-        W_ABOVE_SUPPORT = float(weights[4])
-        W_BELOW_RESISTANCE = float(weights[5])
-        W_FVG_ABOVE = float(weights[6])
-        W_FVG_BELOW = float(weights[7])
-        W_TREND = float(weights[8])
-        W_SWEEP_HIGHS = float(weights[9])
-        W_SWEEP_LOWS = float(weights[10])
-        W_STRUCTURE_BREAK = float(weights[11])
-        W_PIN_BAR = float(weights[12])
-        W_ENGULFING = float(weights[13])
-        W_LIQUIDITY_POOL_ABOVE = float(weights[14])
-        W_LIQUIDITY_POOL_BELOW = float(weights[15])
-        W_LIQUIDITY_POOL_ROUND = float(weights[16]) if len(weights) > 16 else 1.5
-        W_RSI_EXTREME = float(weights[17]) if len(weights) > 17 else 0.6
+    if weights and len(weights) >= 16:  # Updated for new weights
+        W_BULLISH_OB = weights[0]
+        W_BEARISH_OB = weights[1]
+        W_BULLISH_BREAKER = weights[2]
+        W_BEARISH_BREAKER = weights[3]
+        W_ABOVE_SUPPORT = weights[4]
+        W_BELOW_RESISTANCE = weights[5]
+        W_FVG_ABOVE = weights[6]
+        W_FVG_BELOW = weights[7]
+        W_TREND = weights[8]
+        W_SWEEP_HIGHS = weights[9]
+        W_SWEEP_LOWS = weights[10]
+        W_STRUCTURE_BREAK = weights[11]
+        W_PIN_BAR = weights[12]
+        W_ENGULFING = weights[13]
+        W_LIQUIDITY_POOL_ABOVE = weights[14]
+        W_LIQUIDITY_POOL_BELOW = weights[15]
+        W_LIQUIDITY_POOL_ROUND = weights[16] if len(weights) > 16 else 1.5
+        W_RSI_EXTREME = weights[17] if len(weights) > 17 else 0.6
 
     bullish_score = 0.0
     bearish_score = 0.0
 
-    # Market context analysis
+    # NEW: Market context analysis
     market_context = analyze_market_correlation(df, btc_df)
     market_regime = detect_market_regime(df)
 
-    # RSI analysis
+    # NEW: RSI analysis
     if "rsi" in market_context:
-        rsi_value = float(market_context["rsi"])
-        if rsi_value < 30:
+        if market_context["rsi"] < 30:
             bullish_score += W_RSI_EXTREME
-            reasons.append(f"RSI oversold at {rsi_value:.1f}")
-        elif rsi_value > 70:
+            reasons.append(f"RSI oversold at {market_context['rsi']:.1f}")
+        elif market_context["rsi"] > 70:
             bearish_score += W_RSI_EXTREME
-            reasons.append(f"RSI overbought at {rsi_value:.1f}")
+            reasons.append(f"RSI overbought at {market_context['rsi']:.1f}")
 
     # Detect trend
     trend = detect_trend(df)
@@ -761,21 +740,19 @@ def generate_price_prediction_signal_proba(
     support_levels, resistance_levels = detect_support_resistance(df)
 
     # Find nearest support and resistance
-    nearest_support = max(
-        [float(s) for s in support_levels if float(s) < last_close], default=None
-    )
+    nearest_support = max([s for s in support_levels if s < last_close], default=None)
     nearest_resistance = min(
-        [float(r) for r in resistance_levels if float(r) > last_close], default=None
+        [r for r in resistance_levels if r > last_close], default=None
     )
 
     if nearest_support:
-        support_distance = (last_close - float(nearest_support)) / last_close
+        support_distance = (last_close - nearest_support) / last_close
         if support_distance < 0.02:  # Within 2% of support
             bullish_score += W_ABOVE_SUPPORT
             reasons.append(f"Price near support level at {nearest_support:.2f}")
 
     if nearest_resistance:
-        resistance_distance = (float(nearest_resistance) - last_close) / last_close
+        resistance_distance = (nearest_resistance - last_close) / last_close
         if resistance_distance < 0.02:  # Within 2% of resistance
             bearish_score += W_BELOW_RESISTANCE
             reasons.append(f"Price near resistance level at {nearest_resistance:.2f}")
@@ -785,16 +762,19 @@ def generate_price_prediction_signal_proba(
     recent_blocks = [block for block in order_blocks if block["index"] >= len(df) - 10]
 
     for block in recent_blocks:
-        block_strength = float(block["strength"])
-        if block["type"] == "bullish" and block_strength > 1.2:
-            bullish_score += W_BULLISH_OB * block_strength
+        if (
+            block["type"] == "bullish" and block["strength"] > 1.2
+        ):  # Strong bullish block
+            bullish_score += W_BULLISH_OB * block["strength"]
             reasons.append(
-                f"Strong bullish order block found (strength: {block_strength:.2f})"
+                f"Strong bullish order block found (strength: {block['strength']:.2f})"
             )
-        elif block["type"] == "bearish" and block_strength > 1.2:
-            bearish_score += W_BEARISH_OB * block_strength
+        elif (
+            block["type"] == "bearish" and block["strength"] > 1.2
+        ):  # Strong bearish block
+            bearish_score += W_BEARISH_OB * block["strength"]
             reasons.append(
-                f"Strong bearish order block found (strength: {block_strength:.2f})"
+                f"Strong bearish order block found (strength: {block['strength']:.2f})"
             )
 
     # Enhanced breaker block analysis
@@ -804,46 +784,48 @@ def generate_price_prediction_signal_proba(
     ]
 
     for block in recent_breakers:
-        block_strength = float(block["strength"])
-        breakout_size = float(block["breakout_size"])
-        if block["type"] == "bullish" and block_strength > 1.2 and breakout_size > 0.01:
-            bullish_score += W_BULLISH_BREAKER * block_strength * (1 + breakout_size)
+        if (
+            block["type"] == "bullish"
+            and block["strength"] > 1.2
+            and block["breakout_size"] > 0.01
+        ):
+            bullish_score += (
+                W_BULLISH_BREAKER * block["strength"] * (1 + block["breakout_size"])
+            )
             reasons.append(
-                f"Strong bullish breaker block found (strength: {block_strength:.2f}, "
-                f"breakout: {breakout_size*100:.1f}%)"
+                f"Strong bullish breaker block found (strength: {block['strength']:.2f}, "
+                f"breakout: {block['breakout_size']*100:.1f}%)"
             )
         elif (
-            block["type"] == "bearish" and block_strength > 1.2 and breakout_size > 0.01
+            block["type"] == "bearish"
+            and block["strength"] > 1.2
+            and block["breakout_size"] > 0.01
         ):
-            bearish_score += W_BEARISH_BREAKER * block_strength * (1 + breakout_size)
+            bearish_score += (
+                W_BEARISH_BREAKER * block["strength"] * (1 + block["breakout_size"])
+            )
             reasons.append(
-                f"Strong bearish breaker block found (strength: {block_strength:.2f}, "
-                f"breakout: {breakout_size*100:.1f}%)"
+                f"Strong bearish breaker block found (strength: {block['strength']:.2f}, "
+                f"breakout: {block['breakout_size']*100:.1f}%)"
             )
 
-    # FVG Logic
-    if (
-        indicators
-        and hasattr(indicators, "fvgs")
-        and indicators.fvgs
-        and indicators.fvgs.list
-    ):
+    # FVG Logic (Based on Position Relative to Current Price)
+    if indicators.fvgs and indicators.fvgs.list:
         for fvg in indicators.fvgs.list:
-            # Ensure all price values are float
-            start_price = float(fvg.start_price)
-            end_price = float(fvg.end_price)
-
             # Determine if FVG is above or below the current price
-            if last_close > start_price and last_close > end_price:
+            # For Bullish FVG: start_price is the High of two periods ago, end_price is current Low
+            # For Bearish FVG: start_price is the Low of two periods ago, end_price is current High
+            # To determine position, compare current price with FVG range
+            if last_close > fvg.start_price and last_close > fvg.end_price:
                 # FVG is below the current price
                 bearish_score += W_FVG_BELOW
                 reasons.append("Unfilled FVG below current price")
-            elif last_close < start_price and last_close < end_price:
+            elif last_close < fvg.start_price and last_close < fvg.end_price:
                 # FVG is above the current price
                 bullish_score += W_FVG_ABOVE
                 reasons.append("Unfilled FVG above current price")
 
-    # Pattern detection
+    # New pattern detection logic
     if detect_sweep_of_highs(df):
         bearish_score += W_SWEEP_HIGHS
         reasons.append("Price swept through previous highs")
@@ -869,12 +851,7 @@ def generate_price_prediction_signal_proba(
         reasons.append("Bearish engulfing pattern detected")
 
     # Enhanced liquidity pool analysis
-    if (
-        indicators
-        and hasattr(indicators, "liquidity_pools")
-        and indicators.liquidity_pools
-        and indicators.liquidity_pools.list
-    ):
+    if indicators.liquidity_pools and indicators.liquidity_pools.list:
         # Define round numbers based on the current price level
         current_price = last_close
         price_magnitude = len(str(int(current_price)))
@@ -891,32 +868,23 @@ def generate_price_prediction_signal_proba(
         for i in range(local_max_window, len(df) - local_max_window):
             # Check for local maximum
             if all(
-                float(df["High"].iloc[i])
-                > float(df["High"].iloc[i - local_max_window : i])
+                df["High"].iloc[i] > df["High"].iloc[i - local_max_window : i]
             ) and all(
-                float(df["High"].iloc[i])
-                > float(df["High"].iloc[i + 1 : i + local_max_window + 1])
+                df["High"].iloc[i] > df["High"].iloc[i + 1 : i + local_max_window + 1]
             ):
-                local_maximums.append((i, float(df["High"].iloc[i])))
+                local_maximums.append((i, df["High"].iloc[i]))
 
             # Check for local minimum
             if all(
-                float(df["Low"].iloc[i])
-                < float(df["Low"].iloc[i - local_max_window : i])
+                df["Low"].iloc[i] < df["Low"].iloc[i - local_max_window : i]
             ) and all(
-                float(df["Low"].iloc[i])
-                < float(df["Low"].iloc[i + 1 : i + local_max_window + 1])
+                df["Low"].iloc[i] < df["Low"].iloc[i + 1 : i + local_max_window + 1]
             ):
-                local_minimums.append((i, float(df["Low"].iloc[i])))
+                local_minimums.append((i, df["Low"].iloc[i]))
 
         for pool in indicators.liquidity_pools.list:
-            # Ensure all price values are float
-            pool_price = float(pool.price)
-            pool_volume = float(pool.volume)
-            pool_strength = float(pool.strength)
-
             # Calculate distance to current price as a percentage
-            distance = abs(pool_price - last_close) / last_close
+            distance = abs(pool.price - last_close) / last_close
 
             # Skip if pool is too far from current price
             if distance > 0.05:  # 5% threshold
@@ -924,13 +892,13 @@ def generate_price_prediction_signal_proba(
 
             # Determine if pool is at a round number
             is_round_number = any(
-                abs(pool_price - round_num) / max(abs(round_num), 1e-10) < 0.001
+                abs(pool.price - round_num) / max(abs(round_num), 1e-10) < 0.001
                 for round_num in round_numbers
             )
 
             # Calculate pool impact based on strength and volume
-            pool_impact = pool_strength * (
-                pool_volume / max(float(df["Volume"].mean()), 1e-10)
+            pool_impact = pool.strength * (
+                pool.volume / max(df["Volume"].mean(), 1e-10)
             )
 
             # Generate detailed reason based on pool characteristics
@@ -938,11 +906,11 @@ def generate_price_prediction_signal_proba(
 
             # Check if pool is near a local maximum or minimum
             is_near_max = any(
-                abs(pool_price - max_price) / max_price < 0.001
+                abs(pool.price - max_price) / max_price < 0.001
                 for _, max_price in local_maximums[-5:]  # Check last 5 maximums
             )
             is_near_min = any(
-                abs(pool_price - min_price) / min_price < 0.001
+                abs(pool.price - min_price) / min_price < 0.001
                 for _, min_price in local_minimums[-5:]  # Check last 5 minimums
             )
 
@@ -954,19 +922,19 @@ def generate_price_prediction_signal_proba(
 
             # Add round number context if applicable
             if is_round_number:
-                pool_reason.append(f"Round number level {pool_price:.2f}")
+                pool_reason.append(f"Round number level {pool.price:.2f}")
 
             # Add volume context
-            volume_ratio = pool_volume / float(df["Volume"].mean())
+            volume_ratio = pool.volume / df["Volume"].mean()
             if volume_ratio > 1.5:
                 pool_reason.append("High volume concentration")
             elif volume_ratio > 1.2:
                 pool_reason.append("Above average volume")
 
             # Add strength context
-            if pool_strength > 0.8:
+            if pool.strength > 0.8:
                 pool_reason.append("Very strong pool")
-            elif pool_strength > 0.6:
+            elif pool.strength > 0.6:
                 pool_reason.append("Strong pool")
 
             # Add distance context
@@ -975,20 +943,20 @@ def generate_price_prediction_signal_proba(
             elif distance < 0.02:
                 pool_reason.append("Close to current price")
 
-            if last_close > pool_price:
+            if last_close > pool.price:
                 # Pool is below current price - potential support
                 if is_round_number:
                     bullish_score += W_LIQUIDITY_POOL_ROUND * pool_impact
                     reasons.append(
-                        f"Strong liquidity pool at round number {pool_price:.2f} below price "
-                        f"(strength: {pool_strength:.2f}, volume: {pool_volume:.2f})"
+                        f"Strong liquidity pool at round number {pool.price:.2f} below price "
+                        f"(strength: {pool.strength:.2f}, volume: {pool.volume:.2f})"
                         f"\n  • {' | '.join(pool_reason)}"
                     )
                 else:
                     bullish_score += W_LIQUIDITY_POOL_BELOW * pool_impact
                     reasons.append(
-                        f"Liquidity pool at {pool_price:.2f} below price "
-                        f"(strength: {pool_strength:.2f}, volume: {pool_volume:.2f})"
+                        f"Liquidity pool at {pool.price:.2f} below price "
+                        f"(strength: {pool.strength:.2f}, volume: {pool.volume:.2f})"
                         f"\n  • {' | '.join(pool_reason)}"
                     )
             else:
@@ -996,15 +964,15 @@ def generate_price_prediction_signal_proba(
                 if is_round_number:
                     bearish_score += W_LIQUIDITY_POOL_ROUND * pool_impact
                     reasons.append(
-                        f"Strong liquidity pool at round number {pool_price:.2f} above price "
-                        f"(strength: {pool_strength:.2f}, volume: {pool_volume:.2f})"
+                        f"Strong liquidity pool at round number {pool.price:.2f} above price "
+                        f"(strength: {pool.strength:.2f}, volume: {pool.volume:.2f})"
                         f"\n  • {' | '.join(pool_reason)}"
                     )
                 else:
                     bearish_score += W_LIQUIDITY_POOL_ABOVE * pool_impact
                     reasons.append(
-                        f"Liquidity pool at {pool_price:.2f} above price "
-                        f"(strength: {pool_strength:.2f}, volume: {pool_volume:.2f})"
+                        f"Liquidity pool at {pool.price:.2f} above price "
+                        f"(strength: {pool.strength:.2f}, volume: {pool.volume:.2f})"
                         f"\n  • {' | '.join(pool_reason)}"
                     )
 
@@ -1032,8 +1000,8 @@ def generate_price_prediction_signal_proba(
 
     # Add market context to reasons
     reasons.append(f"Market Regime: {market_regime.value}")
-    reasons.append(f"Volume Ratio: {float(market_context['volume_ratio']):.2f}")
-    reasons.append(f"Volatility: {float(market_context['volatility'])*100:.2f}%")
+    reasons.append(f"Volume Ratio: {market_context['volume_ratio']:.2f}")
+    reasons.append(f"Volatility: {market_context['volatility']*100:.2f}%")
 
     # Compile reason string
     reason_str = (
@@ -1072,14 +1040,14 @@ def generate_price_prediction_signal_proba(
             signal_type=signal,
             probability=probability_of_bullish,
             confidence=confidence,
-            entry_price=float(entry_price),
-            stop_loss=float(stop_loss),
-            take_profit_1=float(tp1),
-            take_profit_2=float(tp2),
-            take_profit_3=float(tp3),
-            risk_reward_ratio=float(risk_reward_ratio),
-            position_size=float(position_sizing["position_size"]),
-            max_risk_amount=float(position_sizing["risk_amount"]),
+            entry_price=entry_price,
+            stop_loss=stop_loss,
+            take_profit_1=tp1,
+            take_profit_2=tp2,
+            take_profit_3=tp3,
+            risk_reward_ratio=risk_reward_ratio,
+            position_size=position_sizing["position_size"],
+            max_risk_amount=position_sizing["risk_amount"],
             reasons=reasons,
             market_conditions=market_context,
             timestamp=pd.Timestamp.now(),
