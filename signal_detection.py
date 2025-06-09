@@ -712,7 +712,7 @@ def generate_price_prediction_signal_proba(
     W_LIQUIDITY_POOL_ABOVE = 1.2
     W_LIQUIDITY_POOL_BELOW = 1.2
     W_LIQUIDITY_POOL_ROUND = 1.5
-    W_RSI_EXTREME = 0.6  # NEW: Weight for RSI extremes
+    W_RSI_EXTREME = 0.6
 
     if weights and len(weights) >= 16:  # Updated for new weights
         W_BULLISH_OB = weights[0]

@@ -23,8 +23,8 @@ class ClickHouseDB:
         host="localhost",
         port=9000,
         database="crypto_bot",
-        batch_size=500,  # Reduced batch size
-        flush_interval=2,  # Reduced flush interval
+        batch_size=500,
+        flush_interval=2,
     ):
         try:
             # Create a connection pool with locks
@@ -40,7 +40,7 @@ class ClickHouseDB:
 
             self._init_tables()
 
-            # Initialize batch processing with smaller batches
+            # Initialize batch processing
             self.batch_size = batch_size
             self.flush_interval = flush_interval
             self.trades_queue = Queue()
