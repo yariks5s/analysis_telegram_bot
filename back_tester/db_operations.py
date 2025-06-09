@@ -93,7 +93,7 @@ class ClickHouseDB:
                     sub_iteration_id UUID,
                     symbol String,
                     interval String,
-                    trade_type Enum('buy' = 1, 'sell' = 2, 'sell_end' = 3, 'tp1' = 4, 'tp2' = 5, 'tp3' = 6, 'stop_loss' = 7),
+                    trade_type Enum('buy' = 1, 'sell' = 2, 'sell_end' = 3),
                     entry_timestamp DateTime,
                     exit_timestamp DateTime,
                     entry_index UInt32,
@@ -104,13 +104,6 @@ class ClickHouseDB:
                     trade_duration UInt32,
                     entry_signal String,
                     exit_signal String,
-                    risk_reward_ratio Float64,
-                    position_size Float64,
-                    stop_loss Float64,
-                    take_profit_1 Float64,
-                    take_profit_2 Float64,
-                    take_profit_3 Float64,
-                    risk_percentage Float64,
                     created_at DateTime DEFAULT now()
                 ) ENGINE = MergeTree()
                 ORDER BY (entry_timestamp, iteration_id, sub_iteration_id)
@@ -134,13 +127,6 @@ class ClickHouseDB:
                     avg_loss Float64,
                     profit_factor Float64,
                     avg_trade_duration Float64,
-                    tp1_hits UInt32,
-                    tp2_hits UInt32,
-                    tp3_hits UInt32,
-                    stop_loss_hits UInt32,
-                    avg_risk_reward Float64,
-                    avg_position_size Float64,
-                    risk_percentage Float64,
                     created_at DateTime DEFAULT now()
                 ) ENGINE = MergeTree()
                 ORDER BY (iteration_number)
@@ -163,9 +149,6 @@ class ClickHouseDB:
                     total_trades UInt32,
                     win_rate Float64,
                     revenue Float64,
-                    risk_percentage Float64,
-                    avg_risk_reward Float64,
-                    tp_success_rate Float64,
                     created_at DateTime DEFAULT now()
                 ) ENGINE = MergeTree()
                 ORDER BY (iteration_id, created_at)
@@ -179,102 +162,24 @@ class ClickHouseDB:
     def _ensure_required_fields(
         self, data: Dict[str, Any], required_fields: List[str]
     ) -> Dict[str, Any]:
-        """Ensure all required fields are present and have correct types"""
-        result = data.copy()
+        """Ensure all required fields are present in the data"""
         current_time = datetime.now()
 
-        # Define default values based on field types
-        defaults = {
-            "created_at": current_time,  # Add created_at with current timestamp
-            "trade_id": str(uuid.uuid4()),
-            "iteration_id": str(uuid.uuid4()),
-            "sub_iteration_id": str(uuid.uuid4()),
-            "symbol": "",
-            "interval": "",
-            "trade_type": "buy",
-            "entry_timestamp": current_time,
-            "exit_timestamp": current_time,
-            "entry_index": 0,
-            "exit_index": 0,
-            "entry_price": 0.0,
-            "exit_price": 0.0,
-            "profit_loss": 0.0,
-            "trade_duration": 0,
-            "entry_signal": "",
-            "exit_signal": "",
-            "risk_reward_ratio": 0.0,
-            "position_size": 0.0,
-            "stop_loss": 0.0,
-            "take_profit_1": 0.0,
-            "take_profit_2": 0.0,
-            "take_profit_3": 0.0,
-            "risk_percentage": 0.0,
-            "tp1_hits": 0,
-            "tp2_hits": 0,
-            "tp3_hits": 0,
-            "stop_loss_hits": 0,
-            "avg_risk_reward": 0.0,
-            "avg_position_size": 0.0,
-            "tp_success_rate": 0.0,
-        }
+        # Ensure created_at is present
+        if "created_at" not in data:
+            data["created_at"] = current_time
 
-        # Ensure all required fields are present with correct types
+        # Ensure other required fields are present
         for field in required_fields:
-            if field not in result or result[field] is None:
-                if field in defaults:
-                    result[field] = defaults[field]
-                else:
-                    raise ValueError(
-                        f"Required field {field} is missing and has no default value"
-                    )
+            if field not in data:
+                if field == "trade_id":
+                    data[field] = str(uuid.uuid4())
+                elif field == "iteration_id":
+                    data[field] = str(uuid.uuid4())
+                elif field == "sub_iteration_id":
+                    data[field] = str(uuid.uuid4())
 
-            # Convert numeric fields to float
-            if field in [
-                "entry_price",
-                "exit_price",
-                "profit_loss",
-                "stop_loss",
-                "take_profit_1",
-                "take_profit_2",
-                "take_profit_3",
-                "risk_reward_ratio",
-                "position_size",
-                "risk_percentage",
-                "avg_risk_reward",
-                "avg_position_size",
-                "tp_success_rate",
-            ]:
-                try:
-                    result[field] = float(result[field])
-                except (ValueError, TypeError):
-                    result[field] = 0.0
-
-            # Convert integer fields
-            if field in [
-                "entry_index",
-                "exit_index",
-                "trade_duration",
-                "tp1_hits",
-                "tp2_hits",
-                "tp3_hits",
-                "stop_loss_hits",
-            ]:
-                try:
-                    result[field] = int(result[field])
-                except (ValueError, TypeError):
-                    result[field] = 0
-
-            # Ensure UUIDs are strings
-            if field in ["trade_id", "iteration_id", "sub_iteration_id"]:
-                if not isinstance(result[field], str):
-                    result[field] = str(uuid.uuid4())
-
-            # Ensure timestamps are datetime objects
-            if field in ["entry_timestamp", "exit_timestamp", "created_at"]:
-                if not isinstance(result[field], datetime):
-                    result[field] = current_time
-
-        return result
+        return data
 
     def _process_trades_batch(self):
         while self.running:
@@ -288,35 +193,8 @@ class ClickHouseDB:
                 ):
                     try:
                         item = self.trades_queue.get(timeout=0.1)
-                        # Ensure all required fields are present and properly formatted
                         item = self._ensure_required_fields(
-                            item,
-                            [
-                                "trade_id",
-                                "iteration_id",
-                                "sub_iteration_id",
-                                "symbol",
-                                "interval",
-                                "trade_type",
-                                "entry_timestamp",
-                                "exit_timestamp",
-                                "entry_index",
-                                "exit_index",
-                                "entry_price",
-                                "exit_price",
-                                "profit_loss",
-                                "trade_duration",
-                                "entry_signal",
-                                "exit_signal",
-                                "risk_reward_ratio",
-                                "position_size",
-                                "stop_loss",
-                                "take_profit_1",
-                                "take_profit_2",
-                                "take_profit_3",
-                                "risk_percentage",
-                                "created_at",
-                            ],
+                            item, ["trade_id", "created_at"]
                         )
                         batch.append(item)
                     except:
@@ -369,26 +247,8 @@ class ClickHouseDB:
                 ):
                     try:
                         item = self.sub_iterations_queue.get(timeout=0.1)
-                        # Ensure all required fields are present and properly formatted
                         item = self._ensure_required_fields(
-                            item,
-                            [
-                                "sub_iteration_id",
-                                "iteration_id",
-                                "symbol",
-                                "interval",
-                                "candles",
-                                "window",
-                                "initial_balance",
-                                "final_balance",
-                                "total_trades",
-                                "win_rate",
-                                "revenue",
-                                "risk_percentage",
-                                "avg_risk_reward",
-                                "tp_success_rate",
-                                "created_at",
-                            ],
+                            item, ["sub_iteration_id", "created_at"]
                         )
                         batch.append(item)
                     except:
@@ -403,130 +263,48 @@ class ClickHouseDB:
                 logger.error(f"Error processing sub-iterations batch: {str(e)}")
 
     def insert_trade(self, trade_data: Dict[str, Any]) -> Optional[str]:
-        """Insert a trade record into the database"""
+        if not self.connection_pool:
+            logger.warning("Database not connected, skipping trade insertion")
+            return None
+
         try:
-            # Ensure trade_id is a valid UUID
-            if "trade_id" not in trade_data:
-                trade_data["trade_id"] = str(uuid.uuid4())
-
-            # Ensure trade_type is a valid enum value
-            valid_trade_types = [
-                "buy",
-                "sell",
-                "sell_end",
-                "tp1",
-                "tp2",
-                "tp3",
-                "stop_loss",
-            ]
-            if trade_data.get("trade_type") not in valid_trade_types:
-                logger.error(f"Invalid trade type: {trade_data.get('trade_type')}")
-                return None
-
             trade_data = self._ensure_required_fields(
-                trade_data,
-                [
-                    "trade_id",
-                    "iteration_id",
-                    "sub_iteration_id",
-                    "symbol",
-                    "interval",
-                    "trade_type",
-                    "entry_timestamp",
-                    "exit_timestamp",
-                    "entry_index",
-                    "exit_index",
-                    "entry_price",
-                    "exit_price",
-                    "profit_loss",
-                    "trade_duration",
-                    "entry_signal",
-                    "exit_signal",
-                    "risk_reward_ratio",
-                    "position_size",
-                    "stop_loss",
-                    "take_profit_1",
-                    "take_profit_2",
-                    "take_profit_3",
-                    "risk_percentage",
-                    "created_at",
-                ],
+                trade_data, ["trade_id", "created_at"]
             )
             self.trades_queue.put(trade_data)
             return trade_data["trade_id"]
         except Exception as e:
-            logger.error(f"Error inserting trade: {str(e)}")
+            logger.error(f"Failed to queue trade: {str(e)}")
             return None
 
     def insert_iteration(self, iteration_data: Dict[str, Any]) -> Optional[str]:
-        """Insert an iteration record into the database"""
+        if not self.connection_pool:
+            logger.warning("Database not connected, skipping iteration insertion")
+            return None
+
         try:
             iteration_data = self._ensure_required_fields(
-                iteration_data,
-                [
-                    "iteration_id",
-                    "iteration_number",
-                    "weights",
-                    "fitness_score",
-                    "total_trades",
-                    "win_rate",
-                    "total_revenue",
-                    "max_drawdown",
-                    "avg_profit",
-                    "avg_loss",
-                    "profit_factor",
-                    "avg_trade_duration",
-                    "tp1_hits",
-                    "tp2_hits",
-                    "tp3_hits",
-                    "stop_loss_hits",
-                    "avg_risk_reward",
-                    "avg_position_size",
-                    "risk_percentage",
-                    "created_at",
-                ],
+                iteration_data, ["iteration_id", "created_at"]
             )
             self.iterations_queue.put(iteration_data)
             return iteration_data["iteration_id"]
         except Exception as e:
-            logger.error(f"Error inserting iteration: {str(e)}")
+            logger.error(f"Failed to queue iteration: {str(e)}")
             return None
 
     def insert_sub_iteration(self, sub_iteration_data: Dict[str, Any]) -> Optional[str]:
-        """Insert a sub-iteration record into the database"""
+        if not self.connection_pool:
+            logger.warning("Database not connected, skipping sub-iteration insertion")
+            return None
+
         try:
-            # Ensure sub_iteration_id is a valid UUID
-            if "sub_iteration_id" not in sub_iteration_data:
-                sub_iteration_data["sub_iteration_id"] = str(uuid.uuid4())
-
-            # Ensure iteration_id is a valid UUID
-            if "iteration_id" not in sub_iteration_data:
-                sub_iteration_data["iteration_id"] = str(uuid.uuid4())
-
             sub_iteration_data = self._ensure_required_fields(
-                sub_iteration_data,
-                [
-                    "sub_iteration_id",
-                    "iteration_id",
-                    "symbol",
-                    "interval",
-                    "candles",
-                    "window",
-                    "initial_balance",
-                    "final_balance",
-                    "total_trades",
-                    "win_rate",
-                    "revenue",
-                    "risk_percentage",
-                    "avg_risk_reward",
-                    "tp_success_rate",
-                    "created_at",
-                ],
+                sub_iteration_data, ["sub_iteration_id", "created_at"]
             )
             self.sub_iterations_queue.put(sub_iteration_data)
             return sub_iteration_data["sub_iteration_id"]
         except Exception as e:
-            logger.error(f"Error inserting sub-iteration: {str(e)}")
+            logger.error(f"Failed to queue sub-iteration: {str(e)}")
             return None
 
     def get_trades_by_iteration(self, iteration_id: str) -> List[Dict[str, Any]]:
