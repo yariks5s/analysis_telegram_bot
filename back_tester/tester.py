@@ -7,7 +7,6 @@ project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(project_dir)
 
 from strategy import backtest_strategy
-
 from getTradingPairs import get_trading_pairs
 
 # --- Main Routine: Run Multiple Backtests ---
@@ -28,6 +27,9 @@ if __name__ == "__main__":
         # Set initial balance (assumed same for each test)
         initial_balance = 1000.0
 
+        # Risk management parameters
+        risk_percentage = 1.0  # Risk 1% per trade
+
         # Run backtest for each selected pair with different intervals
         results = []
         total_revenue_percent = 0
@@ -40,19 +42,34 @@ if __name__ == "__main__":
             print("\n--------------------------------------")
             print(f"Running Backtest for {symbol} | Interval: {interval}")
             print(f"Total Candles: {candles}, Lookback Window: {window}")
+            print(f"Risk per trade: {risk_percentage}%")
 
-            # Run the backtest
-            final_balance, trades = backtest_strategy(
-                symbol, interval, candles, window, initial_balance
+            # Run the backtest with risk management
+            final_balance, trades, _ = backtest_strategy(
+                symbol,
+                interval,
+                candles,
+                window,
+                initial_balance,
+                risk_percentage=risk_percentage,
             )
 
             # Calculate revenue percentage for this test
             revenue_percent = (
                 (final_balance - initial_balance) / initial_balance
             ) * 100
-            total_revenue_percent += (
-                revenue_percent  # Accumulate total revenue percentage
-            )
+            total_revenue_percent += revenue_percent
+
+            # Count different trade types
+            entry_trades = [t for t in trades if t["type"] == "entry"]
+            tp1_trades = [t for t in trades if t["type"] == "take_profit_1"]
+            tp2_trades = [t for t in trades if t["type"] == "take_profit_2"]
+            tp3_trades = [t for t in trades if t["type"] == "take_profit_3"]
+            sl_trades = [t for t in trades if t["type"] == "stop_loss"]
+            exit_end_trades = [t for t in trades if t["type"] == "exit_end_of_period"]
+
+            # Calculate total profit/loss
+            total_profit = sum(t.get("profit", 0) for t in trades if "profit" in t)
 
             # Store results
             results.append(
@@ -60,31 +77,98 @@ if __name__ == "__main__":
                     "symbol": symbol,
                     "interval": interval,
                     "final_balance": final_balance,
-                    "num_trades": len(trades),
+                    "num_trades": len(entry_trades),
+                    "tp1_hits": len(tp1_trades),
+                    "tp2_hits": len(tp2_trades),
+                    "tp3_hits": len(tp3_trades),
+                    "stop_losses": len(sl_trades),
+                    "end_exits": len(exit_end_trades),
                     "revenue_percent": revenue_percent,
+                    "total_profit": total_profit,
                     "trades": trades,
                 }
             )
 
             # Print results
             print("\n--- Backtest Complete ---")
-            print(f"Final Balance: {final_balance:.2f}")
-            print(f"Total Trades: {len(trades)}")
+            print(f"Final Balance: ${final_balance:.2f}")
+            print(f"Total Entry Trades: {len(entry_trades)}")
+            print(
+                f"Take Profit Hits - TP1: {len(tp1_trades)}, TP2: {len(tp2_trades)}, TP3: {len(tp3_trades)}"
+            )
+            print(f"Stop Loss Hits: {len(sl_trades)}")
+            print(f"End of Period Exits: {len(exit_end_trades)}")
+            print(f"Total Profit/Loss: ${total_profit:.2f}")
             print(f"Revenue %: {revenue_percent:.2f}%")
-            print("Trade Log (First 5 trades shown):")
-            for trade in trades[:5]:  # Display only the first 5 trades for readability
-                print(trade)
+
+            # Show sample trades
+            print("\nSample Trades (First 5 shown):")
+            sample_trades = trades[:5]
+            for trade in sample_trades:
+                if trade["type"] == "entry":
+                    print(
+                        f"  ENTRY @ {trade['price']:.5f} | Amount: {trade['amount']:.5f} | "
+                        f"SL: {trade['stop_loss']:.5f} | TP1: {trade['take_profit_1']:.5f} | "
+                        f"TP2: {trade['take_profit_2']:.5f} | TP3: {trade['take_profit_3']:.5f}"
+                    )
+                elif trade["type"] in [
+                    "take_profit_1",
+                    "take_profit_2",
+                    "take_profit_3",
+                ]:
+                    print(
+                        f"  {trade['type'].upper()} @ {trade['price']:.5f} | "
+                        f"Amount: {trade['amount']:.5f} | Profit: ${trade.get('profit', 0):.2f}"
+                    )
+                elif trade["type"] == "stop_loss":
+                    print(
+                        f"  STOP LOSS @ {trade['price']:.5f} | "
+                        f"Amount: {trade['amount']:.5f} | Loss: ${trade.get('profit', 0):.2f}"
+                    )
+                elif trade["type"] == "exit_end_of_period":
+                    print(
+                        f"  END EXIT @ {trade['price']:.5f} | "
+                        f"Amount: {trade['amount']:.5f} | P/L: ${trade.get('profit', 0):.2f}"
+                    )
+
             print("--------------------------------------")
 
         print("\n====== Summary of All Backtests ======")
         for res in results:
             print(
-                f"Pair: {res['symbol']} | Interval: {res['interval']} | Final Balance: {res['final_balance']:.2f} | Trades: {res['num_trades']} | Revenue %: {res['revenue_percent']:.2f}%"
+                f"Pair: {res['symbol']} | Interval: {res['interval']} | "
+                f"Final Balance: ${res['final_balance']:.2f} | "
+                f"Trades: {res['num_trades']} | "
+                f"TP Hits: {res['tp1_hits']+res['tp2_hits']+res['tp3_hits']} | "
+                f"SL Hits: {res['stop_losses']} | "
+                f"Revenue %: {res['revenue_percent']:.2f}%"
             )
 
         # Compute the average revenue percentage
         average_revenue_percent = total_revenue_percent / len(results)
-        print(f"\nTotal Revenue % across all backtests: {average_revenue_percent:.2f}%")
+
+        # Calculate overall statistics
+        total_trades = sum(res["num_trades"] for res in results)
+        total_tp_hits = sum(
+            res["tp1_hits"] + res["tp2_hits"] + res["tp3_hits"] for res in results
+        )
+        total_sl_hits = sum(res["stop_losses"] for res in results)
+
+        print(f"\n======= Overall Statistics =======")
+        print(f"Average Revenue %: {average_revenue_percent:.2f}%")
+        print(f"Total Trades: {total_trades}")
+        print(f"Total TP Hits: {total_tp_hits}")
+        print(f"Total SL Hits: {total_sl_hits}")
+        if total_trades > 0:
+            tp_rate = (
+                (total_tp_hits / (total_tp_hits + total_sl_hits) * 100)
+                if (total_tp_hits + total_sl_hits) > 0
+                else 0
+            )
+            print(f"TP Success Rate: {tp_rate:.1f}%")
 
     except Exception as e:
         print("Error:", e)
+        import traceback
+
+        traceback.print_exc()
