@@ -22,7 +22,7 @@ from message_handlers import (
     TYPING_SIGNAL_DATA,
 )
 from signal_detection import initialize_jobs
-from commands.chart_commands import send_crypto_chart, send_text_data
+from commands.chart_commands import send_crypto_chart, send_text_data, send_historical_chart
 from commands.signal_commands import create_signal_command, delete_signal_command
 from commands.help_commands import help_command
 from commands.db_commands import (
@@ -52,6 +52,7 @@ def setup_handlers(app):
     # Chart commands
     app.add_handler(CommandHandler("chart", send_crypto_chart))
     app.add_handler(CommandHandler("text_result", send_text_data))
+    app.add_handler(CommandHandler("history", send_historical_chart))
 
     # Preference commands
     app.add_handler(CommandHandler("preferences", select_indicators))
