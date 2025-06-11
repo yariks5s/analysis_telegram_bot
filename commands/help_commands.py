@@ -17,6 +17,16 @@ COMMAND_HELPS = {
         "Get a text summary of all detected indicators for the specified symbol and timeframe.\n\n"
         "Example: <code>/text_result ETHUSDT 24 15m 0.03</code>"
     ),
+    "history": (
+        "<b>/history &lt;symbol&gt; &lt;length&gt; &lt;interval&gt; &lt;tolerance&gt; &lt;timestamp&gt;</b>\n"
+        "Get a candlestick chart for historical data at a specified timestamp.\n\n"
+        "- <b>symbol</b>: The trading pair, e.g. BTCUSDT\n"
+        "- <b>length</b>: Number of candles to analyze\n"
+        "- <b>interval</b>: Candle interval (e.g., 1h, 15m)\n"
+        "- <b>tolerance</b>: Sensitivity for liquidity level detection (0-1)\n"
+        "- <b>timestamp</b>: Unix epoch seconds for the end of the period\n\n"
+        "Example: <code>/history BTCUSDT 48 1h 0.05 1700000000</code>"
+    ),
     "preferences": (
         "<b>/preferences</b>\n"
         "Open an interactive menu to select which indicators to use and chart options (legend, volume).\n"
@@ -82,6 +92,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "Here are the main commands you can use:\n\n"
             "<b>/chart &lt;symbol&gt; &lt;length&gt; &lt;interval&gt; &lt;tolerance&gt;</b>\n"
             "<b>/text_result &lt;symbol&gt; &lt;length&gt; &lt;interval&gt; &lt;tolerance&gt;</b>\n"
+            "<b>/history &lt;symbol&gt; &lt;length&gt; &lt;interval&gt; &lt;tolerance&gt; &lt;timestamp&gt;</b>\n"
             "<b>/preferences</b>\n"
             "<b>/create_signal &lt;symbol&gt; &lt;minutes&gt; [&lt;show_chart&gt;]</b>\n"
             "<b>/delete_signal &lt;symbol&gt;</b>\n"

@@ -112,6 +112,50 @@ async def input_sanity_check_analyzing(is_start: bool, args, update) -> tuple:
     return (symbol, period_minutes, is_with_chart)
 
 
+async def input_sanity_check_historical(args, update) -> tuple:
+    """
+    Parse and validate arguments for historical data command.
+    Usage: /history <symbol> <length> <interval> <tolerance> <timestamp>
+    Timestamp must be Unix epoch in seconds.
+    """
+    if len(args) < 5:
+        await update.message.reply_text(
+            "Usage: /history <symbol> <length> <interval> <tolerance> <timestamp>"
+        )
+        return tuple()
+    if len(args) > 5:
+        await update.message.reply_text(
+            "❌ Invalid number of arguments. Please provide exactly 5 arguments."
+        )
+        return tuple()
+    symbol = args[0].upper()
+    try:
+        length = int(args[1])
+    except ValueError:
+        await update.message.reply_text("❌ Invalid length. Must be an integer.")
+        return tuple()
+    interval = args[2].lower()
+    if interval not in VALID_INTERVALS:
+        await update.message.reply_text(
+            f"❌ Invalid interval. Valid intervals: {', '.join(VALID_INTERVALS.keys())}"
+        )
+        return tuple()
+    try:
+        tolerance = float(args[3])
+    except ValueError:
+        await update.message.reply_text("❌ Invalid tolerance. Must be a number between 0 and 1.")
+        return tuple()
+    if tolerance < 0 or tolerance > 1:
+        await update.message.reply_text("❌ Invalid tolerance. Must be between 0 and 1.")
+        return tuple()
+    try:
+        timestamp_sec = int(args[4])
+    except ValueError:
+        await update.message.reply_text("❌ Invalid timestamp. Must be Unix epoch seconds.")
+        return tuple()
+    return (symbol, length, interval, tolerance, timestamp_sec)
+
+
 async def fetch_data_and_get_indicators(res, preferences, update):
     symbol = {}
     hours = {}
