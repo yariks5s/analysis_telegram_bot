@@ -196,11 +196,11 @@ You also have a chance to contribute to this project. Please create a pull reque
 - [x] Optimize the process of normalizing the liquidity levels if no settings are specified
 - [x] Add a test for the task above (automatically create the right amount of liquidity levels if setting is not specified)
 - [x] Maybe do not add covered FVGs at all? UPD: Yes
-- [ ] Logging system
-- [ ] Disable info logging for training
-- [ ] Liquidity pools implementation
-- [ ] Tests for liquidity pools
-- [ ] Ability to show historical (not real-time) data
+- [x] Logging system
+- [x] Disable info logging for training
+- [x] Liquidity pools implementation
+- [x] Tests for liquidity pools
+- [x] Ability to show historical (not real-time) data
 - [ ] Disclaimer in /help temporary debugging commands
 - [ ] Implement testing for proper backtesting
 - [ ] Multi language support
@@ -217,6 +217,5 @@ You also have a chance to contribute to this project. Please create a pull reque
 - [ ] Implement rate limiting and abuse prevention
 - [ ] Make the system that will set the right logic coefficients based on backtesting
 - [ ] If possible, make the bot to continue sending signals after it is restarted
-- [ ] Create a neural network and make it learn on own data
 - [ ] Integrate a neural network to the predictions system
 - [ ] Prettify the bot and make it easy to use
