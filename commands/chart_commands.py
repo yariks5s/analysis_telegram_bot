@@ -1,6 +1,10 @@
 from telegram import Update
 from telegram.ext import ContextTypes, CallbackContext
-from helpers import check_and_analyze, input_sanity_check_analyzing, input_sanity_check_historical
+from helpers import (
+    check_and_analyze,
+    input_sanity_check_analyzing,
+    input_sanity_check_historical,
+)
 from plot_build_helpers import plot_price_chart
 from database import get_user_preferences
 from signal_detection import generate_price_prediction_signal_proba
@@ -81,7 +85,9 @@ async def send_historical_chart(update: Update, context: CallbackContext):
     # Fetch historical candles ending at the specified timestamp
     df = fetch_candles(symbol, length, interval, timestamp=timestamp_sec)
     if df is None or df.empty:
-        await update.message.reply_text(f"No data returned for {symbol} at timestamp {timestamp_sec}.")
+        await update.message.reply_text(
+            f"No data returned for {symbol} at timestamp {timestamp_sec}."
+        )
         return
 
     # Analyze data
@@ -95,7 +101,9 @@ async def send_historical_chart(update: Update, context: CallbackContext):
         show_volume=preferences["show_volume"],
     )
     if chart_path is None:
-        await update.message.reply_text("Error generating the historical chart. Please try again.")
+        await update.message.reply_text(
+            "Error generating the historical chart. Please try again."
+        )
         return
 
     # Send the chart to the user

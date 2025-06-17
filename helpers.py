@@ -143,15 +143,21 @@ async def input_sanity_check_historical(args, update) -> tuple:
     try:
         tolerance = float(args[3])
     except ValueError:
-        await update.message.reply_text("❌ Invalid tolerance. Must be a number between 0 and 1.")
+        await update.message.reply_text(
+            "❌ Invalid tolerance. Must be a number between 0 and 1."
+        )
         return tuple()
     if tolerance < 0 or tolerance > 1:
-        await update.message.reply_text("❌ Invalid tolerance. Must be between 0 and 1.")
+        await update.message.reply_text(
+            "❌ Invalid tolerance. Must be between 0 and 1."
+        )
         return tuple()
     try:
         timestamp_sec = int(args[4])
     except ValueError:
-        await update.message.reply_text("❌ Invalid timestamp. Must be Unix epoch seconds.")
+        await update.message.reply_text(
+            "❌ Invalid timestamp. Must be Unix epoch seconds."
+        )
         return tuple()
     return (symbol, length, interval, tolerance, timestamp_sec)
 
