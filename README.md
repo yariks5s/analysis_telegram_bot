@@ -211,7 +211,7 @@ You also have a chance to contribute to this project. Please create a pull reque
 - [ ] Add a “strategy marketplace” where users can share and use custom signal strategies
 - [ ] Implement a notification system for major market events (e.g., high volatility, news)
 - [ ] Add onboarding/tutorial messages for new users
-- [ ] Provide inline help for each command (e.g., /help chart)
+- [x] Provide inline help for each command (e.g., /help chart)
 - [ ] Allow users to export their signal history (CSV, Excel, etc.)
 - [ ] Add dark/light mode for charts
 - [ ] Implement rate limiting and abuse prevention
