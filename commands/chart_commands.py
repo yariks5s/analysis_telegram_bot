@@ -31,6 +31,7 @@ async def send_crypto_chart(update: Update, context: CallbackContext):
         indicators,
         show_legend=preferences["show_legend"],
         show_volume=preferences["show_volume"],
+        dark_mode=preferences["dark_mode"],
     )
     if chart_path is None:
         await update.message.reply_text("Error generating the chart. Please try again.")
@@ -99,6 +100,7 @@ async def send_historical_chart(update: Update, context: CallbackContext):
         indicators,
         show_legend=preferences["show_legend"],
         show_volume=preferences["show_volume"],
+        dark_mode=preferences["dark_mode"],
     )
     if chart_path is None:
         await update.message.reply_text(

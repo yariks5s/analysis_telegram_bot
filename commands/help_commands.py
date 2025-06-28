@@ -29,8 +29,12 @@ COMMAND_HELPS = {
     ),
     "preferences": (
         "<b>/preferences</b>\n"
-        "Open an interactive menu to select which indicators to use and chart options (legend, volume).\n"
-        "Your choices are saved per user."
+        "Open an interactive menu to select which indicators to use and chart options.\n\n"
+        "Available options:\n"
+        "- Technical indicators (Order Blocks, FVGs, Liquidity Levels, etc.)\n"
+        "- Display settings (Show Legend, Show Volume)\n"
+        "- Theme selection (Light/Dark mode)\n\n"
+        "Your preferences are saved per user."
     ),
     "create_signal": (
         "<b>/create_signal &lt;symbol&gt; &lt;minutes&gt; [&lt;show_chart&gt;]</b>\n"
