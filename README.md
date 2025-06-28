@@ -14,7 +14,7 @@ CryptoBot is an advanced Telegram bot for cryptocurrency traders, providing auto
 - **User Preferences**: Per-user indicator selection, chart options (legend, volume), and signal frequency.
 - **Backtesting & Strategy Optimization**: Built-in backtesting and training modules for strategy evaluation.
 - **Database-Backed**: User preferences and signal jobs are persisted in a local SQLite database.
-- **Beautiful Charting**: Candlestick charts with overlays for all supported indicators.
+- **Beautiful Charting**: Candlestick charts with overlays for all supported indicators, in light or dark mode.
 
 ---
 
