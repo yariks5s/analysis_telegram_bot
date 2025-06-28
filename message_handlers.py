@@ -212,7 +212,14 @@ def get_indicator_selection_keyboard(user_id):
                 callback_data="indicator_liquidity_pools",
             ),
         ],
+        [
+            InlineKeyboardButton(
+                f"{'🌙 ' if selected['dark_mode'] else '☀️ '}{'Dark Mode' if selected['dark_mode'] else 'Light Mode'}",
+                callback_data="indicator_dark_mode",
+            ),
+        ],
         [InlineKeyboardButton("Done", callback_data="indicator_done")],
+
     ]
     return InlineKeyboardMarkup(keyboard)
 
@@ -244,9 +251,30 @@ async def handle_indicator_selection(update, _):
         preferences["show_legend"] = not preferences["show_legend"]
     elif data == "indicator_show_volume":
         preferences["show_volume"] = not preferences["show_volume"]
+    elif data == "indicator_dark_mode":
+        preferences["dark_mode"] = not preferences["dark_mode"]
     elif data == "indicator_done":
-        selected = [key for key, val in preferences.items() if val]
-        await query.edit_message_text(f"You selected: {', '.join(selected) or 'None'}")
+        # Create a prettier list of selected preferences with proper labels
+
+        # Todo: make it in preferences file as entity with names
+        pretty_names = {
+            "order_blocks": "Order Blocks",
+            "fvgs": "FVGs",
+            "liquidity_levels": "Liquidity Levels",
+            "breaker_blocks": "Breaker Blocks",
+            "show_legend": "Show Legend",
+            "show_volume": "Show Volume",
+            "liquidity_pools": "Liquidity Pools",
+            "dark_mode": "Dark Mode",
+        }
+        
+        selected_pretty = [
+            pretty_names.get(key, key) if key != "dark_mode" else 
+            "Dark Mode" if val else "Light Mode" 
+            for key, val in preferences.items() if val or key == "dark_mode"
+        ]
+        
+        await query.edit_message_text(f"You selected: {', '.join(selected_pretty) or 'None'}")
         return
 
     # Save updated preferences in the database

@@ -14,3 +14,10 @@ back_tester/preprocessed_configs/
 back_tester/uuid
 back_tester/status
 **/clickhouse/
+status
+uuid
+data/
+store/
+metadata/
+preprocessed_configs/
+metadata_dropped/

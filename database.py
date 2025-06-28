@@ -19,7 +19,8 @@ def init_db() -> None:
             breaker_blocks BOOLEAN DEFAULT 0,
             show_legend BOOLEAN DEFAULT 1,
             show_volume BOOLEAN DEFAULT 1,
-            liquidity_pools BOOLEAN DEFAULT 1
+            liquidity_pools BOOLEAN DEFAULT 1,
+            dark_mode BOOLEAN DEFAULT 0
         )
     """
     )
@@ -66,6 +67,7 @@ def get_user_preferences(user_id: int) -> Dict[str, bool]:
             "show_legend": bool(row[5]),
             "show_volume": bool(row[6]),
             "liquidity_pools": bool(row[7]) if len(row) > 7 else True,
+            "dark_mode": bool(row[8]) if len(row) > 8 else False,
         }
     else:
         return {
@@ -76,6 +78,7 @@ def get_user_preferences(user_id: int) -> Dict[str, bool]:
             "show_legend": True,
             "show_volume": True,
             "liquidity_pools": True,
+            "dark_mode": False,
         }
 
 
@@ -106,8 +109,8 @@ def update_user_preferences(user_id: int, preferences: Dict[str, bool]) -> None:
             cursor.execute(
                 """
                 UPDATE user_preferences
-                SET order_blocks = ?, fvgs = ?, liquidity_levels = ?, breaker_blocks = ?, 
-                    show_legend = ?, show_volume = ?, liquidity_pools = ?
+                SET order_blocks = ?, fvgs = ?, liquidity_levels = ?, breaker_blocks = ?,
+                    show_legend = ?, show_volume = ?, liquidity_pools = ?, dark_mode = ?
                 WHERE user_id = ?
             """,
                 (
@@ -118,6 +121,7 @@ def update_user_preferences(user_id: int, preferences: Dict[str, bool]) -> None:
                     preferences["show_legend"],
                     preferences["show_volume"],
                     preferences["liquidity_pools"],
+                    preferences["dark_mode"],
                     user_id,
                 ),
             )
@@ -125,9 +129,9 @@ def update_user_preferences(user_id: int, preferences: Dict[str, bool]) -> None:
             cursor.execute(
                 """
                 INSERT INTO user_preferences 
-                    (user_id, order_blocks, fvgs, liquidity_levels, breaker_blocks, 
-                     show_legend, show_volume, liquidity_pools)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    (user_id, order_blocks, fvgs, liquidity_levels, breaker_blocks,
+                     show_legend, show_volume, liquidity_pools, dark_mode)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     user_id,
@@ -138,6 +142,7 @@ def update_user_preferences(user_id: int, preferences: Dict[str, bool]) -> None:
                     preferences["show_legend"],
                     preferences["show_volume"],
                     preferences["liquidity_pools"],
+                    preferences["dark_mode"],
                 ),
             )
 

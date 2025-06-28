@@ -212,8 +212,12 @@ You also have a chance to contribute to this project. Please create a pull reque
 - [ ] Implement a notification system for major market events (e.g., high volatility, news)
 - [ ] Add onboarding/tutorial messages for new users
 - [ ] Provide inline help for each command (e.g., /help chart)
+- [ ] Add signal history for every user (single database with signals containing who requested the signal)
 - [ ] Allow users to export their signal history (CSV, Excel, etc.)
-- [ ] Add dark/light mode for charts
+- [ ] Add some optimizations techiques (if two users requested the same signal at the same time, calculate it only once)
+- [x] Add dark/light mode for charts
+- [x] Fix this: "You selected: ..., **dark_mode**"
+- [ ] Fix instrument markings for dark mode on the plot
 - [ ] Implement rate limiting and abuse prevention
 - [ ] Make the system that will set the right logic coefficients based on backtesting
 - [ ] If possible, make the bot to continue sending signals after it is restarted
