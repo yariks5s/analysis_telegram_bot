@@ -29,7 +29,7 @@ def test_plot_price_chart_light_mode(sample_dataframe):
         mock_indicators,
         show_legend=True,
         show_volume=True,
-        dark_mode=False
+        dark_mode=False,
     )
     assert chart_path == "crypto_chart.png"
 
@@ -48,7 +48,7 @@ def test_plot_price_chart_dark_mode(sample_dataframe):
         mock_indicators,
         show_legend=True,
         show_volume=True,
-        dark_mode=True
+        dark_mode=True,
     )
     assert chart_path == "crypto_chart.png"
 
@@ -68,16 +68,16 @@ def test_plot_price_chart_with_preferences(sample_dataframe):
         mock_indicators,
         show_legend=False,
         show_volume=True,
-        dark_mode=True
+        dark_mode=True,
     )
     assert chart_path == "crypto_chart.png"
-    
+
     # Test with volume off and light mode on
     chart_path = plot_price_chart(
         sample_dataframe,
         mock_indicators,
         show_legend=True,
         show_volume=False,
-        dark_mode=False
+        dark_mode=False,
     )
     assert chart_path == "crypto_chart.png"

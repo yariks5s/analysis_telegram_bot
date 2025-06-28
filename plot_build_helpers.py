@@ -22,27 +22,27 @@ def plot_price_chart(
     # Define styles for light and dark mode
     if dark_mode:
         mc = mpf.make_marketcolors(
-            up='#8AFF80',
-            down='#FF5555',
-            edge='inherit',
-            wick={'up':'#8AFF80', 'down':'#FF5555'},
-            volume={'up':'#8AFF80', 'down':'#FF5555'}
+            up="#8AFF80",
+            down="#FF5555",
+            edge="inherit",
+            wick={"up": "#8AFF80", "down": "#FF5555"},
+            volume={"up": "#8AFF80", "down": "#FF5555"},
         )
         s = mpf.make_mpf_style(
             # Use a valid base style - 'nightclouds' is a built-in dark theme
-            base_mpf_style='nightclouds',
+            base_mpf_style="nightclouds",
             marketcolors=mc,
-            gridstyle=':',
-            gridcolor='#44475A',
-            facecolor='#282A36',
-            edgecolor='#44475A',
-            figcolor='#282A36',
-            y_on_right=False
+            gridstyle=":",
+            gridcolor="#44475A",
+            facecolor="#282A36",
+            edgecolor="#44475A",
+            figcolor="#282A36",
+            y_on_right=False,
         )
     else:
         # Default light style (yahoo)
-        s = 'yahoo'
-        
+        s = "yahoo"
+
     fig, ax = mpf.plot(
         df,
         type="candle",

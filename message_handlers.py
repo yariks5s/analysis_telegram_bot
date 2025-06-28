@@ -219,7 +219,6 @@ def get_indicator_selection_keyboard(user_id):
             ),
         ],
         [InlineKeyboardButton("Done", callback_data="indicator_done")],
-
     ]
     return InlineKeyboardMarkup(keyboard)
 
@@ -267,14 +266,20 @@ async def handle_indicator_selection(update, _):
             "liquidity_pools": "Liquidity Pools",
             "dark_mode": "Dark Mode",
         }
-        
+
         selected_pretty = [
-            pretty_names.get(key, key) if key != "dark_mode" else 
-            "Dark Mode" if val else "Light Mode" 
-            for key, val in preferences.items() if val or key == "dark_mode"
+            (
+                pretty_names.get(key, key)
+                if key != "dark_mode"
+                else "Dark Mode" if val else "Light Mode"
+            )
+            for key, val in preferences.items()
+            if val or key == "dark_mode"
         ]
-        
-        await query.edit_message_text(f"You selected: {', '.join(selected_pretty) or 'None'}")
+
+        await query.edit_message_text(
+            f"You selected: {', '.join(selected_pretty) or 'None'}"
+        )
         return
 
     # Save updated preferences in the database

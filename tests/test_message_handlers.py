@@ -52,7 +52,7 @@ async def test_handle_dark_mode_toggle(mocker):
         },
     )
     update_preferences_mock = mocker.patch("message_handlers.update_user_preferences")
-    
+
     # Mock the query object
     query = mocker.Mock()
     query.from_user.id = 123
@@ -61,7 +61,7 @@ async def test_handle_dark_mode_toggle(mocker):
     query.edit_message_reply_markup = mocker.AsyncMock()
     query.message.reply_markup = mocker.Mock()
     query.message.reply_markup.to_dict.return_value = {"different": "value"}
-    
+
     # Mock the update object
     update = mocker.Mock()
     update.callback_query = query
@@ -69,7 +69,7 @@ async def test_handle_dark_mode_toggle(mocker):
 
     # Call the handler function
     await handle_indicator_selection(update, context)
-    
+
     # Verify update_user_preferences was called with dark_mode=True
     update_preferences_mock.assert_called_once()
     called_args = update_preferences_mock.call_args[0]
@@ -92,26 +92,26 @@ async def test_preferences_done_message_formatting(mocker):
         "liquidity_pools": False,
         "dark_mode": True,  # Dark mode enabled
     }
-    
+
     # Mock the get_user_preferences function
     mocker.patch("message_handlers.get_user_preferences", return_value=preferences)
     mocker.patch("message_handlers.update_user_preferences")
-    
+
     # Mock the query object
     query = mocker.Mock()
     query.from_user.id = 123
     query.data = "indicator_done"  # User clicked Done
     query.answer = mocker.AsyncMock()
     query.edit_message_text = mocker.AsyncMock()
-    
+
     # Mock the update object
     update = mocker.Mock()
     update.callback_query = query
     context = mocker.Mock()
-    
+
     # Call the handler function
     await handle_indicator_selection(update, context)
-    
+
     # Verify the message contains "Dark Mode" not "dark_mode"
     query.edit_message_text.assert_called_once()
     message_text = query.edit_message_text.call_args[0][0]
@@ -126,29 +126,29 @@ async def test_preferences_done_message_with_light_mode(mocker):
     """Test that the 'You selected' message shows Light Mode when dark_mode is False"""
     # Mock user preferences with dark mode disabled
     preferences = {
-        "order_blocks": True, 
+        "order_blocks": True,
         "dark_mode": False,  # Light mode
     }
-    
+
     # Mock the get_user_preferences function
     mocker.patch("message_handlers.get_user_preferences", return_value=preferences)
     mocker.patch("message_handlers.update_user_preferences")
-    
+
     # Mock the query object
     query = mocker.Mock()
     query.from_user.id = 123
     query.data = "indicator_done"  # User clicked Done
     query.answer = mocker.AsyncMock()
     query.edit_message_text = mocker.AsyncMock()
-    
+
     # Mock the update object
     update = mocker.Mock()
     update.callback_query = query
     context = mocker.Mock()
-    
+
     # Call the handler function
     await handle_indicator_selection(update, context)
-    
+
     # Verify the message contains "Light Mode"
     query.edit_message_text.assert_called_once()
     message_text = query.edit_message_text.call_args[0][0]
