@@ -18,6 +18,7 @@ from database import (
 from signal_detection import createSignalJob
 from utils import auto_signal_jobs, logger
 from utils import plural_helper, logger
+from preferences import get_formatted_preferences
 
 ###############################################################################
 # States for Conversation
@@ -253,29 +254,8 @@ async def handle_indicator_selection(update, _):
     elif data == "indicator_dark_mode":
         preferences["dark_mode"] = not preferences["dark_mode"]
     elif data == "indicator_done":
-        # Create a prettier list of selected preferences with proper labels
-
-        # Todo: make it in preferences file as entity with names
-        pretty_names = {
-            "order_blocks": "Order Blocks",
-            "fvgs": "FVGs",
-            "liquidity_levels": "Liquidity Levels",
-            "breaker_blocks": "Breaker Blocks",
-            "show_legend": "Show Legend",
-            "show_volume": "Show Volume",
-            "liquidity_pools": "Liquidity Pools",
-            "dark_mode": "Dark Mode",
-        }
-
-        selected_pretty = [
-            (
-                pretty_names.get(key, key)
-                if key != "dark_mode"
-                else "Dark Mode" if val else "Light Mode"
-            )
-            for key, val in preferences.items()
-            if val or key == "dark_mode"
-        ]
+        # Use the preferences module to get formatted preference names
+        selected_pretty = get_formatted_preferences(preferences)
 
         await query.edit_message_text(
             f"You selected: {', '.join(selected_pretty) or 'None'}"
