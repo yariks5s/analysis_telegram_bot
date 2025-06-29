@@ -429,7 +429,7 @@ def backtest_strategy(
                 db.insert_trade(trade_data)
 
             print(
-                f"[Index {i}] ENTRY at {entry_price:.5f} | Size: {position:.5f} | Risk/Reward: {trading_signal.risk_reward_ratio:.2f} | Reason: {reason.splitlines()[0]}"
+                f"[Index {i}] {symbol}: ENTRY at {entry_price:.5f} | Size: {position:.5f} | Risk/Reward: {trading_signal.risk_reward_ratio:.2f} | Reason: {reason.splitlines()[0]}"
             )
 
     # If still holding a position at the end, liquidate at the final price
@@ -450,7 +450,7 @@ def backtest_strategy(
                 "profit": profit,
             }
         )
-        print(f"[Final] EXIT at {final_price:.2f} - Profit/Loss: {profit:.2f}")
+        print(f"[Final] EXIT at {final_price:.5f} - Profit/Loss: {profit:.2f}")
 
         # Store final trade in database if available
         if db and entry_time and entry_index:
