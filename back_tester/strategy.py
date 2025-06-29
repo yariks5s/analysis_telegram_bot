@@ -9,14 +9,21 @@ project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(project_dir)
 
 import pandas as pd  # type: ignore
+
+# These imports use the system path we added above
 from data_fetching_instruments import fetch_candles, analyze_data
 from signal_detection import (
     generate_price_prediction_signal_proba,
     TradingSignal,
     calculate_position_size,
 )
+import sys
+import os
+project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if project_dir not in sys.path:
+    sys.path.append(project_dir)
 from utils import create_true_preferences
-from db_operations import ClickHouseDB
+from .db_operations import ClickHouseDB
 
 
 def backtest_strategy(

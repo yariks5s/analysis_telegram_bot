@@ -23,7 +23,7 @@ logger.setLevel(logging.INFO)
 formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 
 # Create file handler for training logs
-training_log_file = f'training_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'
+training_log_file = f'logs/training_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'
 file_handler = logging.FileHandler(training_log_file)
 file_handler.setLevel(logging.INFO)
 file_handler.setFormatter(formatter)
