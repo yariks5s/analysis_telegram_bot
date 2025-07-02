@@ -17,6 +17,13 @@ from .strategy_optimizer import StrategyOptimizer, optimize_strategy
 from .strategy_comparison import StrategyComparison, compare_strategies
 from .correlation_analysis import CorrelationAnalysis, analyze_correlations
 
+# Import ML signal enhancement module if available
+try:
+    from .ml_signal_enhancement import MLSignalEnhancer
+    ML_SUPPORT = True
+except ImportError:
+    ML_SUPPORT = False
+
 # Add project root to path
 project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(project_dir)
@@ -41,9 +48,21 @@ class EnhancedBacktester:
         self.risk_manager = AdaptiveRiskManager()
         self.stop_loss_manager = DynamicStopLossManager()
         
+        # Initialize ML enhancer if available
+        self.ml_enhancer = None
+        if ML_SUPPORT:
+            self.ml_enhancer = MLSignalEnhancer(output_dir=os.path.join(output_dir, "models"))
+        
         # Create output directory
         os.makedirs(output_dir, exist_ok=True)
     
+    def _fetch_data(self, symbol: str, interval: str, candles: int) -> pd.DataFrame:
+        """Fetch data for backtesting - exposed for ML use"""
+        # Use backtest_strategy to fetch the data
+        # This is a bit of a hack, but it allows us to use the same data fetching logic
+        from .strategy import fetch_candles
+        return fetch_candles(symbol, interval, candles)
+        
     def run_backtest(
         self,
         symbol: str,
@@ -54,6 +73,9 @@ class EnhancedBacktester:
         risk_percentage: float = 1.0,
         apply_costs: bool = True,
         adaptive_risk: bool = True,
+        use_ml_signals: bool = False,
+        ml_model_path: Optional[str] = None,
+        ml_threshold: float = 0.6,
         **kwargs
     ) -> Tuple[float, List[Dict[str, Any]], Dict[str, Any]]:
         """
@@ -68,11 +90,28 @@ class EnhancedBacktester:
             risk_percentage: Risk percentage per trade
             apply_costs: Whether to apply transaction costs
             adaptive_risk: Whether to use adaptive risk management
+            use_ml_signals: Whether to use ML-enhanced signals
+            ml_model_path: Path to a pre-trained ML model (if None, will use default or train new model)
+            ml_threshold: Probability threshold for ML signal confirmation
             **kwargs: Additional arguments for backtest_strategy
             
         Returns:
             Tuple of (final_balance, trades, metrics)
         """
+        # Check if ML enhancement is requested but not available
+        if use_ml_signals and not ML_SUPPORT:
+            print("Warning: ML signal enhancement requested but ML module is not available.")
+            print("Running backtest without ML enhancement.")
+            use_ml_signals = False
+        
+        # Load ML model if requested
+        if use_ml_signals and self.ml_enhancer:
+            if ml_model_path and os.path.exists(ml_model_path):
+                self.ml_enhancer.load_model(ml_model_path)
+                print(f"Loaded ML model from {ml_model_path}")
+            elif not self.ml_enhancer.is_trained:
+                print("No ML model specified or found. Using default settings.")
+        
         # Run basic backtest
         final_balance, trades, sub_iteration_id = backtest_strategy(
             symbol=symbol,
@@ -83,6 +122,56 @@ class EnhancedBacktester:
             risk_percentage=risk_percentage,
             **kwargs
         )
+        
+        # Apply ML signal enhancement if requested
+        if use_ml_signals and self.ml_enhancer and self.ml_enhancer.is_trained and trades:
+            try:
+                # Fetch data for ML prediction
+                data = self._fetch_data(symbol, interval, candles)
+                
+                # Convert trades to signals series for enhancement
+                signals = pd.Series(0, index=data.index)
+                for trade in trades:
+                    if 'timestamp' in trade and 'signal' in trade:
+                        signals[trade['timestamp']] = 1 if trade['signal'].lower() == 'buy' else -1
+                
+                # Enhance signals with ML predictions
+                print(f"Enhancing signals with ML model (threshold={ml_threshold})...")
+                enhanced_signals = self.ml_enhancer.enhance_signals(
+                    data=data,
+                    signals=signals,
+                    threshold=ml_threshold
+                )
+                
+                # Count signals before and after enhancement
+                original_signals = (signals == 1).sum()
+                new_signals = (enhanced_signals == 1).sum()
+                print(f"Original buy signals: {original_signals}, Enhanced buy signals: {new_signals}")
+                print(f"ML enhancement removed {original_signals - new_signals} false signals")
+                
+                # Filter trades based on enhanced signals
+                enhanced_trades = []
+                for trade in trades:
+                    if 'timestamp' in trade and trade['timestamp'] in enhanced_signals.index:
+                        # Keep trade only if ML confirms it's a good signal
+                        if enhanced_signals[trade['timestamp']] == 1:
+                            enhanced_trades.append(trade)
+                
+                # Update trades list with enhanced trades
+                if len(enhanced_trades) > 0:
+                    print(f"Using {len(enhanced_trades)} ML-enhanced trades (filtered from {len(trades)})")
+                    trades = enhanced_trades
+                    
+                    # Recalculate final balance
+                    final_balance = initial_balance
+                    for trade in trades:
+                        if 'profit_loss' in trade:
+                            final_balance += trade['profit_loss']
+                        elif 'profit' in trade:
+                            final_balance += trade['profit']
+            except Exception as e:
+                print(f"Error applying ML signal enhancement: {str(e)}")
+                print("Proceeding with original signals.")
         
         # Apply transaction costs if requested
         if apply_costs and trades:
