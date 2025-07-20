@@ -111,11 +111,11 @@ class ChartTheme:
             return {
                 "bullish": {
                     "color": "#50FA7B",  # Bright green for dark mode
-                    "alpha": 0.3         # Higher opacity for dark mode
+                    "alpha": 0.05        # More transparent for dark mode
                 },
                 "bearish": {
                     "color": "#FF5555",  # Bright red for dark mode
-                    "alpha": 0.3         # Higher opacity for dark mode
+                    "alpha": 0.05        # More transparent for dark mode
                 }
             }["bullish" if is_bullish else "bearish"]
         else:
