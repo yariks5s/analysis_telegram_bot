@@ -5,7 +5,7 @@ chatGPT_script.py
 **/__pycache__/
 preferences.db
 tech_debt.txt
-symbols_to_test.txt
+**/symbols_to_test.txt
 *.log
 back_tester/data/
 back_tester/store/
@@ -21,3 +21,5 @@ store/
 metadata/
 preprocessed_configs/
 metadata_dropped/
+**/reports
+models/
