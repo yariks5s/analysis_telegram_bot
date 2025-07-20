@@ -61,7 +61,9 @@ def fetch_candles(
     try:
         desired_total = int(desired_total)
     except (ValueError, TypeError):
-        logger.error(f"Invalid desired_total parameter: {desired_total}. Using default of 100.")
+        logger.error(
+            f"Invalid desired_total parameter: {desired_total}. Using default of 100."
+        )
         desired_total = 100
     """
     Fetch up to the specified number of candles for a given `symbol` and `interval`.

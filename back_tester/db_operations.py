@@ -232,7 +232,7 @@ class ClickHouseDB:
                     ORDER BY (iteration_id, created_at)
                     """
                 )
-                
+
                 # Create ml_training_iterations table
                 client.execute(
                     """
@@ -1118,12 +1118,11 @@ class ClickHouseDB:
             except:
                 pass
 
-
     def insert_ml_iteration(self, data: dict):
         """Insert ML training iteration data into database"""
         # First ensure the ml_training_iterations table exists
         self._create_ml_training_iterations_table()
-        
+
         query = """
         INSERT INTO ml_training_iterations (
             iteration_id,
@@ -1145,29 +1144,29 @@ class ClickHouseDB:
             timestamp
         ) VALUES
         """
-        
+
         # Safely handle parameters, especially strings that might contain quotes
         try:
             # Escape single quotes in string values
-            iteration_id = str(data.get('iteration_id', '')).replace("'", "\\'") 
-            model_type = str(data.get('model_type', '')).replace("'", "\\'") 
-            params = str(data.get('params', '')).replace("'", "\\'") 
-            
+            iteration_id = str(data.get("iteration_id", "")).replace("'", "\\'")
+            model_type = str(data.get("model_type", "")).replace("'", "\\'")
+            params = str(data.get("params", "")).replace("'", "\\'")
+
             # Use defaults for numeric values
-            fitness_score = float(data.get('fitness_score', 0))
-            total_trades = int(data.get('total_trades', 0))
-            winning_trades = int(data.get('winning_trades', 0))
-            win_rate = float(data.get('win_rate', 0))
-            total_revenue = float(data.get('total_revenue', 0))
-            max_drawdown = float(data.get('max_drawdown', 0))
-            sharpe_ratio = float(data.get('sharpe_ratio', 0))
-            sortino_ratio = float(data.get('sortino_ratio', 0))
-            profit_factor = float(data.get('profit_factor', 0))
-            ml_accuracy = float(data.get('ml_accuracy', 0))
-            ml_precision = float(data.get('ml_precision', 0))
-            ml_recall = float(data.get('ml_recall', 0))
-            ml_f1 = float(data.get('ml_f1', 0))
-            
+            fitness_score = float(data.get("fitness_score", 0))
+            total_trades = int(data.get("total_trades", 0))
+            winning_trades = int(data.get("winning_trades", 0))
+            win_rate = float(data.get("win_rate", 0))
+            total_revenue = float(data.get("total_revenue", 0))
+            max_drawdown = float(data.get("max_drawdown", 0))
+            sharpe_ratio = float(data.get("sharpe_ratio", 0))
+            sortino_ratio = float(data.get("sortino_ratio", 0))
+            profit_factor = float(data.get("profit_factor", 0))
+            ml_accuracy = float(data.get("ml_accuracy", 0))
+            ml_precision = float(data.get("ml_precision", 0))
+            ml_recall = float(data.get("ml_recall", 0))
+            ml_f1 = float(data.get("ml_f1", 0))
+
             values = f"""(
                 '{iteration_id}',
                 '{model_type}',
@@ -1190,20 +1189,20 @@ class ClickHouseDB:
         except (ValueError, TypeError) as e:
             logger.error(f"Error formatting ML iteration data: {str(e)}")
             return False
-        
+
         try:
             client, lock = self._get_connection()
             if not client:
                 logger.error("No database connection available")
                 return False
-                
+
             with lock:
                 client.execute(query + values)
                 return True
         except Exception as e:
             logger.error(f"Failed to insert ML iteration: {str(e)}")
             return False
-            
+
     def _create_ml_training_iterations_table(self):
         """Create the ml_training_iterations table if it doesn't exist"""
         try:
@@ -1213,7 +1212,8 @@ class ClickHouseDB:
 
             with lock:
                 # Create table if it doesn't exist
-                client.execute("""
+                client.execute(
+                    """
                 CREATE TABLE IF NOT EXISTS ml_training_iterations (
                     iteration_id String,
                     model_type String,
@@ -1234,6 +1234,7 @@ class ClickHouseDB:
                     timestamp DateTime DEFAULT now()
                 ) ENGINE = MergeTree()
                 ORDER BY (timestamp, iteration_id)
-                """)
+                """
+                )
         except Exception as e:
             logger.error(f"Failed to create ml_training_iterations table: {str(e)}")

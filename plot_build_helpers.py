@@ -68,10 +68,10 @@ def add_legend(ax, indicators, dark_mode=False):
             bullish_color = "#FF79C6"  # Bright pink for dark mode
             markersize = 10
         else:
-            bearish_color = "blue"      # Original colors for light mode
-            bullish_color = "purple"    # Original colors for light mode
+            bearish_color = "blue"  # Original colors for light mode
+            bullish_color = "purple"  # Original colors for light mode
             markersize = 10
-            
+
         handles.append(
             mlines.Line2D(
                 [],
@@ -100,9 +100,9 @@ def add_legend(ax, indicators, dark_mode=False):
             fvg_color = "#BD93F9"  # Bright purple for dark mode
             fvg_alpha = 0.5
         else:
-            fvg_color = "blue"     # Original color
+            fvg_color = "blue"  # Original color
             fvg_alpha = 0.3
-            
+
         handles.append(mpatches.Patch(color=fvg_color, alpha=fvg_alpha, label="FVG"))
 
     if indicators.breaker_blocks:
@@ -111,23 +111,27 @@ def add_legend(ax, indicators, dark_mode=False):
             bearish_color = "#FF5555"  # Bright red for dark mode
             alpha = 0.3
         else:
-            bullish_color = "green"    # Original colors
-            bearish_color = "red"      # Original colors
+            bullish_color = "green"  # Original colors
+            bearish_color = "red"  # Original colors
             alpha = 0.05
-            
+
         handles.append(
-            mpatches.Patch(color=bullish_color, alpha=alpha, label="Bullish Breaker Block")
+            mpatches.Patch(
+                color=bullish_color, alpha=alpha, label="Bullish Breaker Block"
+            )
         )
         handles.append(
-            mpatches.Patch(color=bearish_color, alpha=alpha, label="Bearish Breaker Block")
+            mpatches.Patch(
+                color=bearish_color, alpha=alpha, label="Bearish Breaker Block"
+            )
         )
 
     if indicators.liquidity_levels:
         if dark_mode:
             liq_level_color = "#FFB86C"  # Bright orange for dark mode
         else:
-            liq_level_color = "orange"   # Original color
-            
+            liq_level_color = "orange"  # Original color
+
         handles.append(
             mlines.Line2D(
                 [],
@@ -144,10 +148,12 @@ def add_legend(ax, indicators, dark_mode=False):
             pool_color = "#8BE9FD"  # Bright cyan for dark mode
             pool_alpha = 0.3
         else:
-            pool_color = "cyan"     # Original color
+            pool_color = "cyan"  # Original color
             pool_alpha = 0.2
-            
-        handles.append(mpatches.Patch(color=pool_color, alpha=pool_alpha, label="Liquidity Pool"))
+
+        handles.append(
+            mpatches.Patch(color=pool_color, alpha=pool_alpha, label="Liquidity Pool")
+        )
 
     ax[0].legend(handles=handles, loc="upper left")
 
@@ -162,7 +168,7 @@ def add_order_blocks(ax, order_blocks, df, dark_mode=False):
             continue
 
         circle_y_position = low * 0.995  # Slightly above the high for visibility
-        
+
         # Get style from ChartTheme
         style = ChartTheme.get_order_block_style(dark_mode, block.is_bullish())
 
@@ -201,7 +207,7 @@ def add_liquidity_levels(ax, liquidity_levels, dark_mode=False):
     for level in liquidity_levels.list:
         # Get style from ChartTheme
         style = ChartTheme.get_liquidity_level_style(dark_mode)
-            
+
         ax[0].axhline(
             y=level.price,
             color=style["color"],
@@ -240,7 +246,7 @@ def add_liquidity_pools(ax, liquidity_pools, dark_mode=False):
     for pool in liquidity_pools.list:
         # Calculate the price range for the pool (using ATR or a fixed percentage)
         price_range = pool.price * 0.001  # 0.1% of price as default range
-        
+
         # Get style from ChartTheme
         style = ChartTheme.get_liquidity_pool_style(dark_mode)
 
@@ -256,9 +262,9 @@ def add_liquidity_pools(ax, liquidity_pools, dark_mode=False):
 
         # Add a horizontal line at the pool's price level
         ax[0].axhline(
-            y=pool.price, 
-            color=style["color"], 
-            linestyle=style["linestyle"], 
-            alpha=style["line_alpha"], 
-            linewidth=style["linewidth"]
+            y=pool.price,
+            color=style["color"],
+            linestyle=style["linestyle"],
+            alpha=style["line_alpha"],
+            linewidth=style["linewidth"],
         )

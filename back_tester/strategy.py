@@ -19,6 +19,7 @@ from signal_detection import (
 )
 import sys
 import os
+
 project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if project_dir not in sys.path:
     sys.path.append(project_dir)
