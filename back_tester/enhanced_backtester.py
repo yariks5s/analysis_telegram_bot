@@ -58,10 +58,18 @@ class EnhancedBacktester:
     
     def _fetch_data(self, symbol: str, interval: str, candles: int) -> pd.DataFrame:
         """Fetch data for backtesting - exposed for ML use"""
-        # Use backtest_strategy to fetch the data
-        # This is a bit of a hack, but it allows us to use the same data fetching logic
-        from .strategy import fetch_candles
-        return fetch_candles(symbol, interval, candles)
+        # Use data fetching instruments to get the data
+        # Note: order of parameters in fetch_candles is: symbol, desired_total, interval
+        try:
+            from data_fetching_instruments import fetch_candles
+            return fetch_candles(symbol=symbol, desired_total=candles, interval=interval)
+        except Exception as e:
+            print(f"Error fetching data: {str(e)}")
+            # Return empty DataFrame with expected columns as fallback
+            # Use uppercase first letter column names to match what the code expects
+            return pd.DataFrame({
+                'Open': [], 'High': [], 'Low': [], 'Close': [], 'Volume': []
+            })
         
     def run_backtest(
         self,

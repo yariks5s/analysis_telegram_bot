@@ -57,6 +57,12 @@ def fetch_candles(
     interval: str,
     timestamp: float = datetime.utcnow().timestamp(),
 ):
+    # Ensure desired_total is an integer to avoid type comparison issues
+    try:
+        desired_total = int(desired_total)
+    except (ValueError, TypeError):
+        logger.error(f"Invalid desired_total parameter: {desired_total}. Using default of 100.")
+        desired_total = 100
     """
     Fetch up to the specified number of candles for a given `symbol` and `interval`.
     Since each request is limited to 200 candles, multiple requests are made as needed.

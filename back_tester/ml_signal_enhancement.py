@@ -63,44 +63,56 @@ class MLSignalEnhancer:
         
     def _create_model(self) -> Any:
         """Create the ML model based on the specified type"""
+        # Default parameters that will be overridden by self.model_params if provided
         if self.model_type == 'random_forest':
-            return RandomForestClassifier(
-                n_estimators=100,
-                max_depth=10,
-                random_state=42,
-                **self.model_params
-            )
+            params = {
+                'n_estimators': 100,
+                'max_depth': 10,
+                'random_state': 42
+            }
+            # Update defaults with any provided parameters
+            params.update(self.model_params)
+            return RandomForestClassifier(**params)
+            
         elif self.model_type == 'gradient_boosting':
-            return GradientBoostingClassifier(
-                n_estimators=100,
-                learning_rate=0.1,
-                max_depth=5,
-                random_state=42,
-                **self.model_params
-            )
+            params = {
+                'n_estimators': 100,
+                'learning_rate': 0.1,
+                'max_depth': 5,
+                'random_state': 42
+            }
+            params.update(self.model_params)
+            return GradientBoostingClassifier(**params)
+            
         elif self.model_type == 'logistic':
-            return LogisticRegression(
-                C=1.0,
-                max_iter=1000,
-                random_state=42,
-                **self.model_params
-            )
+            params = {
+                'C': 1.0,
+                'max_iter': 1000,
+                'random_state': 42
+            }
+            params.update(self.model_params)
+            return LogisticRegression(**params)
+            
         elif self.model_type == 'svm':
-            return SVC(
-                C=1.0,
-                kernel='rbf',
-                probability=True,
-                random_state=42,
-                **self.model_params
-            )
+            params = {
+                'C': 1.0,
+                'kernel': 'rbf',
+                'probability': True,
+                'random_state': 42
+            }
+            params.update(self.model_params)
+            return SVC(**params)
+            
         elif self.model_type == 'mlp':
-            return MLPClassifier(
-                hidden_layer_sizes=(100, 50),
-                max_iter=500,
-                activation='relu',
-                random_state=42,
-                **self.model_params
-            )
+            params = {
+                'hidden_layer_sizes': (100, 50),
+                'max_iter': 500,
+                'activation': 'relu',
+                'random_state': 42
+            }
+            params.update(self.model_params)
+            return MLPClassifier(**params)
+            
         else:
             raise ValueError(f"Unsupported model type: {self.model_type}")
     
@@ -130,6 +142,27 @@ class MLSignalEnhancer:
         """
         # Make a copy to avoid modifying the original
         df = data.copy()
+        
+        # Standardize column names to lowercase for consistent processing
+        # First check if we have uppercase or lowercase column names
+        if 'Close' in df.columns:
+            # Uppercase naming convention - standardize to lowercase
+            column_mapping = {
+                'Open': 'open',
+                'High': 'high',
+                'Low': 'low',
+                'Close': 'close',
+                'Volume': 'volume'
+            }
+            df.rename(columns=column_mapping, inplace=True)
+        
+        # Check if we have the required columns
+        required_columns = ['open', 'high', 'low', 'close', 'volume']
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        
+        if missing_columns:
+            raise ValueError(f"Missing required columns: {missing_columns}. Available columns: {df.columns.tolist()}")
+            
         
         # Technical indicators as features
         # Moving averages
