@@ -1,3 +1,4 @@
+import datetime
 from telegram import Update  # type: ignore
 from telegram.ext import ContextTypes, CallbackContext  # type: ignore
 
@@ -84,6 +85,12 @@ async def send_historical_chart(update: Update, context: CallbackContext):
     if not res:
         return
     symbol, length, interval, tolerance, timestamp_sec = res
+
+    if timestamp_sec > datetime.datetime.now().timestamp():
+        await update.message.reply_text(
+            "❌ Invalid timestamp. Must be Unix epoch seconds."
+        )
+        return
 
     # Fetch historical candles ending at the specified timestamp
     df = fetch_candles(symbol, length, interval, timestamp=timestamp_sec)
