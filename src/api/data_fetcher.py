@@ -16,10 +16,10 @@ from src.model_classes.indicators import Indicators
 def fetch_from_json(data):
     """
     Parse API response JSON into a pandas DataFrame.
-    
+
     Args:
         data: JSON data from the API response
-        
+
     Returns:
         pd.DataFrame: DataFrame with OHLCV data or None if error
     """
@@ -67,15 +67,15 @@ def fetch_candles(
 ):
     """
     Fetch up to the specified number of candles for a given symbol and interval.
-    
+
     Since each request is limited to 200 candles, multiple requests are made as needed.
-    
+
     Args:
         symbol: The trading pair symbol (e.g., "BTCUSD")
         desired_total: The number of candles to fetch
         interval: The interval for each candle (e.g., "1m", "5m", "1h")
         timestamp: End timestamp for the data range (defaults to current time)
-        
+
     Returns:
         pd.DataFrame: DataFrame containing up to desired_total candles
     """
@@ -156,14 +156,14 @@ def fetch_ohlc_data(
 ):
     """
     Fetch historical OHLCV data for a given crypto pair, time period, and interval.
-    
+
     Args:
         symbol: The trading pair symbol (e.g., "BTCUSD")
         limit: Number of candles to fetch
         interval: The interval for each candle (e.g., "1m", "5m", "1h")
         start: Optional start timestamp
         end: Optional end timestamp
-        
+
     Returns:
         pd.DataFrame: DataFrame with OHLCV data or None if error
     """
@@ -198,12 +198,12 @@ def fetch_ohlc_data(
 def analyze_data(df: pd.DataFrame, preferences, liq_lev_tolerance):
     """
     Analyze price data and detect technical indicators based on user preferences.
-    
+
     Args:
         df: DataFrame with OHLCV data
         preferences: Dictionary of indicator preferences
         liq_lev_tolerance: Tolerance for liquidity level detection
-        
+
     Returns:
         Indicators: Object containing all detected indicators
     """
@@ -215,7 +215,7 @@ def analyze_data(df: pd.DataFrame, preferences, liq_lev_tolerance):
         detect_breaker_blocks,
         detect_liquidity_pools,
     )
-    
+
     indicators = Indicators()
 
     if preferences["order_blocks"]:

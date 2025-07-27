@@ -35,22 +35,20 @@ async def delete_signal_command(update: Update, context: ContextTypes.DEFAULT_TY
     Example: /delete_signal BTCUSDT
     """
     args = context.args
-    
+
     # Check if args list is empty
     if not args:
-        await update.message.reply_text(
-            f"Usage: /delete_signal <symbol>"
-        )
+        await update.message.reply_text(f"Usage: /delete_signal <symbol>")
         return
-        
+
     # Format and store the command in the update object for deleteSignalJob to parse
     # The original command structure expected by deleteSignalJob is:
     # "/delete_signal SYMBOL"
-    
+
     # We'll manually modify the update object's message text to match what deleteSignalJob expects
     original_text = update.message.text
     update.message.text = f"/delete_signal {args[0].upper()}"
-    
+
     try:
         await deleteSignalJob(args[0].upper(), update)
     except ValueError as e:

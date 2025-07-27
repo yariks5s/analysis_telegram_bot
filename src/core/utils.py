@@ -3,6 +3,7 @@ Core utility functions for the CryptoBot application.
 """
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
@@ -15,14 +16,14 @@ logger.addHandler(console_handler)
 logger.propagate = False
 
 VALID_INTERVALS = {
-    "1m": "1",    # 1 minute
-    "5m": "5",    # 5 minutes
+    "1m": "1",  # 1 minute
+    "5m": "5",  # 5 minutes
     "15m": "15",  # 15 minutes
     "30m": "30",  # 30 minutes
-    "1h": "60",   # 1 hour
+    "1h": "60",  # 1 hour
     "4h": "240",  # 4 hours
-    "1d": "D",    # 1 day
-    "1w": "W",    # 1 week
+    "1d": "D",  # 1 day
+    "1w": "W",  # 1 week
 }
 
 API_URL = "https://api.bybit.com/v5/market/kline"
@@ -34,10 +35,10 @@ auto_signal_jobs = {}
 def plural_helper(num: int) -> str:
     """
     Helper function to determine plural form based on number.
-    
+
     Args:
         num: The number to check
-        
+
     Returns:
         str: "s" for plural, "" for singular
     """
@@ -49,7 +50,7 @@ def plural_helper(num: int) -> str:
 def create_true_preferences():
     """
     Create a default preferences dictionary with all indicators enabled.
-    
+
     Returns:
         dict: Default preferences dictionary
     """
@@ -65,10 +66,10 @@ def create_true_preferences():
 def is_bullish(candle):
     """
     Detects whether the candle is bullish.
-    
+
     Args:
         candle: Dictionary or pandas Series with Open and Close prices
-        
+
     Returns:
         bool: True if Close > Open (bullish candle)
     """
@@ -78,10 +79,10 @@ def is_bullish(candle):
 def is_bearish(candle):
     """
     Detects whether the candle is bearish.
-    
+
     Args:
         candle: Dictionary or pandas Series with Open and Close prices
-        
+
     Returns:
         bool: True if Close < Open (bearish candle)
     """

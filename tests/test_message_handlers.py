@@ -51,7 +51,9 @@ async def test_handle_dark_mode_toggle(mocker):
             "dark_mode": False,  # Start with light mode
         },
     )
-    update_preferences_mock = mocker.patch("src.telegram.handlers.update_user_preferences")
+    update_preferences_mock = mocker.patch(
+        "src.telegram.handlers.update_user_preferences"
+    )
 
     # Mock the query object
     query = mocker.Mock()

@@ -1,4 +1,5 @@
 import pytest  # type: ignore
+
 # Updated imports for the new structure
 import src.analysis.detection.indicators as ind_module  # Import the indicators module
 

@@ -15,10 +15,10 @@ from src.database.operations import check_user_preferences, get_all_user_signal_
 def calculate_macd(data: pd.DataFrame):
     """
     Calculate MACD and Signal Line.
-    
+
     Args:
         data: DataFrame with Close prices
-        
+
     Returns:
         Tuple of (MACD, Signal Line)
     """
@@ -32,11 +32,11 @@ def calculate_macd(data: pd.DataFrame):
 def calculate_rsi(data: pd.DataFrame, period: int = 14):
     """
     Calculate Relative Strength Index (RSI).
-    
+
     Args:
         data: DataFrame with Close prices
         period: RSI calculation period
-        
+
     Returns:
         Series of RSI values
     """
@@ -51,11 +51,11 @@ def calculate_rsi(data: pd.DataFrame, period: int = 14):
 async def input_sanity_check_show(args, update) -> tuple:
     """
     Validate input arguments for chart display.
-    
+
     Args:
         args: Command arguments
         update: Telegram update object
-        
+
     Returns:
         Tuple of (symbol, hours, interval, liq_lev_tolerance) or empty tuple if invalid
     """
@@ -153,11 +153,11 @@ async def input_sanity_check_historical(args, update) -> tuple:
     Parse and validate arguments for historical data command.
     Usage: /history <symbol> <length> <interval> <tolerance> <timestamp>
     Timestamp must be Unix epoch in seconds.
-    
+
     Args:
         args: Command arguments
         update: Telegram update object
-        
+
     Returns:
         Tuple of validated arguments or empty tuple if invalid
     """
@@ -205,10 +205,12 @@ async def input_sanity_check_historical(args, update) -> tuple:
     return (symbol, length, interval, tolerance, timestamp_sec)
 
 
-async def fetch_data_and_get_indicators(symbol, hours, interval, preferences, liq_lev_tolerance=0, update=None):
+async def fetch_data_and_get_indicators(
+    symbol, hours, interval, preferences, liq_lev_tolerance=0, update=None
+):
     """
     Fetch market data and calculate indicators.
-    
+
     Args:
         symbol: Trading pair symbol
         hours: Number of hours/periods to fetch
@@ -216,7 +218,7 @@ async def fetch_data_and_get_indicators(symbol, hours, interval, preferences, li
         preferences: User preferences for indicators
         liq_lev_tolerance: Tolerance for liquidity level detection
         update: Optional Telegram update object for notifications
-        
+
     Returns:
         Tuple of (indicators, dataframe)
     """
@@ -230,8 +232,8 @@ async def fetch_data_and_get_indicators(symbol, hours, interval, preferences, li
         df = fetch_ohlc_data(symbol, hours, interval)
     else:
         df = fetch_candles(symbol, hours, interval)
-        
-    if (df is None or df.empty):
+
+    if df is None or df.empty:
         if update:
             await update.message.reply_text(
                 f"Error fetching data for {symbol}. Please check the pair and try again."
@@ -245,13 +247,13 @@ async def fetch_data_and_get_indicators(symbol, hours, interval, preferences, li
 async def check_and_analyze(update, user_id, preferences, args):
     """
     Validate input, check user preferences, and fetch data with indicators.
-    
+
     Args:
         update: Telegram update object
         user_id: User ID
         preferences: User preferences
         args: Command arguments
-        
+
     Returns:
         Tuple of (indicators, dataframe) or None if error
     """
@@ -267,27 +269,29 @@ async def check_and_analyze(update, user_id, preferences, args):
         )
         return None, None
 
-    return await fetch_data_and_get_indicators(res[0], res[1], res[2], preferences, res[3], update)
+    return await fetch_data_and_get_indicators(
+        res[0], res[1], res[2], preferences, res[3], update
+    )
 
 
 async def check_signal_limit(update):
     """
     Check if the user has reached the signal limit.
-    
+
     Args:
         update: Telegram update object
-        
+
     Returns:
         bool: True if limit reached, False otherwise
     """
     user_id = update.effective_user.id
     previous_signals = get_all_user_signal_requests(user_id)
-    
+
     if len(previous_signals) >= 10:
         await update.message.reply_text(
             f"You've reached the limit of signals ({len(previous_signals)}). "
             f"If you want to add a new signal, please remove some of existing signals."
         )
         return True
-    
+
     return False

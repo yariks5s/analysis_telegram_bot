@@ -102,17 +102,15 @@ def detect_impulses(
     return impulses
 
 
-def detect_order_blocks_from_impulses(
-    df: pd.DataFrame, impulses, min_gap: int = 5
-):
+def detect_order_blocks_from_impulses(df: pd.DataFrame, impulses, min_gap: int = 5):
     """
     Find order blocks from detected impulses by searching for opposing candles.
-    
+
     Args:
         df: DataFrame with OHLC data
         impulses: List of detected impulses
         min_gap: Minimum candles between order block and impulse
-        
+
     Returns:
         OrderBlocks: Container with detected order blocks
     """

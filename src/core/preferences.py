@@ -57,7 +57,7 @@ def get_formatted_preferences(preferences_dict: Dict[str, Any]) -> List[str]:
 def create_default_preferences() -> Dict[str, bool]:
     """
     Create a default preferences dictionary with all indicators enabled.
-    
+
     Returns:
         dict: Default preferences dictionary
     """

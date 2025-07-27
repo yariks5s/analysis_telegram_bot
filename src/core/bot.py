@@ -36,7 +36,10 @@ from src.telegram.commands.chart_commands import (
     send_text_data,
     send_historical_chart,
 )
-from src.telegram.commands.signal_commands import create_signal_command, delete_signal_command
+from src.telegram.commands.signal_commands import (
+    create_signal_command,
+    delete_signal_command,
+)
 from src.telegram.commands.help_commands import help_command
 from src.telegram.commands.db_commands import (
     execute_sql_command,
@@ -105,10 +108,10 @@ def main():
     """Main function to initialize and run the bot"""
     # Load environment variables
     load_dotenv()
-    
+
     # Initialize database
     init_db()
-    
+
     # Get token from environment
     TOKEN = os.getenv("API_TELEGRAM_KEY")
 

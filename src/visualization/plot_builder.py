@@ -25,14 +25,14 @@ def plot_price_chart(
 ):
     """
     Generate a candlestick chart with detected order blocks, FVGs, and support/resistance levels.
-    
+
     Args:
         df: DataFrame with OHLCV data
         indicators: Dict of indicator objects
         show_legend: Whether to show chart legend
         show_volume: Whether to show volume
         dark_mode: Whether to use dark mode styling
-        
+
     Returns:
         str: Path to the saved chart image
     """
@@ -78,7 +78,7 @@ def plot_price_chart(
 def add_legend(ax, indicators, dark_mode=False):
     """
     Add legend to the chart based on available indicators.
-    
+
     Args:
         ax: Matplotlib axes object
         indicators: Dict of indicator objects
@@ -184,7 +184,7 @@ def add_legend(ax, indicators, dark_mode=False):
 def add_order_blocks(ax, order_blocks, df, dark_mode=False):
     """
     Add order blocks to the chart.
-    
+
     Args:
         ax: Matplotlib axes object
         order_blocks: OrderBlocks object containing order blocks to plot
@@ -217,7 +217,7 @@ def add_order_blocks(ax, order_blocks, df, dark_mode=False):
 def add_fvgs(ax, fvgs, dark_mode=False):
     """
     Add Fair Value Gaps (FVGs) to the chart.
-    
+
     Args:
         ax: Matplotlib axes object
         fvgs: FVGs object containing FVGs to plot
@@ -246,7 +246,7 @@ def add_fvgs(ax, fvgs, dark_mode=False):
 def add_liquidity_levels(ax, liquidity_levels, dark_mode=False):
     """
     Add liquidity levels to the chart.
-    
+
     Args:
         ax: Matplotlib axes object
         liquidity_levels: LiquidityLevels object containing levels to plot
@@ -267,7 +267,7 @@ def add_liquidity_levels(ax, liquidity_levels, dark_mode=False):
 def add_breaker_blocks(ax, breaker_blocks, dark_mode=False):
     """
     Add breaker blocks to the chart.
-    
+
     Args:
         ax: Matplotlib axes object
         breaker_blocks: BreakerBlocks object containing blocks to plot
@@ -298,7 +298,7 @@ def add_liquidity_pools(ax, liquidity_pools, dark_mode=False):
     """
     Add liquidity pools to the chart as semi-transparent horizontal bands.
     The opacity of each band is determined by the pool's strength.
-    
+
     Args:
         ax: Matplotlib axes object
         liquidity_pools: LiquidityPools object containing pools to plot

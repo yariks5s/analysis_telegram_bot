@@ -16,11 +16,11 @@ from src.analysis.utils.liquidity_pool_utils import LiquidityPools
 class Indicators:
     """
     Container class for all technical analysis indicators.
-    
+
     Provides methods to store, filter, and represent various indicator types
     including order blocks, FVGs, liquidity levels, breaker blocks, and liquidity pools.
     """
-    
+
     def __init__(self):
         """
         Initialize an Indicators object to store various technical analysis features.
@@ -34,7 +34,7 @@ class Indicators:
     def __str__(self):
         """
         String representation of all indicators.
-        
+
         Returns:
             str: Formatted string representation of all indicator data
         """
@@ -50,10 +50,10 @@ class Indicators:
     def filter(self, selected):
         """
         Filter indicators based on user selection.
-        
+
         Args:
             selected (dict): Dictionary with indicator types as keys and boolean values
-            
+
         Returns:
             Indicators: A new Indicators object with only the selected indicators
         """

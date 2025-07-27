@@ -25,7 +25,11 @@ from src.database.operations import (
 
 # Imports with updated module paths
 from src.visualization.plot_builder import plot_price_chart
-from src.analysis.utils.helpers import fetch_candles, analyze_data, fetch_data_and_get_indicators
+from src.analysis.utils.helpers import (
+    fetch_candles,
+    analyze_data,
+    fetch_data_and_get_indicators,
+)
 
 
 @dataclass
@@ -62,11 +66,11 @@ class MarketRegime(Enum):
 def calculate_atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
     """
     Calculate Average True Range for volatility
-    
+
     Args:
         df: DataFrame with OHLC data
         period: Period for ATR calculation
-    
+
     Returns:
         ATR values as a pandas Series
     """
@@ -91,11 +95,11 @@ def calculate_atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
 def calculate_rsi(series: pd.Series, period: int = 14) -> pd.Series:
     """
     Calculate RSI for momentum confirmation
-    
+
     Args:
         series: Price series (typically Close prices)
         period: RSI calculation period
-        
+
     Returns:
         RSI values as a pandas Series
     """
@@ -116,23 +120,25 @@ def calculate_rsi(series: pd.Series, period: int = 14) -> pd.Series:
 def detect_market_regime(df: pd.DataFrame) -> MarketRegime:
     """
     Detect current market regime for better signal filtering
-    
+
     Args:
         df: DataFrame with OHLC data
-        
+
     Returns:
         Market regime classification
     """
     # Calculate indicators for regime detection
     atr = calculate_atr(df)
     rsi = calculate_rsi(df["Close"])
-    
+
     # Get recent values
     recent_atr = atr.iloc[-5:].mean()
     recent_rsi = rsi.iloc[-5:].mean()
     avg_atr = atr.mean()
-    price_range_percent = (df["High"].iloc[-20:].max() - df["Low"].iloc[-20:].min()) / df["Close"].iloc[-1]
-    
+    price_range_percent = (
+        df["High"].iloc[-20:].max() - df["Low"].iloc[-20:].min()
+    ) / df["Close"].iloc[-1]
+
     # Determine market regime
     if recent_atr > avg_atr * 1.5:
         return MarketRegime.VOLATILE
@@ -152,9 +158,9 @@ def detect_market_regime(df: pd.DataFrame) -> MarketRegime:
 async def auto_signal_job(context):
     """
     Scheduled job to check for signals and notify the user.
-    
+
     This is called periodically based on the frequency set by the user.
-    
+
     Args:
         context: Telegram context with job data
     """
@@ -163,97 +169,94 @@ async def auto_signal_job(context):
     chat_id = job_data["chat_id"]
     currency_pair = job_data["currency_pair"]
     is_with_chart = job_data.get("is_with_chart", False)
-    
+
     logger.info(f"Running auto signal job for {user_id}, {currency_pair}")
-    
+
     try:
         # Get user's indicator preferences, or use default if none
         preferences = get_user_preferences(user_id)
         if not any(preferences.values()):
             preferences = create_true_preferences()
-        
+
         # Fetch data for analysis
-        (indicators, df) = await fetch_data_and_get_indicators(currency_pair, 100, "1h", preferences)
-        
+        (indicators, df) = await fetch_data_and_get_indicators(
+            currency_pair, 100, "1h", preferences
+        )
+
         if df is None or df.empty:
             await context.bot.send_message(
-                chat_id=chat_id, 
-                text=f"❌ Error fetching data for {currency_pair}"
+                chat_id=chat_id, text=f"❌ Error fetching data for {currency_pair}"
             )
             return
-            
+
         # Generate analysis result
         analysis_result = generate_signal_analysis(df, indicators, currency_pair)
-        
+
         # Generate chart if requested
         if is_with_chart:
             chart_path = plot_price_chart(
-                df, 
-                indicators, 
+                df,
+                indicators,
                 preferences.get("show_legend", True),
                 preferences.get("show_volume", True),
-                preferences.get("dark_mode", False)
+                preferences.get("dark_mode", False),
             )
-            
+
             # Send chart with analysis
             await context.bot.send_photo(
-                chat_id=chat_id,
-                photo=open(chart_path, "rb"),
-                caption=analysis_result
+                chat_id=chat_id, photo=open(chart_path, "rb"), caption=analysis_result
             )
         else:
             # Send text analysis only
-            await context.bot.send_message(
-                chat_id=chat_id,
-                text=analysis_result
-            )
-            
+            await context.bot.send_message(chat_id=chat_id, text=analysis_result)
+
     except Exception as e:
         logger.error(f"Error in auto_signal_job: {e}")
         await context.bot.send_message(
-            chat_id=chat_id,
-            text=f"❌ Error analyzing {currency_pair}: {str(e)}"
+            chat_id=chat_id, text=f"❌ Error analyzing {currency_pair}: {str(e)}"
         )
 
 
 def generate_signal_analysis(df: pd.DataFrame, indicators, currency_pair: str) -> str:
     """
     Generate a comprehensive analysis of the current market conditions.
-    
+
     Args:
         df: DataFrame with OHLC data
         indicators: Indicator objects containing detected patterns
         currency_pair: The trading pair symbol
-        
+
     Returns:
         Formatted analysis text
     """
     # Detect market regime
     regime = detect_market_regime(df)
-    
+
     # Calculate key technical indicators
     rsi = calculate_rsi(df["Close"]).iloc[-1]
     atr = calculate_atr(df).iloc[-1]
-    
+
     # Current price
     current_price = df["Close"].iloc[-1]
-    
+
     # Format the analysis text
     analysis = f"📊 *{currency_pair} Analysis*\n\n"
     analysis += f"*Price*: {current_price:.2f} USDT\n"
     analysis += f"*Market Regime*: {regime.value}\n"
     analysis += f"*RSI*: {rsi:.1f}\n\n"
-    
+
     # Add indicator information if available
-    if hasattr(indicators, 'order_blocks') and indicators.order_blocks.list:
+    if hasattr(indicators, "order_blocks") and indicators.order_blocks.list:
         analysis += f"*Order Blocks*: {len(indicators.order_blocks.list)} detected\n"
-        
-    if hasattr(indicators, 'fvgs') and indicators.fvgs.list:
+
+    if hasattr(indicators, "fvgs") and indicators.fvgs.list:
         analysis += f"*Fair Value Gaps*: {len(indicators.fvgs.list)} detected\n"
-        
-    if hasattr(indicators, 'liquidity_levels') and indicators.liquidity_levels.list:
-        analysis += f"*Liquidity Levels*: {len(indicators.liquidity_levels.list)} detected\n"
-    
+
+    if hasattr(indicators, "liquidity_levels") and indicators.liquidity_levels.list:
+        analysis += (
+            f"*Liquidity Levels*: {len(indicators.liquidity_levels.list)} detected\n"
+        )
+
     # Add a conclusion based on market regime
     analysis += "\n*Analysis*:\n"
     if regime == MarketRegime.TRENDING_UP:
@@ -261,12 +264,16 @@ def generate_signal_analysis(df: pd.DataFrame, indicators, currency_pair: str) -
     elif regime == MarketRegime.TRENDING_DOWN:
         analysis += "Market is in a downtrend. Watch for bearish continuation patterns."
     elif regime == MarketRegime.RANGING:
-        analysis += "Market is ranging. Watch for breakouts or rejections at range boundaries."
+        analysis += (
+            "Market is ranging. Watch for breakouts or rejections at range boundaries."
+        )
     elif regime == MarketRegime.VOLATILE:
         analysis += "Market is volatile. Consider reducing position sizes and using wider stops."
     elif regime == MarketRegime.QUIET:
-        analysis += "Market is quiet with low volatility. Potential buildup for a larger move."
-        
+        analysis += (
+            "Market is quiet with low volatility. Potential buildup for a larger move."
+        )
+
     return analysis
 
 
@@ -359,7 +366,7 @@ async def deleteSignalJob(currency_pair, update):
 async def initialize_jobs(application):
     """
     Called once at bot start-up to restore all jobs from the database.
-    
+
     Args:
         application: Telegram bot application
     """
@@ -406,6 +413,7 @@ async def initialize_jobs(application):
 
     logger.info("All user signal jobs have been initialized.")
 
+
 def detect_trend(df: pd.DataFrame, window: int = 20) -> str:
     """Detect trend using EMAs"""
     # Create a copy of the DataFrame to avoid SettingWithCopyWarning
@@ -426,6 +434,7 @@ def detect_trend(df: pd.DataFrame, window: int = 20) -> str:
         return "downtrend"
     else:
         return "sideways"
+
 
 def detect_support_resistance(
     df: pd.DataFrame, window: int = 20, threshold: float = 0.02
@@ -485,6 +494,7 @@ def detect_support_resistance(
 
     return support_levels, resistance_levels
 
+
 def calculate_market_structure_score(df: pd.DataFrame) -> float:
     """Calculate market structure score based on higher highs/lows"""
     window = 20
@@ -504,6 +514,7 @@ def calculate_market_structure_score(df: pd.DataFrame) -> float:
     bearish_score = (lh + ll) / (window * 2)
 
     return bullish_score - bearish_score
+
 
 def analyze_order_blocks(df: pd.DataFrame, window: int = 3) -> List[Dict]:
     """
@@ -953,6 +964,7 @@ def analyze_market_correlation(df: pd.DataFrame, btc_df: pd.DataFrame = None) ->
     market_analysis["structure_score"] = calculate_market_structure_score(df)
 
     return market_analysis
+
 
 def generate_price_prediction_signal_proba(
     df: pd.DataFrame,

@@ -23,22 +23,26 @@ DEFAULT_HOURS = 24
 DEFAULT_CANDLE_LIMIT = 200
 MAX_SIGNALS_PER_USER = 10
 
+
 def setup_logging():
     """Configure the logger for the application."""
     logger = logging.getLogger("cryptobot")
     logger.setLevel(logging.INFO)
-    
+
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
-    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
     console_handler.setFormatter(formatter)
-    
+
     # Prevent propagation to root logger
     logger.propagate = False
-    
+
     if not logger.handlers:
         logger.addHandler(console_handler)
-    
+
     return logger
+
 
 logger = setup_logging()

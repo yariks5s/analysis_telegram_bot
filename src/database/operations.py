@@ -22,10 +22,10 @@ def init_db() -> None:
 def get_user_preferences(user_id: int) -> Dict[str, bool]:
     """
     Retrieve the user's indicator preferences from the database.
-    
+
     Args:
         user_id: Telegram user ID
-        
+
     Returns:
         Dictionary of user preferences
     """
@@ -62,10 +62,10 @@ def get_user_preferences(user_id: int) -> Dict[str, bool]:
 def check_user_preferences(user_id: int) -> bool:
     """
     Check if the user has any preferences set.
-    
+
     Args:
         user_id: Telegram user ID
-        
+
     Returns:
         True if user has preferences, False otherwise
     """
@@ -80,7 +80,7 @@ def check_user_preferences(user_id: int) -> bool:
 def update_user_preferences(user_id: int, preferences: Dict[str, bool]) -> None:
     """
     Update or insert the user's indicator preferences in the database.
-    
+
     Args:
         user_id: Telegram user ID
         preferences: Dictionary of user preferences to update
@@ -143,10 +143,10 @@ def update_user_preferences(user_id: int, preferences: Dict[str, bool]) -> None:
 def get_all_user_signal_requests(user_id: int) -> List[Dict[str, any]]:
     """
     Retrieve all signal request preferences for a user from the database.
-    
+
     Args:
         user_id: Telegram user ID
-        
+
     Returns:
         List of signal request dictionaries
     """
@@ -172,7 +172,7 @@ def get_all_user_signal_requests(user_id: int) -> List[Dict[str, any]]:
 def upsert_user_signal_request(user_id: int, signals_request: Dict[str, any]) -> None:
     """
     Update or insert a user's signal request for a specific currency pair in the database.
-    
+
     Args:
         user_id: Telegram user ID
         signals_request: Signal request configuration
@@ -206,7 +206,7 @@ def upsert_user_signal_request(user_id: int, signals_request: Dict[str, any]) ->
 def delete_user_signal_request(user_id: int, currency_pair: str) -> None:
     """
     Delete a specific signal request for a user from the database.
-    
+
     Args:
         user_id: Telegram user ID
         currency_pair: Currency pair to delete (e.g. "BTCUSDT")
@@ -233,7 +233,7 @@ def delete_user_signal_request(user_id: int, currency_pair: str) -> None:
 def delete_all_user_signal_requests(user_id: int) -> None:
     """
     Delete all signal requests for a user from the database.
-    
+
     Args:
         user_id: Telegram user ID
     """
@@ -259,10 +259,10 @@ def delete_all_user_signal_requests(user_id: int) -> None:
 def get_chat_id_for_user(user_id: int) -> Optional[int]:
     """
     Retrieve the chat_id for a given user_id.
-    
+
     Args:
         user_id: Telegram user ID
-        
+
     Returns:
         Chat ID associated with the user or None if not found
     """
@@ -277,7 +277,7 @@ def get_chat_id_for_user(user_id: int) -> Optional[int]:
 def get_signal_requests() -> List[Dict[str, any]]:
     """
     Get all signal requests from the database.
-    
+
     Returns:
         List of all signal request configurations
     """
@@ -311,11 +311,11 @@ def get_signal_requests() -> List[Dict[str, any]]:
 def user_signal_request_exists(user_id: int, currency_pair: str) -> bool:
     """
     Check if a user already has a signal for the specified currency pair.
-    
+
     Args:
         user_id: Telegram user ID
         currency_pair: Currency pair to check (e.g. "BTCUSDT")
-        
+
     Returns:
         True if the signal request exists, False otherwise
     """

@@ -23,6 +23,7 @@ from src.database.operations import (
     update_user_preferences,
 )
 from src.telegram.signals.detection import createSignalJob
+
 # Imports with updated module paths
 from src.analysis.utils.helpers import input_sanity_check_analyzing, check_signal_limit
 from src.core.preferences import get_formatted_preferences
@@ -52,10 +53,10 @@ def build_signal_list_keyboard(user_id: int) -> InlineKeyboardMarkup:
       - Each row: [<Pair> (<freq>m)] [Delete <Pair>]
       - 'Add New Signal' button
       - 'Done' button
-      
+
     Args:
         user_id: Telegram user ID
-        
+
     Returns:
         InlineKeyboardMarkup with signal management options
     """
@@ -100,11 +101,11 @@ async def handle_signal_menu_callback(
 ):
     """
     CallbackQueryHandler for the signal management UI. This is where we CHECK callback data.
-    
+
     Args:
         update: Telegram update object
         context: Telegram context object
-        
+
     Returns:
         Conversation state
     """
@@ -162,11 +163,11 @@ async def handle_signal_menu_callback(
 async def handle_signal_text_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     After user taps "Add New Signal", they must type "SYMBOL MINUTES". We parse it and create the job.
-    
+
     Args:
         update: Telegram update object
         context: Telegram context object
-        
+
     Returns:
         Conversation state
     """
@@ -203,10 +204,10 @@ async def handle_signal_text_input(update: Update, context: ContextTypes.DEFAULT
 def get_indicator_selection_keyboard(user_id):
     """
     Create an inline keyboard for selecting indicators with a checkmark for selected ones.
-    
+
     Args:
         user_id: Telegram user ID
-        
+
     Returns:
         InlineKeyboardMarkup with indicator selection options
     """
@@ -262,11 +263,11 @@ def get_indicator_selection_keyboard(user_id):
 async def handle_indicator_selection(update, _):
     """
     Handle the user's selection of indicators and update the inline keyboard dynamically.
-    
+
     Args:
         update: Telegram update object
         _: Context object (unused)
-        
+
     Returns:
         Conversation state
     """
@@ -326,11 +327,11 @@ async def handle_indicator_selection(update, _):
 async def select_indicators(update, _):
     """
     Start the process of selecting indicators.
-    
+
     Args:
         update: Telegram update object
         _: Context object (unused)
-        
+
     Returns:
         None
     """
