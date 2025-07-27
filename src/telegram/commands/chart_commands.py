@@ -2,7 +2,7 @@ from telegram import Update  # type: ignore
 from telegram.ext import ContextTypes, CallbackContext  # type: ignore
 
 # These imports will need to be updated once all files are restructured
-from helpers import (
+from src.analysis.utils.helpers import (
     check_and_analyze,
     input_sanity_check_analyzing,
     input_sanity_check_historical,

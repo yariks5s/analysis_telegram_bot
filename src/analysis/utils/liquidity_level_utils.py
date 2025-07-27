@@ -55,3 +55,6 @@ class LiquidityLevels:
     
     def __repr__(self):
         return self.__str__()
+    
+    def __bool__(self):
+        return bool(self.list)

@@ -35,6 +35,12 @@ class OrderBlock:
     
     def __repr__(self):
         return self.__str__()
+    
+    def is_bullish(self):
+        return self.block_type == "bullish"
+
+    def is_bearish(self):
+        return self.block_type == "bearish"
 
 
 class OrderBlocks:

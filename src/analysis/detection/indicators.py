@@ -104,28 +104,23 @@ def detect_impulses(
 
 def detect_order_blocks_from_impulses(
     df: pd.DataFrame, impulses, min_gap: int = 5
-) -> "OrderBlocks":
+):
     """
-    For each detected impulse, find the candidate order block by searching backwards from the start
-    of the impulse until a candle with the opposite trend is found. For a bullish impulse (upward move),
-    the candidate must be bearish; for a bearish impulse (downward move), the candidate must be bullish.
-
-    If two order blocks are too close (within min_gap candles), the later one replaces the earlier.
-
+    Find order blocks from detected impulses by searching for opposing candles.
+    
     Args:
-        df (pd.DataFrame): DataFrame with candlestick data.
-        impulses (list): List of impulses as returned by detect_impulses().
-        min_gap (int): Minimum gap (in candle count) required between order blocks.
-
+        df: DataFrame with OHLC data
+        impulses: List of detected impulses
+        min_gap: Minimum candles between order block and impulse
+        
     Returns:
-        OrderBlocks: An instance containing detected OrderBlock objects.
+        OrderBlocks: Container with detected order blocks
     """
     order_blocks = OrderBlocks()
 
     for impulse in impulses:
-        chain_start, chain_end, impulse_type, overall_move, chain_length, _, _ = impulse
+        chain_start, chain_end, impulse_type, _, _, _, _ = impulse
 
-        # Start from the candle immediately before the impulse chain
         candidate_index = chain_start - 1
         found_candidate = None
 
@@ -148,7 +143,6 @@ def detect_order_blocks_from_impulses(
                 candidate_index -= 1
 
         if found_candidate is None:
-            # No suitable candidate found; skip this impulse.
             continue
 
         candidate_index = found_candidate
@@ -162,7 +156,7 @@ def detect_order_blocks_from_impulses(
         new_block = OrderBlock(
             block_type, candidate_index, candidate["High"], candidate["Low"]
         )
-        new_block.pos = candidate_index  # store positional index
+        new_block.pos = candidate_index
 
         # Enforce the minimum gap between order blocks.
         if (
@@ -229,6 +223,7 @@ def detect_fvgs(df: pd.DataFrame, min_fvg_ratio=0.0005):
 
     last_close_price = df["Close"].iloc[-1]
 
+    # TODO
     # Optimization suggestion: it is possible to build a two sorted lists with some amount of candles, sorted
     # by low and high, which are stored along with their indices. If we pass that index when iterating over candles,
     # just remove that candle from sorted list of candles. And ta-da, you don't need to recalculate the min/max again.
@@ -254,7 +249,6 @@ def detect_fvgs(df: pd.DataFrame, min_fvg_ratio=0.0005):
             bottom_boundary = df["High"].iloc[i - 2]  # bottom boundary of gap
 
             for j in range(i + 1, len(df)):
-                # Always track the minimum Low so far
                 if df["Low"].iloc[j] < next_min:
                     next_min = df["Low"].iloc[j]
                 else:
@@ -345,7 +339,6 @@ def compute_atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
     Returns:
         pd.Series: ATR values computed as the rolling mean of the true range.
     """
-    # Calculate differences needed for True Range
     high_low = df["High"] - df["Low"]
     high_close = (df["High"] - df["Close"].shift()).abs()
     low_close = (df["Low"] - df["Close"].shift()).abs()
@@ -380,7 +373,6 @@ def is_swing_high(
     Returns:
         bool: True if conditions are met, otherwise False
     """
-    # Check if current high is greater than previous left_bars highs and at least equal to subsequent right_bars highs
     pivot_condition = all(
         df["BodyHigh"].iloc[i] > df["BodyHigh"].iloc[i - j]
         for j in range(1, left_bars + 1)
@@ -391,7 +383,6 @@ def is_swing_high(
     if not pivot_condition:
         return False
 
-    # Ensure the price difference is significant compared to ATR-based min_move
     if (df["BodyHigh"].iloc[i] - df["BodyLow"].iloc[i - left_bars]) < min_move:
         return False
     if (df["BodyHigh"].iloc[i] - df["BodyLow"].iloc[i + right_bars]) < min_move:
@@ -422,7 +413,6 @@ def is_swing_low(
     Returns:
         bool: True if conditions are met, otherwise False
     """
-    # Check if current low is less than previous left_bars lows and less than or equal to subsequent right_bars lows
     pivot_condition = all(
         df["BodyLow"].iloc[i] < df["BodyLow"].iloc[i - j]
         for j in range(1, left_bars + 1)
@@ -433,7 +423,6 @@ def is_swing_low(
     if not pivot_condition:
         return False
 
-    # Ensure the price difference is significant compared to ATR-based min_move
     if (df["BodyHigh"].iloc[i - left_bars] - df["BodyLow"].iloc[i]) < min_move:
         return False
     if (df["BodyHigh"].iloc[i + right_bars] - df["BodyLow"].iloc[i]) < min_move:
@@ -467,7 +456,6 @@ def find_pivots(
     Returns:
         tuple: Two lists containing the detected pivot low prices and pivot high prices (based on canlde body)
     """
-    # Compute ATR for volatility; ATR uses the full candle range
     atr_series = compute_atr(df, period=atr_period).fillna(0)
     pivot_lows, pivot_highs = [], []
 
@@ -526,18 +514,14 @@ def detect_liquidity_levels(
     Returns:
         LiquidityLevels: A container object holding all valid liquidity levels
     """
-    # Determine if we need to auto-adjust stdev_multiplier or it is set by user and we should not touch it
     is_stdev_specified = True
     if not stdev_multiplier:
         is_stdev_specified = False
         stdev_multiplier = 0.05
-
-    # 1. Limit analysis to the last 'window' candles and compute body values
     df = df.tail(window).copy().reset_index(drop=True)
     df["BodyHigh"] = df[["Open", "Close"]].max(axis=1)
     df["BodyLow"] = df[["Open", "Close"]].min(axis=1)
 
-    # 2. Identify pivot lows and pivot highs based on candle body
     pivot_lows, pivot_highs = find_pivots(
         df, left_bars, right_bars, significance_multiplier, atr_period
     )
@@ -545,10 +529,8 @@ def detect_liquidity_levels(
     if not all_pivots:
         return LiquidityLevels()
 
-    # Pre-calculate some values that remain constant for different stdev_multiplier trials
     data = np.array(all_pivots).reshape(-1, 1)
     std_dev = np.std(all_pivots)
-    # Calculate eps; if std_dev is zero, set eps to a small positive value to avoid DBSCAN error
     eps = std_dev * stdev_multiplier
     if eps <= 0:
         eps = 1e-5
@@ -591,10 +573,9 @@ def detect_liquidity_levels(
         final = [lvl for lvl in clustered_levels if count_touches(lvl) >= min_touches]
         return sorted(final)
 
-    # Initially calculate final levels with the given stdev_multiplier
     final_levels = calc_final_levels(stdev_multiplier)
 
-    # 3. If custom stdev is not specified, adjust it to yield between 3 and 6 liquidity levels
+    # If custom stdev is not specified, adjust it to yield between 3 and 6 liquidity levels
     # Motivation: if we will have too many liquidity levels, using them will not make any sense
     # So we might want either to rely on this logic and make the computer decide, how many
     # liquidity levels it is there, or to go into the "pro" mode and try to specify the multiplier by yourself
@@ -618,7 +599,6 @@ def detect_liquidity_levels(
                 # Too many levels: clusters are too fragmented; increase multiplier to merge more
                 low_multiplier = trial_multiplier
 
-    # 4. Wrap the final levels into the LiquidityLevels container
     result = LiquidityLevels()
     for lvl in sorted(final_levels):
         result.add(LiquidityLevel(lvl))
@@ -642,11 +622,9 @@ def detect_breaker_blocks(df: pd.DataFrame, liquidity_levels: LiquidityLevels):
     if not liquidity_levels.list:
         return breaker_blocks
 
-    # Iterate over each candle
     for i in range(2, len(df)):
         low, high, close = df["Low"].iloc[i], df["High"].iloc[i], df["Close"].iloc[i]
 
-        # Check for bullish and bearish breaker blocks
         for level in liquidity_levels.list:
             # Bullish breaker: sweeps support and reverses upward
             if low < level.price and close > level.price:
@@ -685,7 +663,6 @@ def detect_liquidity_pools(
     if "Volume" not in df.columns:
         return LiquidityPools()
 
-    # Calculate average volume and ATR
     avg_volume = df["Volume"].mean()
     atr = compute_atr(df, period=atr_period)
     price_range = atr * atr_multiplier
@@ -716,11 +693,9 @@ def detect_liquidity_pools(
             1.0, pool_volume / (avg_volume * min_pool_size * volume_threshold)
         )
 
-        # Create and add the pool
         pool = LiquidityPool(pool_price, pool_volume, pool_strength)
         pools.add(pool)
 
-        # Skip the candles we've already processed
         i += min_pool_size
 
     return pools

@@ -9,14 +9,13 @@ import sqlite3
 from typing import List, Dict, Optional
 
 from src.core.config import DATABASE_PATH, logger
-from src.database.models import UserPreference, SignalRequest, UserChat, create_tables
+from src.database.models import create_tables
 
 
 def init_db() -> None:
     """
     Initialize the SQLite database and create the tables if they don't exist.
     """
-    # Use the create_tables function from models.py
     create_tables()
 
 

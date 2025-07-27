@@ -1,8 +1,8 @@
 from telegram import Update
 from telegram.ext import ContextTypes
-from helpers import check_signal_limit, input_sanity_check_analyzing
-from utils import plural_helper
-from signal_detection import createSignalJob, deleteSignalJob
+from src.analysis.utils.helpers import check_signal_limit, input_sanity_check_analyzing
+from src.core.utils import plural_helper
+from src.telegram.signals.detection import createSignalJob, deleteSignalJob
 
 
 async def create_signal_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -35,14 +35,30 @@ async def delete_signal_command(update: Update, context: ContextTypes.DEFAULT_TY
     Example: /delete_signal BTCUSDT
     """
     args = context.args
-    pair = await input_sanity_check_analyzing(False, args, update)
-    if not pair:
+    
+    # Check if args list is empty
+    if not args:
         await update.message.reply_text(
-            f"Usage: /delete_signal <symbol>, you've sent {len(args)} argument{plural_helper(len(args))}."
+            f"Usage: /delete_signal <symbol>"
         )
-    else:
-        try:
-            await deleteSignalJob(pair[0], update)
-        except Exception as e:
-            print(f"Unexpected error: {e}")
-            await update.message.reply_text("❌ An unexpected error occurred.")
+        return
+        
+    # Format and store the command in the update object for deleteSignalJob to parse
+    # The original command structure expected by deleteSignalJob is:
+    # "/delete_signal SYMBOL"
+    
+    # We'll manually modify the update object's message text to match what deleteSignalJob expects
+    original_text = update.message.text
+    update.message.text = f"/delete_signal {args[0].upper()}"
+    
+    try:
+        await deleteSignalJob(args[0].upper(), update)
+    except ValueError as e:
+        print(f"Value error in delete_signal: {e}")
+        await update.message.reply_text(f"❌ Invalid symbol: {str(e)}")
+    except Exception as e:
+        print(f"Unexpected error in delete_signal: {e}")
+        await update.message.reply_text("❌ An unexpected error occurred.")
+    finally:
+        # Restore the original text in case it's needed elsewhere
+        update.message.text = original_text

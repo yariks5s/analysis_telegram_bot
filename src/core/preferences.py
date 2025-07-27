@@ -5,7 +5,6 @@ Preferences-related constants and utilities for the CryptoBot.
 from typing import Dict, List, Any
 
 
-# Dictionary mapping preference keys to their display names
 PREFERENCE_DISPLAY_NAMES = {
     "order_blocks": "Order Blocks",
     "fvgs": "FVGs",
@@ -49,8 +48,6 @@ def get_formatted_preferences(preferences_dict: Dict[str, Any]) -> List[str]:
     formatted = []
 
     for key, val in preferences_dict.items():
-        # Include dark_mode regardless of value (showing either Dark or Light mode)
-        # Include other preferences only if they're enabled (True)
         if val or key == "dark_mode":
             formatted.append(get_pretty_preference_name(key, val))
 

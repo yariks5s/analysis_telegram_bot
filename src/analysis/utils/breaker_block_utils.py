@@ -32,6 +32,18 @@ class BreakerBlock:
     def __repr__(self):
         return self.__str__()
 
+    def is_bullish(self):
+        """
+        Check if the breaker block is bullish.
+        """
+        return self.block_type == "bullish"
+
+    def is_bearish(self):
+        """
+        Check if the breaker block is bearish.
+        """
+        return self.block_type == "bearish"
+
 
 class BreakerBlocks:
     """
@@ -59,3 +71,6 @@ class BreakerBlocks:
     
     def __repr__(self):
         return self.__str__()
+
+    def __bool__(self):
+        return bool(self.list)

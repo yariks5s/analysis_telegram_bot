@@ -99,49 +99,53 @@ async def input_sanity_check_show(args, update) -> tuple:
     return (symbol, hours, interval, liq_lev_tolerance)
 
 
-async def input_sanity_check_analyzing(text) -> dict:
-    """
-    Validate input for signal creation or deletion.
-    
-    Args:
-        text: Command text to analyze
-        
-    Returns:
-        Dict with validation results and parsed values
-    """
-    parts = text.strip().upper().split()
-    result = {
-        "is_valid": False,
-        "error_message": "",
-        "symbol": "",
-        "frequency": 0,
-        "is_with_chart": False
-    }
-    
-    # Check basic format
-    if len(parts) < 2:
-        result["error_message"] = "Missing required arguments (format: SYMBOL MINUTES [with_chart])"
-        return result
-        
-    # Parse symbol
-    result["symbol"] = parts[0]
-    
-    # Parse frequency
-    try:
-        result["frequency"] = int(parts[1])
-        if result["frequency"] <= 0:
-            result["error_message"] = "Frequency must be a positive number"
-            return result
-    except ValueError:
-        result["error_message"] = "Frequency must be a valid number"
-        return result
-        
-    # Check for chart option
-    if len(parts) >= 3 and "WITH_CHART" in " ".join(parts[2:]):
-        result["is_with_chart"] = True
-        
-    result["is_valid"] = True
-    return result
+async def input_sanity_check_analyzing(is_start: bool, args, update) -> tuple:
+    # Default values
+    symbol = "BTCUSDT"
+    period_minutes = 60
+    is_with_chart = False
+
+    if is_start:
+        if len(args) < 2:
+            await update.message.reply_text(
+                f"❌ Please specify the currency pair and sending period to create a signal."
+            )
+            return tuple()
+    else:
+        if len(args) != 1:
+            await update.message.reply_text(
+                f"❌ Please specify the currency pair to delete."
+            )
+            return tuple()
+
+    if len(args) >= 1:
+        symbol = str(args[0]).upper()
+    if len(args) >= 2:
+        try:
+            period_minutes = int(args[1])
+        except ValueError:
+            await update.message.reply_text(
+                "❌ Invalid period. Must be an integer (minutes)."
+            )
+            return tuple()
+    if len(args) >= 3:
+        if str(args[2]).lower() in ["true", "yes", "1"]:
+            is_with_chart = True
+        elif str(args[2]).lower() in ["false", "no", "0"]:
+            is_with_chart = False
+        else:
+            await update.message.reply_text(
+                "❌ Invalid value for the third argument. Must be a true/false (yes/no, 1/0) depending if you want to receive a chart along with a signal."
+            )
+            return tuple()
+
+    if len(args) > (3 if is_start else 1):
+        await update.message.reply_text(
+            "❌ Invalid number of arguments. Please check your request."
+        )
+        return tuple()
+
+    return (symbol, period_minutes, is_with_chart)
 
 
 async def input_sanity_check_historical(args, update) -> tuple:
@@ -266,19 +270,24 @@ async def check_and_analyze(update, user_id, preferences, args):
     return await fetch_data_and_get_indicators(res[0], res[1], res[2], preferences, res[3], update)
 
 
-async def check_signal_limit(user_id):
+async def check_signal_limit(update):
     """
     Check if the user has reached the signal limit.
     
     Args:
-        user_id: User ID to check
+        update: Telegram update object
         
     Returns:
-        Tuple of (is_limit_reached, message)
+        bool: True if limit reached, False otherwise
     """
+    user_id = update.effective_user.id
     previous_signals = get_all_user_signal_requests(user_id)
     
     if len(previous_signals) >= 10:
-        return (False, f"You've reached the limit of signals ({len(previous_signals)}). If you want to add a new signal, please remove some of existing signals.")
+        await update.message.reply_text(
+            f"You've reached the limit of signals ({len(previous_signals)}). "
+            f"If you want to add a new signal, please remove some of existing signals."
+        )
+        return True
     
-    return (True, "")
+    return False

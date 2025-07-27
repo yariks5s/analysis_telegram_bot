@@ -6,7 +6,7 @@ This module contains database table definitions and schema information.
 
 import sqlite3
 from dataclasses import dataclass
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 from src.core.config import DATABASE_PATH, logger
 
@@ -52,7 +52,6 @@ def create_tables():
         conn = sqlite3.connect(DATABASE_PATH)
         cursor = conn.cursor()
         
-        # User preferences table
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS user_preferences (
             user_id INTEGER PRIMARY KEY,
@@ -67,7 +66,6 @@ def create_tables():
         )
         """)
         
-        # User signal requests table
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS user_signals_requests (
             user_id INTEGER,
@@ -78,7 +76,6 @@ def create_tables():
         )
         """)
         
-        # User-chat mapping table
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS user_chats (
             user_id INTEGER PRIMARY KEY,
@@ -110,7 +107,6 @@ def get_tables_info() -> List[Dict]:
         conn = sqlite3.connect(DATABASE_PATH)
         cursor = conn.cursor()
         
-        # Get list of tables
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
         tables = cursor.fetchall()
         
@@ -119,7 +115,6 @@ def get_tables_info() -> List[Dict]:
             cursor.execute(f"PRAGMA table_info({table_name})")
             columns = cursor.fetchall()
             
-            # Format column information
             column_info = []
             for col in columns:
                 column_info.append({

@@ -6,11 +6,11 @@ These classes serve as containers for various trading indicators detected in pri
 """
 
 # These imports will need to be updated after we reorganize the IndicatorUtils modules
-from IndicatorUtils.order_block_utils import OrderBlocks
-from IndicatorUtils.fvg_utils import FVGs
-from IndicatorUtils.liquidity_level_utils import LiquidityLevels
-from IndicatorUtils.breaker_block_utils import BreakerBlocks
-from IndicatorUtils.liquidity_pool_utils import LiquidityPools
+from src.analysis.utils.order_block_utils import OrderBlocks
+from src.analysis.utils.fvg_utils import FVGs
+from src.analysis.utils.liquidity_level_utils import LiquidityLevels
+from src.analysis.utils.breaker_block_utils import BreakerBlocks
+from src.analysis.utils.liquidity_pool_utils import LiquidityPools
 
 
 class Indicators:

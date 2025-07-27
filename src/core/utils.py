@@ -3,25 +3,17 @@ Core utility functions for the CryptoBot application.
 """
 
 import logging
-from datetime import datetime
-
 logger = logging.getLogger(__name__)
 
-# Create a formatter
 formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 
-# Create console handler for logs
 console_handler = logging.StreamHandler()
 console_handler.setLevel(logging.INFO)
 console_handler.setFormatter(formatter)
 
-# Add handlers to logger
 logger.addHandler(console_handler)
-
-# Prevent propagation to root logger
 logger.propagate = False
 
-# Time intervals mapping
 VALID_INTERVALS = {
     "1m": "1",    # 1 minute
     "5m": "5",    # 5 minutes
@@ -33,10 +25,8 @@ VALID_INTERVALS = {
     "1w": "W",    # 1 week
 }
 
-# API endpoint constants
 API_URL = "https://api.bybit.com/v5/market/kline"
 
-# Global storage for user preferences and jobs
 user_selected_indicators = {}
 auto_signal_jobs = {}
 

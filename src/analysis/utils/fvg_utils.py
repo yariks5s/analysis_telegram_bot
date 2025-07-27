@@ -55,6 +55,12 @@ class FVGs:
             fvg (FVG): The FVG instance to add
         """
         self.list.append(fvg)
+
+    def non_verbose_str(self):
+        if self.__bool__():
+            return "\n" + "\n".join(str(fvg) for fvg in self.list)
+        else:
+            return "\nNone."
         
     def __str__(self):
         """String representation of all contained FVGs."""
@@ -64,3 +70,10 @@ class FVGs:
     
     def __repr__(self):
         return self.__str__()
+
+    def __bool__(self):
+        if not self.list:
+            return False
+        for fvg in self.list:
+            return True
+        return False
