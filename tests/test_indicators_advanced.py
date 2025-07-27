@@ -1,18 +1,24 @@
 import pytest  # type: ignore
-from indicators import (
+# Updated imports for the new structure
+import src.analysis.detection.indicators as ind_module  # Import the indicators module
+
+# Import functions from the indicators module
+from src.analysis.detection.indicators import (
     detect_order_blocks,
     detect_fvgs,
     detect_liquidity_levels,
     detect_breaker_blocks,
     detect_liquidity_pools,
 )
-from IndicatorUtils.breaker_block_utils import BreakerBlocks
-from IndicatorUtils.fvg_utils import FVGs
-from IndicatorUtils.liquidity_level_utils import LiquidityLevels
-from IndicatorUtils.order_block_utils import OrderBlocks
-from IndicatorUtils.liquidity_pool_utils import LiquidityPools
 
-from data_fetching_instruments import fetch_from_json
+# Import utility classes for indicators
+from src.analysis.utils.breaker_block_utils import BreakerBlocks
+from src.analysis.utils.fvg_utils import FVGs
+from src.analysis.utils.liquidity_level_utils import LiquidityLevels
+from src.analysis.utils.order_block_utils import OrderBlocks
+from src.analysis.utils.liquidity_pool_utils import LiquidityPools
+
+from src.api.data_fetcher import fetch_from_json
 
 
 @pytest.fixture

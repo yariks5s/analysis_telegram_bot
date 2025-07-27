@@ -4,7 +4,7 @@ import os
 
 project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(project_dir)
-from message_handlers import handle_indicator_selection, select_indicators
+from src.telegram.handlers import handle_indicator_selection, select_indicators
 
 
 @pytest.mark.asyncio
@@ -39,7 +39,7 @@ async def test_handle_dark_mode_toggle(mocker):
     """Test that toggling dark mode works correctly"""
     # Mock the database functions
     mocker.patch(
-        "message_handlers.get_user_preferences",
+        "src.telegram.handlers.get_user_preferences",
         return_value={
             "order_blocks": False,
             "fvgs": False,
@@ -51,7 +51,7 @@ async def test_handle_dark_mode_toggle(mocker):
             "dark_mode": False,  # Start with light mode
         },
     )
-    update_preferences_mock = mocker.patch("message_handlers.update_user_preferences")
+    update_preferences_mock = mocker.patch("src.telegram.handlers.update_user_preferences")
 
     # Mock the query object
     query = mocker.Mock()
@@ -94,8 +94,8 @@ async def test_preferences_done_message_formatting(mocker):
     }
 
     # Mock the get_user_preferences function
-    mocker.patch("message_handlers.get_user_preferences", return_value=preferences)
-    mocker.patch("message_handlers.update_user_preferences")
+    mocker.patch("src.telegram.handlers.get_user_preferences", return_value=preferences)
+    mocker.patch("src.telegram.handlers.update_user_preferences")
 
     # Mock the query object
     query = mocker.Mock()
@@ -131,8 +131,8 @@ async def test_preferences_done_message_with_light_mode(mocker):
     }
 
     # Mock the get_user_preferences function
-    mocker.patch("message_handlers.get_user_preferences", return_value=preferences)
-    mocker.patch("message_handlers.update_user_preferences")
+    mocker.patch("src.telegram.handlers.get_user_preferences", return_value=preferences)
+    mocker.patch("src.telegram.handlers.update_user_preferences")
 
     # Mock the query object
     query = mocker.Mock()

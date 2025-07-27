@@ -147,6 +147,34 @@ All dependencies are listed in `requirements.txt`. Key packages:
 
 ---
 
+## Project Structure
+
+The project follows a modular structure for better organization and maintainability:
+
+```
+/cryptoBot/
+├── src/                           # Source code directory
+│   ├── core/                      # Core functionality
+│   │
+│   ├── api/                       # API interactions
+│   │
+│   ├── database/                  # Database operations
+│   │
+│   ├── analysis/                  # Technical analysis 
+│   │
+│   ├── visualization/             # Visualization components
+│   │
+│   ├── telegram/                  # Telegram bot functionality
+│   │
+│   └── model_classes/             # Data models
+├── back_tester/                   # Backtesting system
+├── tests/                         # Test directory
+├── main.py                        # Entry point
+└── README.md                      # Documentation
+```
+
+---
+
 ## License
 
 TBD
@@ -201,7 +229,8 @@ You also have a chance to contribute to this project. Please create a pull reque
 - [x] Liquidity pools implementation
 - [x] Tests for liquidity pools
 - [x] Ability to show historical (not real-time) data
-- [ ] Disclaimer in /help temporary debugging commands
+- [ ] Disclaimer in /help about temporary debugging commands
+- [ ] Shell script to launch ClickHouse from proper directory
 - [ ] Implement testing for proper backtesting
 - [ ] Multi language support
 - [ ] Implement advanced risk management tools (e.g., stop-loss/take-profit suggestions)

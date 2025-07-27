@@ -7,7 +7,7 @@ import os
 
 project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(project_dir)
-from data_fetching_instruments import fetch_ohlc_data, analyze_data
+from src.api.data_fetcher import fetch_ohlc_data, analyze_data
 
 
 @pytest.fixture
