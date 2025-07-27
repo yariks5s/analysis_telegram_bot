@@ -250,7 +250,7 @@ You also have a chance to contribute to this project. Please create a pull reque
 - [ ] Add some optimizations techiques (if two users requested the same signal at the same time, calculate it only once)
 - [x] Add dark/light mode for charts
 - [x] Fix this: "You selected: ..., **dark_mode**"
-- [ ] Fix instrument markings for dark mode on the plot
+- [x] Fix instrument markings for dark mode on the plot
 - [ ] Implement rate limiting and abuse prevention
 - [ ] Make the system that will set the right logic coefficients based on backtesting
 - [ ] If possible, make the bot to continue sending signals after it is restarted
