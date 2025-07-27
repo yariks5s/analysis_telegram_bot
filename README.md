@@ -60,7 +60,8 @@ All indicators can be enabled/disabled per user.
 
 1. **Start the bot:**
    ```bash
-   python bot.py
+   pip install -r requirements.txt
+   python main.py
    ```
    The bot will initialize the database (`preferences.db`) automatically if it does not exist.
 
