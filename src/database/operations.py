@@ -1,58 +1,35 @@
+"""
+Database operations module for CryptoBot.
+
+This module handles all database interactions, including initialization,
+user preferences management, and signal request management.
+"""
+
 import sqlite3
-from typing import List, Dict
-from utils import logger
+from typing import List, Dict, Optional
+
+from src.core.config import DATABASE_PATH, logger
+from src.database.models import create_tables
 
 
 def init_db() -> None:
     """
     Initialize the SQLite database and create the tables if they don't exist.
     """
-    conn = sqlite3.connect("preferences.db")
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS user_preferences (
-            user_id INTEGER PRIMARY KEY,
-            order_blocks BOOLEAN DEFAULT 0,
-            fvgs BOOLEAN DEFAULT 0,
-            liquidity_levels BOOLEAN DEFAULT 0,
-            breaker_blocks BOOLEAN DEFAULT 0,
-            show_legend BOOLEAN DEFAULT 1,
-            show_volume BOOLEAN DEFAULT 1,
-            liquidity_pools BOOLEAN DEFAULT 1,
-            dark_mode BOOLEAN DEFAULT 0
-        )
-    """
-    )
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS user_signals_requests (
-            user_id INTEGER,
-            currency_pair VARCHAR DEFAULT 'BTCUSDT',
-            frequency_minutes INTEGER DEFAULT 60,
-            is_with_chart BOOL default 0,
-            PRIMARY KEY (user_id, currency_pair)
-        )
-    """
-    )
-    # Example table for user-chat mapping
-    cursor.execute(
-        """
-        CREATE TABLE IF NOT EXISTS user_chats (
-            user_id INTEGER PRIMARY KEY,
-            chat_id INTEGER NOT NULL
-        )
-    """
-    )
-    conn.commit()
-    conn.close()
+    create_tables()
 
 
 def get_user_preferences(user_id: int) -> Dict[str, bool]:
     """
     Retrieve the user's indicator preferences from the database.
+
+    Args:
+        user_id: Telegram user ID
+
+    Returns:
+        Dictionary of user preferences
     """
-    conn = sqlite3.connect("preferences.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM user_preferences WHERE user_id = ?", (user_id,))
     row = cursor.fetchone()
@@ -85,8 +62,14 @@ def get_user_preferences(user_id: int) -> Dict[str, bool]:
 def check_user_preferences(user_id: int) -> bool:
     """
     Check if the user has any preferences set.
+
+    Args:
+        user_id: Telegram user ID
+
+    Returns:
+        True if user has preferences, False otherwise
     """
-    conn = sqlite3.connect("preferences.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     cursor.execute("SELECT 1 FROM user_preferences WHERE user_id = ?", (user_id,))
     exists = cursor.fetchone()
@@ -97,9 +80,13 @@ def check_user_preferences(user_id: int) -> bool:
 def update_user_preferences(user_id: int, preferences: Dict[str, bool]) -> None:
     """
     Update or insert the user's indicator preferences in the database.
+
+    Args:
+        user_id: Telegram user ID
+        preferences: Dictionary of user preferences to update
     """
     try:
-        conn = sqlite3.connect("preferences.db")
+        conn = sqlite3.connect(DATABASE_PATH)
         cursor = conn.cursor()
 
         cursor.execute("SELECT 1 FROM user_preferences WHERE user_id = ?", (user_id,))
@@ -129,8 +116,8 @@ def update_user_preferences(user_id: int, preferences: Dict[str, bool]) -> None:
             cursor.execute(
                 """
                 INSERT INTO user_preferences 
-                    (user_id, order_blocks, fvgs, liquidity_levels, breaker_blocks,
-                     show_legend, show_volume, liquidity_pools, dark_mode)
+                (user_id, order_blocks, fvgs, liquidity_levels, breaker_blocks, 
+                 show_legend, show_volume, liquidity_pools, dark_mode)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
@@ -156,8 +143,14 @@ def update_user_preferences(user_id: int, preferences: Dict[str, bool]) -> None:
 def get_all_user_signal_requests(user_id: int) -> List[Dict[str, any]]:
     """
     Retrieve all signal request preferences for a user from the database.
+
+    Args:
+        user_id: Telegram user ID
+
+    Returns:
+        List of signal request dictionaries
     """
-    conn = sqlite3.connect("preferences.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     cursor.execute(
         """
@@ -179,9 +172,13 @@ def get_all_user_signal_requests(user_id: int) -> List[Dict[str, any]]:
 def upsert_user_signal_request(user_id: int, signals_request: Dict[str, any]) -> None:
     """
     Update or insert a user's signal request for a specific currency pair in the database.
+
+    Args:
+        user_id: Telegram user ID
+        signals_request: Signal request configuration
     """
     try:
-        conn = sqlite3.connect("preferences.db")
+        conn = sqlite3.connect(DATABASE_PATH)
         cursor = conn.cursor()
 
         cursor.execute(
@@ -209,9 +206,13 @@ def upsert_user_signal_request(user_id: int, signals_request: Dict[str, any]) ->
 def delete_user_signal_request(user_id: int, currency_pair: str) -> None:
     """
     Delete a specific signal request for a user from the database.
+
+    Args:
+        user_id: Telegram user ID
+        currency_pair: Currency pair to delete (e.g. "BTCUSDT")
     """
     try:
-        conn = sqlite3.connect("preferences.db")
+        conn = sqlite3.connect(DATABASE_PATH)
         cursor = conn.cursor()
 
         cursor.execute(
@@ -232,9 +233,12 @@ def delete_user_signal_request(user_id: int, currency_pair: str) -> None:
 def delete_all_user_signal_requests(user_id: int) -> None:
     """
     Delete all signal requests for a user from the database.
+
+    Args:
+        user_id: Telegram user ID
     """
     try:
-        conn = sqlite3.connect("preferences.db")
+        conn = sqlite3.connect(DATABASE_PATH)
         cursor = conn.cursor()
 
         cursor.execute(
@@ -252,25 +256,34 @@ def delete_all_user_signal_requests(user_id: int) -> None:
         conn.close()
 
 
-def get_chat_id_for_user(user_id: int) -> int:
+def get_chat_id_for_user(user_id: int) -> Optional[int]:
     """
     Retrieve the chat_id for a given user_id.
+
+    Args:
+        user_id: Telegram user ID
+
+    Returns:
+        Chat ID associated with the user or None if not found
     """
-    conn = sqlite3.connect("preferences.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     cursor.execute("SELECT chat_id FROM user_chats WHERE user_id = ?", (user_id,))
     row = cursor.fetchone()
     conn.close()
-    if row:
-        return row[0]
-    else:
-        return None  # Handle appropriately
+    return row[0] if row else None
 
 
-def get_signal_requests():
+def get_signal_requests() -> List[Dict[str, any]]:
+    """
+    Get all signal requests from the database.
+
+    Returns:
+        List of all signal request configurations
+    """
     signal_requests = []
     try:
-        conn = sqlite3.connect("preferences.db")
+        conn = sqlite3.connect(DATABASE_PATH)
         cursor = conn.cursor()
         cursor.execute(
             """
@@ -297,9 +310,16 @@ def get_signal_requests():
 
 def user_signal_request_exists(user_id: int, currency_pair: str) -> bool:
     """
-    Returns True if the user already has a signal for the specified currency_pair, else False.
+    Check if a user already has a signal for the specified currency pair.
+
+    Args:
+        user_id: Telegram user ID
+        currency_pair: Currency pair to check (e.g. "BTCUSDT")
+
+    Returns:
+        True if the signal request exists, False otherwise
     """
-    conn = sqlite3.connect("preferences.db")
+    conn = sqlite3.connect(DATABASE_PATH)
     cursor = conn.cursor()
     cursor.execute(
         """

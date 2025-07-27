@@ -4,12 +4,12 @@ import os
 project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(project_dir)
 
-from plot_build_helpers import plot_price_chart
-from IndicatorUtils.fvg_utils import FVGs
-from IndicatorUtils.breaker_block_utils import BreakerBlocks
-from IndicatorUtils.liquidity_level_utils import LiquidityLevels
-from IndicatorUtils.order_block_utils import OrderBlocks
-from IndicatorUtils.liquidity_pool_utils import LiquidityPools
+from src.visualization.plot_builder import plot_price_chart
+from src.analysis.utils.fvg_utils import FVGs
+from src.analysis.utils.breaker_block_utils import BreakerBlocks
+from src.analysis.utils.liquidity_level_utils import LiquidityLevels
+from src.analysis.utils.order_block_utils import OrderBlocks
+from src.analysis.utils.liquidity_pool_utils import LiquidityPools
 
 
 from unittest.mock import Mock

@@ -1,6 +1,6 @@
 import pytest  # type: ignore
 
-from data_fetching_instruments import fetch_from_json, analyze_data
+from src.api.data_fetcher import fetch_from_json, analyze_data
 
 
 @pytest.fixture

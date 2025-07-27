@@ -2,7 +2,9 @@
 Preferences-related constants and utilities for the CryptoBot.
 """
 
-# Dictionary mapping preference keys to their display names
+from typing import Dict, List, Any
+
+
 PREFERENCE_DISPLAY_NAMES = {
     "order_blocks": "Order Blocks",
     "fvgs": "FVGs",
@@ -33,7 +35,7 @@ def get_pretty_preference_name(key: str, value=None) -> str:
     return PREFERENCE_DISPLAY_NAMES.get(key, key)
 
 
-def get_formatted_preferences(preferences_dict):
+def get_formatted_preferences(preferences_dict: Dict[str, Any]) -> List[str]:
     """
     Format a preferences dictionary into a list of human-readable strings.
 
@@ -46,9 +48,26 @@ def get_formatted_preferences(preferences_dict):
     formatted = []
 
     for key, val in preferences_dict.items():
-        # Include dark_mode regardless of value (showing either Dark or Light mode)
-        # Include other preferences only if they're enabled (True)
         if val or key == "dark_mode":
             formatted.append(get_pretty_preference_name(key, val))
 
     return formatted
+
+
+def create_default_preferences() -> Dict[str, bool]:
+    """
+    Create a default preferences dictionary with all indicators enabled.
+
+    Returns:
+        dict: Default preferences dictionary
+    """
+    return {
+        "order_blocks": True,
+        "fvgs": True,
+        "liquidity_levels": True,
+        "breaker_blocks": True,
+        "show_legend": True,
+        "show_volume": True,
+        "liquidity_pools": True,
+        "dark_mode": False,
+    }

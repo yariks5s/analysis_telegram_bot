@@ -1,14 +1,16 @@
-from telegram import Update
-from telegram.ext import ContextTypes, CallbackContext
-from helpers import (
+from telegram import Update  # type: ignore
+from telegram.ext import ContextTypes, CallbackContext  # type: ignore
+
+# These imports will need to be updated once all files are restructured
+from src.analysis.utils.helpers import (
     check_and_analyze,
     input_sanity_check_analyzing,
     input_sanity_check_historical,
 )
-from plot_build_helpers import plot_price_chart
-from database import get_user_preferences
-from signal_detection import generate_price_prediction_signal_proba
-from data_fetching_instruments import fetch_candles, analyze_data
+from src.visualization.plot_builder import plot_price_chart
+from src.database.operations import get_user_preferences
+from src.telegram.signals.detection import generate_price_prediction_signal_proba
+from src.api.data_fetcher import fetch_candles, analyze_data
 
 
 async def send_crypto_chart(update: Update, context: CallbackContext):

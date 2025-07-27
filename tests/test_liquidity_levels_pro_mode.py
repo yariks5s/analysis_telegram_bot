@@ -1,8 +1,8 @@
 import pytest  # type: ignore
 
-from data_fetching_instruments import fetch_from_json
-from indicators import detect_liquidity_levels
-from IndicatorUtils.liquidity_level_utils import LiquidityLevels
+from src.api.data_fetcher import fetch_from_json
+from src.analysis.detection.indicators import detect_liquidity_levels
+from src.analysis.utils.liquidity_level_utils import LiquidityLevels
 
 
 @pytest.fixture

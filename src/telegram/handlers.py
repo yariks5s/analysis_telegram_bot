@@ -1,4 +1,10 @@
-from helpers import input_sanity_check_analyzing, check_signal_limit
+"""
+Telegram message handlers module for CryptoBot.
+
+This module contains handlers for processing Telegram bot messages,
+including conversation handlers, callback queries, and indicator selection.
+"""
+
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton, Update, ReplyKeyboardRemove  # type: ignore
 from telegram.ext import (  # type: ignore
     ContextTypes,
@@ -9,16 +15,18 @@ from telegram.ext import (  # type: ignore
     filters,
 )
 
-from database import (
+from src.core.utils import auto_signal_jobs, logger, plural_helper
+from src.database.operations import (
     get_all_user_signal_requests,
     delete_user_signal_request,
     get_user_preferences,
     update_user_preferences,
 )
-from signal_detection import createSignalJob
-from utils import auto_signal_jobs, logger
-from utils import plural_helper, logger
-from preferences import get_formatted_preferences
+from src.telegram.signals.detection import createSignalJob
+
+# Imports with updated module paths
+from src.analysis.utils.helpers import input_sanity_check_analyzing, check_signal_limit
+from src.core.preferences import get_formatted_preferences
 
 ###############################################################################
 # States for Conversation
@@ -45,6 +53,12 @@ def build_signal_list_keyboard(user_id: int) -> InlineKeyboardMarkup:
       - Each row: [<Pair> (<freq>m)] [Delete <Pair>]
       - 'Add New Signal' button
       - 'Done' button
+
+    Args:
+        user_id: Telegram user ID
+
+    Returns:
+        InlineKeyboardMarkup with signal management options
     """
     signals = get_all_user_signal_requests(user_id)
     keyboard = []
@@ -87,6 +101,13 @@ async def handle_signal_menu_callback(
 ):
     """
     CallbackQueryHandler for the signal management UI. This is where we CHECK callback data.
+
+    Args:
+        update: Telegram update object
+        context: Telegram context object
+
+    Returns:
+        Conversation state
     """
     query = update.callback_query
     data = query.data  # The callback_data from the button
@@ -120,62 +141,77 @@ async def handle_signal_menu_callback(
         return CHOOSING_ACTION
 
     elif data == "add_signal":
-        # Switch to TYPING_SIGNAL_DATA state: we expect user to type "SYMBOL MINUTES"
         await query.edit_message_text(
-            "Enter new signal as: SYMBOL MINUTES [IS_WITH_CHART] (e.g. BTCUSDT 60 true) \nIf you want to cancel this process, type 'cancel'"
+            "Please enter your desired signal in the format: \n\n"
+            "`SYMBOL INTERVAL [with_chart]`\n\n"
+            "Example: `BTCUSDT 60` or `ETHUSDT 15 with_chart`\n\n"
+            "SYMBOL should be a valid trading pair (e.g., BTCUSDT).\n"
+            "INTERVAL should be in minutes (e.g., 5, 15, 60)."
         )
         return TYPING_SIGNAL_DATA
 
     elif data == "signal_menu_done":
-        # End the conversation
-        await query.edit_message_text("Signal management window closed.")
+        n_signals = len(get_all_user_signal_requests(user_id))
+        signal_text = f"signal{plural_helper(n_signals)}"
+        await query.edit_message_text(f"You have {n_signals} active {signal_text}.")
         return ConversationHandler.END
 
-    # Default fallback: remain in CHOOSING_ACTION
+    # Catch-all
     return CHOOSING_ACTION
 
 
 async def handle_signal_text_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     After user taps "Add New Signal", they must type "SYMBOL MINUTES". We parse it and create the job.
+
+    Args:
+        update: Telegram update object
+        context: Telegram context object
+
+    Returns:
+        Conversation state
     """
     user_id = update.effective_user.id
-    text = update.message.text.strip()
-    parts = text.split()
+    text = update.message.text.strip().upper()
 
-    if str(parts[0]).lower().strip() == "cancel":
+    # Pass user input through the sanity check
+    parse_result = input_sanity_check_analyzing(text)
+    if not parse_result["is_valid"]:
         await update.message.reply_text(
-            text="Cancelled.", reply_markup=build_signal_list_keyboard(user_id)
-        )
-        return CHOOSING_ACTION
-
-    if await check_signal_limit(update, build_signal_list_keyboard):
-        return CHOOSING_ACTION
-
-    pair = await input_sanity_check_analyzing(True, parts, update)
-    if not pair:
-        await update.message.reply_text(
-            f"Usage: <symbol> <period_in_minutes> [<is_with_chart>], you've sent {len(parts)} argument{plural_helper(len(parts))}."
+            f"Invalid input: {parse_result['error_message']}. Try again or /cancel."
         )
         return TYPING_SIGNAL_DATA
 
-    await createSignalJob(pair[0], pair[1], pair[2], update, context)
+    # Check if user has reached their signal limit
+    limit_ok, limit_msg = check_signal_limit(user_id)
+    if not limit_ok:
+        await update.message.reply_text(limit_msg)
+        # Exit to the list of signals
+        await update.message.reply_text(
+            text="Current signals:", reply_markup=build_signal_list_keyboard(user_id)
+        )
+        return CHOOSING_ACTION
 
-    # Finally show the updated list
+    # Create the job and return to signal management
+    await createSignalJob(update, context)
     await update.message.reply_text(
-        text="Updated signals list:", reply_markup=build_signal_list_keyboard(user_id)
+        text="Signal created! Current signals:",
+        reply_markup=build_signal_list_keyboard(user_id),
     )
-
     return CHOOSING_ACTION
 
 
 def get_indicator_selection_keyboard(user_id):
     """
     Create an inline keyboard for selecting indicators with a checkmark for selected ones.
+
+    Args:
+        user_id: Telegram user ID
+
+    Returns:
+        InlineKeyboardMarkup with indicator selection options
     """
     selected = get_user_preferences(user_id)
-
-    # Add a checkmark if the indicator is selected
     keyboard = [
         [
             InlineKeyboardButton(
@@ -227,6 +263,13 @@ def get_indicator_selection_keyboard(user_id):
 async def handle_indicator_selection(update, _):
     """
     Handle the user's selection of indicators and update the inline keyboard dynamically.
+
+    Args:
+        update: Telegram update object
+        _: Context object (unused)
+
+    Returns:
+        Conversation state
     """
     query = update.callback_query
     await query.answer()
@@ -284,6 +327,13 @@ async def handle_indicator_selection(update, _):
 async def select_indicators(update, _):
     """
     Start the process of selecting indicators.
+
+    Args:
+        update: Telegram update object
+        _: Context object (unused)
+
+    Returns:
+        None
     """
     user_id = update.effective_user.id
     await update.message.reply_text(

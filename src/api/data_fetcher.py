@@ -1,20 +1,28 @@
+"""
+Data fetching module for CryptoBot.
+
+This module provides functions to retrieve cryptocurrency market data
+from various exchanges and API endpoints.
+"""
+
 import pandas as pd  # type: ignore
 from datetime import datetime
-
 import requests  # type: ignore
 
-from utils import VALID_INTERVALS, API_URL, logger
-from indicators import (
-    detect_order_blocks,
-    detect_fvgs,
-    detect_liquidity_levels,
-    detect_breaker_blocks,
-    detect_liquidity_pools,
-)
-from IndicatorUtils.indicators import Indicators
+from src.core.utils import VALID_INTERVALS, API_URL, logger
+from src.model_classes.indicators import Indicators
 
 
 def fetch_from_json(data):
+    """
+    Parse API response JSON into a pandas DataFrame.
+
+    Args:
+        data: JSON data from the API response
+
+    Returns:
+        pd.DataFrame: DataFrame with OHLCV data or None if error
+    """
     if data.get("retCode") != 0:
         logger.error(f"API returned error: {data}")
         return None
@@ -57,6 +65,20 @@ def fetch_candles(
     interval: str,
     timestamp: float = datetime.utcnow().timestamp(),
 ):
+    """
+    Fetch up to the specified number of candles for a given symbol and interval.
+
+    Since each request is limited to 200 candles, multiple requests are made as needed.
+
+    Args:
+        symbol: The trading pair symbol (e.g., "BTCUSD")
+        desired_total: The number of candles to fetch
+        interval: The interval for each candle (e.g., "1m", "5m", "1h")
+        timestamp: End timestamp for the data range (defaults to current time)
+
+    Returns:
+        pd.DataFrame: DataFrame containing up to desired_total candles
+    """
     # Ensure desired_total is an integer to avoid type comparison issues
     try:
         desired_total = int(desired_total)
@@ -65,19 +87,7 @@ def fetch_candles(
             f"Invalid desired_total parameter: {desired_total}. Using default of 100."
         )
         desired_total = 100
-    """
-    Fetch up to the specified number of candles for a given `symbol` and `interval`.
-    Since each request is limited to 200 candles, multiple requests are made as needed.
 
-    Parameters:
-        symbol (str): The trading pair symbol (e.g., "BTCUSD").
-        interval (str): The interval for each candle (e.g., "1m", "5m", "1h").
-        desired_total (int): The number of candles to fetch.
-
-    Returns:
-        pd.DataFrame: A DataFrame containing up to `desired_total` recent candles.
-                      If fewer are available, returns as many as possible.
-    """
     # Initialize an empty DataFrame with the expected columns and dtypes
     all_candles = pd.DataFrame(
         {
@@ -146,6 +156,16 @@ def fetch_ohlc_data(
 ):
     """
     Fetch historical OHLCV data for a given crypto pair, time period, and interval.
+
+    Args:
+        symbol: The trading pair symbol (e.g., "BTCUSD")
+        limit: Number of candles to fetch
+        interval: The interval for each candle (e.g., "1m", "5m", "1h")
+        start: Optional start timestamp
+        end: Optional end timestamp
+
+    Returns:
+        pd.DataFrame: DataFrame with OHLCV data or None if error
     """
     url = API_URL
     params = {
@@ -176,6 +196,26 @@ def fetch_ohlc_data(
 
 
 def analyze_data(df: pd.DataFrame, preferences, liq_lev_tolerance):
+    """
+    Analyze price data and detect technical indicators based on user preferences.
+
+    Args:
+        df: DataFrame with OHLCV data
+        preferences: Dictionary of indicator preferences
+        liq_lev_tolerance: Tolerance for liquidity level detection
+
+    Returns:
+        Indicators: Object containing all detected indicators
+    """
+    # Import from the new module structure
+    from src.analysis.detection.indicators import (
+        detect_order_blocks,
+        detect_fvgs,
+        detect_liquidity_levels,
+        detect_breaker_blocks,
+        detect_liquidity_pools,
+    )
+
     indicators = Indicators()
 
     if preferences["order_blocks"]:
@@ -207,7 +247,3 @@ def analyze_data(df: pd.DataFrame, preferences, liq_lev_tolerance):
         indicators.liquidity_pools = liquidity_pools
 
     return indicators
-
-
-# Example usage
-logger.info("Data fetching started")

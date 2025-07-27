@@ -27,9 +27,14 @@ jobs:
           # Determine the base branch for comparison
           git fetch origin $(git rev-parse --abbrev-ref HEAD) --depth=1
           BASE_BRANCH=$(git merge-base HEAD origin/main)
+          
           # List changed .py files compared to the base branch
-          CHANGED_FILES=$(git diff --name-only $BASE_BRANCH -- '*.py')
+          # The --diff-filter=d excludes deleted files
+          CHANGED_FILES=$(git diff --name-only --diff-filter=d $BASE_BRANCH -- '*.py')
+          
           if [ -n "$CHANGED_FILES" ]; then
+            echo "Running black on changed Python files:"
+            echo "$CHANGED_FILES"
             echo "$CHANGED_FILES" | xargs black --check
           else
             echo "No Python files were changed."

@@ -1,24 +1,35 @@
+"""
+Signal detection module for CryptoBot.
+
+This module contains functions for detecting trading signals, managing signal jobs,
+and notifying users about market conditions.
+"""
+
 from datetime import timedelta
-from typing import List, Dict, Tuple, Optional, Any
+from typing import List, Dict, Optional, Tuple
 import pandas as pd  # type: ignore
 import numpy as np  # type: ignore
 from dataclasses import dataclass
 from enum import Enum
 
-from helpers import fetch_candles, analyze_data, fetch_data_and_get_indicators
-from database import (
+
+from src.core.utils import auto_signal_jobs, create_true_preferences, logger
+from src.database.operations import (
     get_user_preferences,
     upsert_user_signal_request,
     delete_user_signal_request,
-)
-from database import (
     get_chat_id_for_user,
     get_signal_requests,
     user_signal_request_exists,
 )
-from utils import auto_signal_jobs, create_true_preferences, logger
 
-from plot_build_helpers import plot_price_chart
+# Imports with updated module paths
+from src.visualization.plot_builder import plot_price_chart
+from src.analysis.utils.helpers import (
+    fetch_candles,
+    analyze_data,
+    fetch_data_and_get_indicators,
+)
 
 
 @dataclass
@@ -53,7 +64,16 @@ class MarketRegime(Enum):
 
 
 def calculate_atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
-    """Calculate Average True Range for volatility"""
+    """
+    Calculate Average True Range for volatility
+
+    Args:
+        df: DataFrame with OHLC data
+        period: Period for ATR calculation
+
+    Returns:
+        ATR values as a pandas Series
+    """
     high_low = df["High"] - df["Low"]
     high_close = np.abs(df["High"] - df["Close"].shift())
     low_close = np.abs(df["Low"] - df["Close"].shift())
@@ -73,7 +93,16 @@ def calculate_atr(df: pd.DataFrame, period: int = 14) -> pd.Series:
 
 
 def calculate_rsi(series: pd.Series, period: int = 14) -> pd.Series:
-    """Calculate RSI for momentum confirmation"""
+    """
+    Calculate RSI for momentum confirmation
+
+    Args:
+        series: Price series (typically Close prices)
+        period: RSI calculation period
+
+    Returns:
+        RSI values as a pandas Series
+    """
     delta = series.diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
     loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
@@ -88,25 +117,323 @@ def calculate_rsi(series: pd.Series, period: int = 14) -> pd.Series:
     return rsi
 
 
-def calculate_market_structure_score(df: pd.DataFrame) -> float:
-    """Calculate market structure score based on higher highs/lows"""
-    window = 20
-    highs = df["High"].rolling(window=window).max()
-    lows = df["Low"].rolling(window=window).min()
+def detect_market_regime(df: pd.DataFrame) -> MarketRegime:
+    """
+    Detect current market regime for better signal filtering
 
-    # Count higher highs and higher lows
-    hh = (highs.diff() > 0).sum()
-    hl = (lows.diff() > 0).sum()
+    Args:
+        df: DataFrame with OHLC data
 
-    # Count lower highs and lower lows
-    lh = (highs.diff() < 0).sum()
-    ll = (lows.diff() < 0).sum()
+    Returns:
+        Market regime classification
+    """
+    # Calculate indicators for regime detection
+    atr = calculate_atr(df)
+    rsi = calculate_rsi(df["Close"])
 
-    # Calculate structure score (-1 to 1)
-    bullish_score = (hh + hl) / (window * 2)
-    bearish_score = (lh + ll) / (window * 2)
+    # Get recent values
+    recent_atr = atr.iloc[-5:].mean()
+    recent_rsi = rsi.iloc[-5:].mean()
+    avg_atr = atr.mean()
+    price_range_percent = (
+        df["High"].iloc[-20:].max() - df["Low"].iloc[-20:].min()
+    ) / df["Close"].iloc[-1]
 
-    return bullish_score - bearish_score
+    # Determine market regime
+    if recent_atr > avg_atr * 1.5:
+        return MarketRegime.VOLATILE
+    elif recent_atr < avg_atr * 0.5:
+        return MarketRegime.QUIET
+    elif recent_rsi > 60 and df["Close"].pct_change(20).iloc[-1] > 0.05:
+        return MarketRegime.TRENDING_UP
+    elif recent_rsi < 40 and df["Close"].pct_change(20).iloc[-1] < -0.05:
+        return MarketRegime.TRENDING_DOWN
+    elif price_range_percent < 0.05:
+        return MarketRegime.RANGING
+    else:
+        # Default to ranging if no clear regime is detected
+        return MarketRegime.RANGING
+
+
+async def auto_signal_job(context):
+    """
+    Scheduled job to check for signals and notify the user.
+
+    This is called periodically based on the frequency set by the user.
+
+    Args:
+        context: Telegram context with job data
+    """
+    job_data = context.job.data
+    user_id = job_data["user_id"]
+    chat_id = job_data["chat_id"]
+    currency_pair = job_data["currency_pair"]
+    is_with_chart = job_data.get("is_with_chart", False)
+
+    logger.info(f"Running auto signal job for {user_id}, {currency_pair}")
+
+    try:
+        # Get user's indicator preferences, or use default if none
+        preferences = get_user_preferences(user_id)
+        if not any(preferences.values()):
+            preferences = create_true_preferences()
+
+        # Fetch data for analysis
+        (indicators, df) = await fetch_data_and_get_indicators(
+            currency_pair, 100, "1h", preferences
+        )
+
+        if df is None or df.empty:
+            await context.bot.send_message(
+                chat_id=chat_id, text=f"❌ Error fetching data for {currency_pair}"
+            )
+            return
+
+        # Generate analysis result
+        analysis_result = generate_signal_analysis(df, indicators, currency_pair)
+
+        # Generate chart if requested
+        if is_with_chart:
+            chart_path = plot_price_chart(
+                df,
+                indicators,
+                preferences.get("show_legend", True),
+                preferences.get("show_volume", True),
+                preferences.get("dark_mode", False),
+            )
+
+            # Send chart with analysis
+            await context.bot.send_photo(
+                chat_id=chat_id, photo=open(chart_path, "rb"), caption=analysis_result
+            )
+        else:
+            # Send text analysis only
+            await context.bot.send_message(chat_id=chat_id, text=analysis_result)
+
+    except Exception as e:
+        logger.error(f"Error in auto_signal_job: {e}")
+        await context.bot.send_message(
+            chat_id=chat_id, text=f"❌ Error analyzing {currency_pair}: {str(e)}"
+        )
+
+
+def generate_signal_analysis(df: pd.DataFrame, indicators, currency_pair: str) -> str:
+    """
+    Generate a comprehensive analysis of the current market conditions.
+
+    Args:
+        df: DataFrame with OHLC data
+        indicators: Indicator objects containing detected patterns
+        currency_pair: The trading pair symbol
+
+    Returns:
+        Formatted analysis text
+    """
+    # Detect market regime
+    regime = detect_market_regime(df)
+
+    # Calculate key technical indicators
+    rsi = calculate_rsi(df["Close"]).iloc[-1]
+    atr = calculate_atr(df).iloc[-1]
+
+    # Current price
+    current_price = df["Close"].iloc[-1]
+
+    # Format the analysis text
+    analysis = f"📊 *{currency_pair} Analysis*\n\n"
+    analysis += f"*Price*: {current_price:.2f} USDT\n"
+    analysis += f"*Market Regime*: {regime.value}\n"
+    analysis += f"*RSI*: {rsi:.1f}\n\n"
+
+    # Add indicator information if available
+    if hasattr(indicators, "order_blocks") and indicators.order_blocks.list:
+        analysis += f"*Order Blocks*: {len(indicators.order_blocks.list)} detected\n"
+
+    if hasattr(indicators, "fvgs") and indicators.fvgs.list:
+        analysis += f"*Fair Value Gaps*: {len(indicators.fvgs.list)} detected\n"
+
+    if hasattr(indicators, "liquidity_levels") and indicators.liquidity_levels.list:
+        analysis += (
+            f"*Liquidity Levels*: {len(indicators.liquidity_levels.list)} detected\n"
+        )
+
+    # Add a conclusion based on market regime
+    analysis += "\n*Analysis*:\n"
+    if regime == MarketRegime.TRENDING_UP:
+        analysis += "Market is in an uptrend. Watch for bullish continuation patterns."
+    elif regime == MarketRegime.TRENDING_DOWN:
+        analysis += "Market is in a downtrend. Watch for bearish continuation patterns."
+    elif regime == MarketRegime.RANGING:
+        analysis += (
+            "Market is ranging. Watch for breakouts or rejections at range boundaries."
+        )
+    elif regime == MarketRegime.VOLATILE:
+        analysis += "Market is volatile. Consider reducing position sizes and using wider stops."
+    elif regime == MarketRegime.QUIET:
+        analysis += (
+            "Market is quiet with low volatility. Potential buildup for a larger move."
+        )
+
+    return analysis
+
+
+async def createSignalJob(
+    symbol: str,
+    period_minutes: int,
+    is_with_chart: bool,
+    update,
+    context,
+    account_balance: float = 10000,
+    risk_percentage: float = 1.0,
+):
+    """
+    Creates a repeating job for auto-signal analysis (multi-timeframe).
+    Now includes risk management parameters.
+    """
+    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
+
+    if user_signal_request_exists(user_id, symbol):
+        await update.message.reply_text(
+            f"❌ You already have an auto-signal for {symbol}. "
+            "Please delete it first with /delete_signal or choose another pair."
+        )
+        return
+
+    # Update or insert into DB
+    signals_request = {
+        "currency_pair": symbol,
+        "frequency_minutes": period_minutes,
+        "is_with_chart": is_with_chart,
+        "account_balance": account_balance,  # NEW
+        "risk_percentage": risk_percentage,  # NEW
+    }
+    upsert_user_signal_request(user_id, signals_request)
+
+    job_key = (user_id, symbol)
+
+    # If there's an existing job for the same user & symbol, remove it
+    if job_key in auto_signal_jobs:
+        old_job = auto_signal_jobs[job_key]
+        old_job.schedule_removal()
+        del auto_signal_jobs[job_key]
+
+    # Create a new repeating job
+    job_ref = context.application.job_queue.run_repeating(
+        callback=auto_signal_job,
+        interval=timedelta(minutes=period_minutes),
+        first=0,
+        name=f"signal_job_{user_id}_{symbol}",
+        data={
+            "user_id": user_id,
+            "chat_id": chat_id,
+            "currency_pair": symbol,
+            "is_with_chart": is_with_chart,
+            "account_balance": account_balance,  # NEW
+            "risk_percentage": risk_percentage,  # NEW
+        },
+    )
+
+    # Save the job reference
+    auto_signal_jobs[job_key] = job_ref
+
+    await update.message.reply_text(
+        f"✅ Auto-signals started for {symbol}, every {period_minutes} minute(s)."
+        f"\n💰 Account Balance: ${account_balance}"
+        f"\n⚠️ Risk per trade: {risk_percentage}%"
+    )
+
+
+async def deleteSignalJob(currency_pair, update):
+    """
+    Stops a specific user's auto-signal job for a given symbol.
+    """
+    user_id = update.effective_user.id
+
+    # Remove from the database
+    delete_user_signal_request(user_id, currency_pair)
+
+    job_key = (user_id, currency_pair)
+    if job_key in auto_signal_jobs:
+        job_ref = auto_signal_jobs[job_key]
+        job_ref.schedule_removal()
+        del auto_signal_jobs[job_key]
+        await update.message.reply_text(f"✅ Auto-signals for {currency_pair} stopped.")
+    else:
+        await update.message.reply_text(f"No auto-signals running for {currency_pair}.")
+
+
+async def initialize_jobs(application):
+    """
+    Called once at bot start-up to restore all jobs from the database.
+
+    Args:
+        application: Telegram bot application
+    """
+    signal_requests = get_signal_requests()
+
+    for req in signal_requests:
+        user_id = req["user_id"]
+        currency_pair = req["currency_pair"]
+        frequency_minutes = req["frequency_minutes"]
+        is_with_chart = req.get("is_with_chart", False)
+        account_balance = req.get("account_balance", 10000)
+        risk_percentage = req.get("risk_percentage", 1.0)
+        chat_id = get_chat_id_for_user(user_id)
+
+        if not chat_id:
+            logger.info(f"No chat_id found for user {user_id}. Skipping job creation.")
+            continue
+
+        job_key = (user_id, currency_pair)
+        if job_key in auto_signal_jobs:
+            logger.info(
+                f"Job for user_id {user_id}, pair {currency_pair} already exists."
+            )
+            continue
+
+        # Create a job
+        job_data = {
+            "user_id": user_id,
+            "chat_id": chat_id,
+            "currency_pair": currency_pair,
+            "is_with_chart": is_with_chart,
+            "account_balance": account_balance,
+            "risk_percentage": risk_percentage,
+        }
+        job_ref = application.job_queue.run_repeating(
+            callback=auto_signal_job,
+            interval=timedelta(minutes=frequency_minutes),
+            first=0,
+            name=f"signal_job_{user_id}_{currency_pair}",
+            data=job_data,
+        )
+
+        auto_signal_jobs[job_key] = job_ref
+
+    logger.info("All user signal jobs have been initialized.")
+
+
+def detect_trend(df: pd.DataFrame, window: int = 20) -> str:
+    """Detect trend using EMAs"""
+    # Create a copy of the DataFrame to avoid SettingWithCopyWarning
+    df = df.copy()
+
+    # Calculate EMAs using .loc to avoid the warning
+    df.loc[:, "EMA20"] = df["Close"].ewm(span=window).mean()
+    df.loc[:, "EMA50"] = df["Close"].ewm(span=50).mean()
+
+    # Get the last values
+    ema20 = df["EMA20"].iloc[-1]
+    ema50 = df["EMA50"].iloc[-1]
+
+    # Determine trend
+    if ema20 > ema50:
+        return "uptrend"
+    elif ema20 < ema50:
+        return "downtrend"
+    else:
+        return "sideways"
 
 
 def detect_support_resistance(
@@ -168,62 +495,25 @@ def detect_support_resistance(
     return support_levels, resistance_levels
 
 
-def detect_trend(df: pd.DataFrame, window: int = 20) -> str:
-    """Detect trend using EMAs"""
-    # Create a copy of the DataFrame to avoid SettingWithCopyWarning
-    df = df.copy()
+def calculate_market_structure_score(df: pd.DataFrame) -> float:
+    """Calculate market structure score based on higher highs/lows"""
+    window = 20
+    highs = df["High"].rolling(window=window).max()
+    lows = df["Low"].rolling(window=window).min()
 
-    # Calculate EMAs using .loc to avoid the warning
-    df.loc[:, "EMA20"] = df["Close"].ewm(span=window).mean()
-    df.loc[:, "EMA50"] = df["Close"].ewm(span=50).mean()
+    # Count higher highs and higher lows
+    hh = (highs.diff() > 0).sum()
+    hl = (lows.diff() > 0).sum()
 
-    # Get the last values
-    ema20 = df["EMA20"].iloc[-1]
-    ema50 = df["EMA50"].iloc[-1]
+    # Count lower highs and lower lows
+    lh = (highs.diff() < 0).sum()
+    ll = (lows.diff() < 0).sum()
 
-    # Determine trend
-    if ema20 > ema50:
-        return "uptrend"
-    elif ema20 < ema50:
-        return "downtrend"
-    else:
-        return "sideways"
+    # Calculate structure score (-1 to 1)
+    bullish_score = (hh + hl) / (window * 2)
+    bearish_score = (lh + ll) / (window * 2)
 
-
-# Enhanced market regime detection
-def detect_market_regime(df: pd.DataFrame) -> MarketRegime:
-    """Detect current market regime for better signal filtering"""
-    # Calculate volatility
-    returns = df["Close"].pct_change()
-    volatility = returns.rolling(window=20).std().iloc[-1]
-    avg_volatility = returns.rolling(window=100).std().mean()
-
-    # Calculate trend strength using ADX
-    atr = calculate_atr(df)
-    dm_plus = df["High"].diff()
-    dm_minus = -df["Low"].diff()
-
-    dm_plus = dm_plus.where(dm_plus > 0, 0)
-    dm_minus = dm_minus.where(dm_minus > 0, 0)
-
-    di_plus = 100 * (dm_plus.rolling(14).mean() / atr)
-    di_minus = 100 * (dm_minus.rolling(14).mean() / atr)
-
-    dx = 100 * np.abs(di_plus - di_minus) / (di_plus + di_minus)
-    adx = dx.rolling(14).mean().iloc[-1]
-
-    # Determine regime
-    if volatility > avg_volatility * 1.5:
-        return MarketRegime.VOLATILE
-    elif volatility < avg_volatility * 0.5:
-        return MarketRegime.QUIET
-    elif adx > 25:
-        if di_plus.iloc[-1] > di_minus.iloc[-1]:
-            return MarketRegime.TRENDING_UP
-        else:
-            return MarketRegime.TRENDING_DOWN
-    else:
-        return MarketRegime.RANGING
+    return bullish_score - bearish_score
 
 
 def analyze_order_blocks(df: pd.DataFrame, window: int = 3) -> List[Dict]:
@@ -737,11 +1027,9 @@ def generate_price_prediction_signal_proba(
     bullish_score = 0.0
     bearish_score = 0.0
 
-    # NEW: Market context analysis
     market_context = analyze_market_correlation(df, btc_df)
     market_regime = detect_market_regime(df)
 
-    # NEW: RSI analysis
     if "rsi" in market_context:
         if market_context["rsi"] < 30:
             bullish_score += W_RSI_EXTREME
@@ -750,7 +1038,6 @@ def generate_price_prediction_signal_proba(
             bearish_score += W_RSI_EXTREME
             reasons.append(f"RSI overbought at {market_context['rsi']:.1f}")
 
-    # Detect trend
     trend = detect_trend(df)
     if trend == "uptrend":
         bullish_score += W_TREND
@@ -1074,608 +1361,3 @@ def generate_price_prediction_signal_proba(
         )
 
     return signal, probability_of_bullish, confidence, reason_str, trading_signal
-
-
-###############################################################################
-# Multi-timeframe Analysis
-###############################################################################
-async def multi_timeframe_analysis(
-    symbol: str,
-    preferences: Dict[str, bool],
-    timeframes: List[str],
-    candles_per_tf: int = 300,
-    liq_lev_tolerance: float = 0.05,
-    account_balance: float = 10000,
-    risk_percentage: float = 1.0,
-) -> Dict[str, Dict[str, any]]:
-    """
-    Fetches OHLCV data for multiple timeframes (e.g., 1h, 4h, 1d) and analyzes
-    them using your 'analyze_data' function. Now includes risk management.
-
-    Parameters:
-        symbol (str): The symbol/currency pair to fetch (e.g. "BTCUSDT")
-        preferences (dict): The user indicator preferences (e.g., order_blocks, fvgs, etc.)
-        timeframes (List[str]): List of timeframes to analyze (e.g., ["1h", "4h", "1d"])
-        candles_per_tf (int): How many candles to fetch for each timeframe
-        liq_lev_tolerance (float): The tolerance for liquidity level detection
-        account_balance (float): Account balance for position sizing
-        risk_percentage (float): Risk percentage per trade
-
-    Returns:
-        A dictionary containing, for each timeframe:
-            {
-                "df": pandas DataFrame with the OHLCV data,
-                "indicators": your Indicators object,
-                "trading_signal": TradingSignal object if applicable
-            }
-    """
-    mtf_results = {}
-
-    # Fetch BTC data for correlation (if not BTC itself)
-    btc_df = None
-    if symbol != "BTCUSDT":
-        btc_df = fetch_candles("BTCUSDT", candles_per_tf, "1h")
-
-    for tf in timeframes:
-        # 1) Fetch historical data for the desired timeframe
-        df = fetch_candles(symbol, candles_per_tf, tf)
-
-        if df is None or df.empty:
-            # In case no data is returned or an error happened, skip
-            logger.info(f"[multi_timeframe_analysis] No data for {symbol} on {tf}")
-            continue
-
-        # Add symbol attribute for reference
-        df.attrs["symbol"] = symbol
-
-        # 2) Analyze the data using your existing 'analyze_data' function,
-        #    which returns an Indicators() object with order blocks, FVG, etc.
-        indicators = analyze_data(df, preferences, liq_lev_tolerance)
-
-        # 3) Generate enhanced signal with risk management
-        signal, prob, conf, reasons, trading_signal = (
-            generate_price_prediction_signal_proba(
-                df, indicators, [], account_balance, risk_percentage, btc_df
-            )
-        )
-
-        # 4) Store the results
-        mtf_results[tf] = {
-            "df": df,
-            "indicators": indicators,
-            "signal": signal,
-            "probability": prob,
-            "confidence": conf,
-            "reasons": reasons,
-            "trading_signal": trading_signal,
-        }
-
-    return mtf_results
-
-
-###############################################################################
-# Multi-timeframe Aggregation of Signals
-###############################################################################
-def generate_multi_tf_signal_proba(
-    mtf_results: Dict[str, Dict[str, any]],
-) -> Tuple[str, float, float, str, Optional[TradingSignal]]:
-    """
-    Aggregates signals from multiple timeframes. For each timeframe, we use
-    'generate_price_prediction_signal_proba()' to produce an individual signal
-    (Bullish/Bearish/Neutral) along with a probability of bullishness.
-
-    Now also returns the best TradingSignal object.
-
-    Parameters:
-        mtf_results (dict): As returned by `multi_timeframe_analysis`.
-            Example format:
-            {
-                "1h": {
-                    "df": <DataFrame>,
-                    "indicators": <Indicators>,
-                    "trading_signal": <TradingSignal>
-                },
-                "4h": {
-                    "df": <DataFrame>,
-                    "indicators": <Indicators>,
-                    "trading_signal": <TradingSignal>
-                },
-                ...
-            }
-
-    Returns:
-        (final_signal, final_probability_of_bullish, confidence, reason_str, best_trading_signal)
-
-        - final_signal (str): "Bullish", "Bearish", or "Neutral"
-        - final_probability_of_bullish (float): aggregated probability in [0.001..0.999]
-        - confidence (float): how far from 0.5 the final probability is, scaled to [0..1]
-        - reason_str (str): textual explanation that includes breakdown from each timeframe
-        - best_trading_signal (TradingSignal): The best signal object for execution
-    """
-    # Example weighting for each timeframe:
-    # You can tweak these or make them user-configurable.
-    timeframe_weights = {
-        "1m": 0.10,  # Just an example if you want 1m
-        "5m": 0.15,
-        "15m": 0.20,
-        "1h": 0.25,
-        "4h": 0.30,
-        "1d": 0.40,
-        "1w": 0.50,
-    }
-
-    reasons = []
-    total_weight = 0.0
-    weighted_prob_sum = 0.0
-    trading_signals = []
-
-    # 1) Loop through each timeframe's results
-    for tf, data in mtf_results.items():
-        signal = data.get("signal", "Neutral")
-        prob_bullish = data.get("probability", 0.5)
-        confidence = data.get("confidence", 0.0)
-        reason_str = data.get("reasons", "")
-        trading_signal = data.get("trading_signal")
-
-        # 2) Retrieve a weight for that timeframe, default to 0.2 if not specified
-        w = timeframe_weights.get(tf, 0.2)
-        total_weight += w
-
-        # 3) Accumulate weighted probability
-        weighted_prob_sum += prob_bullish * w
-
-        # 4) Collect trading signals
-        if trading_signal:
-            trading_signals.append((tf, trading_signal))
-
-        # 5) Collect textual explanation for each timeframe
-        reasons.append(
-            f"Timeframe: {tf}\n"
-            f"Signal: {signal}\n"
-            f"Probability of Bullish: {prob_bullish:.3f}\n"
-            f"Confidence: {confidence:.3f}\n"
-            f"Reasons:\n{reason_str}\n"
-            "-----------------------------------------"
-        )
-
-    # If no data/timeframes processed, return a default "Neutral" signal
-    if total_weight == 0:
-        return (
-            "Neutral",
-            0.5,
-            0.0,
-            "No timeframes data were available, defaulting to Neutral",
-            None,
-        )
-
-    # 6) Compute the final aggregated bullish probability
-    final_prob = weighted_prob_sum / total_weight
-
-    # 7) Clamp the probability within [0.001..0.999]
-    final_prob = max(0.001, min(final_prob, 0.999))
-
-    # 8) Determine final signal by thresholds
-    if final_prob >= 0.66:
-        final_signal = "Bullish"
-    elif final_prob <= 0.33:
-        final_signal = "Bearish"
-    else:
-        final_signal = "Neutral"
-
-    # 9) Calculate overall confidence
-    #    (distance from 0.5 scaled to [0..1])
-    confidence = abs(final_prob - 0.5) * 2.0
-
-    # 10) Select the best trading signal (highest R:R with good confidence)
-    best_trading_signal = None
-    if trading_signals:
-        # Sort by risk/reward ratio * confidence
-        trading_signals.sort(
-            key=lambda x: x[1].risk_reward_ratio * x[1].confidence, reverse=True
-        )
-        best_trading_signal = trading_signals[0][1]
-
-    # 11) Combine all timeframe reasons into one final reason string
-    final_reasons_str = (
-        f"Final Aggregated Signal: {final_signal}\n"
-        f"Aggregated Probability of Bullish: {final_prob:.3f}\n"
-        f"Confidence: {confidence:.3f}\n\n"
-        "Detailed breakdown by timeframe:\n" + "\n".join(reasons)
-    )
-
-    return final_signal, final_prob, confidence, final_reasons_str, best_trading_signal
-
-
-# Signal quality validation
-def validate_signal_quality(signal: TradingSignal) -> Tuple[bool, List[str]]:
-    """
-    Validate signal quality before sending to user
-    """
-    issues = []
-
-    # Check risk/reward ratio
-    if signal.risk_reward_ratio < 1.5:
-        issues.append("Risk/Reward ratio below 1.5")
-
-    # Check confidence
-    if signal.confidence < 0.5:
-        issues.append("Low confidence signal")
-
-    # Check market conditions
-    if signal.market_conditions.get("volume_ratio", 0) < 0.5:
-        issues.append("Low volume - potential false signal")
-
-    # Check position size
-    if signal.position_size * signal.entry_price > signal.max_risk_amount * 10:
-        issues.append("Position size too large for account")
-
-    # Signal is valid if no critical issues
-    is_valid = len(issues) == 0 or (len(issues) == 1 and signal.confidence > 0.7)
-
-    return is_valid, issues
-
-
-# Enhanced message formatting
-def format_enhanced_signal_message(
-    signal: TradingSignal, issues: List[str] = []
-) -> str:
-    """Format enhanced signal message with all details"""
-    message = f"""
-🎯 **SIGNAL ALERT - {signal.symbol}** 🎯
-
-📊 **Signal Type:** {signal.signal_type}
-💪 **Confidence:** {signal.confidence:.1%}
-🎲 **Probability:** {signal.probability:.1%}
-
-💰 **TRADE SETUP:**
-━━━━━━━━━━━━━━━━━━
-📍 **Entry Price:** ${signal.entry_price:.4f}
-🛑 **Stop Loss:** ${signal.stop_loss:.4f} ({abs(signal.entry_price - signal.stop_loss)/signal.entry_price*100:.1f}%)
-🎯 **Take Profit 1:** ${signal.take_profit_1:.4f} ({abs(signal.take_profit_1 - signal.entry_price)/signal.entry_price*100:.1f}%)
-🎯 **Take Profit 2:** ${signal.take_profit_2:.4f} ({abs(signal.take_profit_2 - signal.entry_price)/signal.entry_price*100:.1f}%)
-🎯 **Take Profit 3:** ${signal.take_profit_3:.4f} ({abs(signal.take_profit_3 - signal.entry_price)/signal.entry_price*100:.1f}%)
-
-📈 **Risk Management:**
-━━━━━━━━━━━━━━━━━━
-⚖️ **Risk/Reward:** {signal.risk_reward_ratio:.2f}
-💵 **Position Size:** {signal.position_size:.4f} units
-💸 **Risk Amount:** ${signal.max_risk_amount:.2f}
-
-🔄 **Market Conditions:**
-━━━━━━━━━━━━━━━━━━
-📊 **Volume:** {signal.market_conditions.get('volume_ratio', 0):.1f}x average
-📉 **Volatility:** {signal.market_conditions.get('volatility', 0)*100:.1f}%
-📈 **Structure:** {signal.market_conditions.get('structure_score', 0):.2f}
-📊 **RSI:** {signal.market_conditions.get('rsi', 50):.1f}
-"""
-
-    if issues:
-        message += f"\n⚠️ **Warnings:**\n"
-        for issue in issues[:3]:
-            message += f"• {issue}\n"
-
-    # Add top 3 reasons
-    message += f"\n📝 **Key Reasons:**\n"
-    for reason in signal.reasons[:3]:
-        message += f"• {reason}\n"
-
-    message += (
-        f"\n⏰ *Generated at {signal.timestamp.strftime('%Y-%m-%d %H:%M:%S')} UTC*"
-    )
-
-    return message
-
-
-###############################################################################
-# Updated Auto-Signal Job with Multi-Timeframe Analysis
-###############################################################################
-async def auto_signal_job(context):
-    """
-    This function is called periodically by the Telegram JobQueue (run_repeating).
-    Instead of analyzing a single timeframe, it uses the multi-timeframe analysis
-    to produce a more reliable signal. Then it decides whether to send a message.
-    Now includes risk management and signal validation.
-    """
-    job_data = context.job.data
-    user_id = job_data["user_id"]
-    chat_id = job_data["chat_id"]
-    currency_pair = job_data["currency_pair"]
-    is_with_chart = job_data["is_with_chart"]
-    account_balance = job_data.get("account_balance", 10000)  # NEW
-    risk_percentage = job_data.get("risk_percentage", 1.0)  # NEW
-
-    # 1) Fetch user preferences from the database
-    preferences = get_user_preferences(user_id)
-
-    # If the user has not selected any indicators, enable all by default
-    if all(not value for value in preferences.values()):
-        preferences = {k: True for k in preferences}
-
-    # 2) Perform multi-timeframe analysis with risk management
-    mtf_results = await multi_timeframe_analysis(
-        symbol=currency_pair,
-        preferences=preferences,
-        timeframes=["15m", "1h", "4h"],
-        candles_per_tf=300,
-        liq_lev_tolerance=0.05,
-        account_balance=account_balance,
-        risk_percentage=risk_percentage,
-    )
-
-    # If we have no data/timeframes, abort
-    if not mtf_results:
-        await context.bot.send_message(
-            chat_id=chat_id, text=f"[Auto-Signal] No data found for {currency_pair}."
-        )
-        return
-
-    # 3) Generate an aggregated signal from all timeframes
-    final_signal, final_prob, confidence, reason_str, best_trading_signal = (
-        generate_multi_tf_signal_proba(mtf_results)
-    )
-
-    # 4) NEW: Validate signal quality if we have a trading signal
-    if best_trading_signal:
-        is_valid, issues = validate_signal_quality(best_trading_signal)
-
-        # Skip if signal is invalid and confidence is low
-        if not is_valid and best_trading_signal.confidence < 0.8:
-            return
-
-        # Format enhanced message
-        message = format_enhanced_signal_message(best_trading_signal, issues)
-    else:
-        # Use basic message format
-        message = f"[Auto-Signal for {currency_pair}]\n\n{reason_str}"
-
-    # 5) Decide if we want to send the signal to the user
-    #    For instance, we can require a minimum confidence or a non-neutral signal
-    if confidence > 0.0 or final_signal != "Neutral":
-        try:
-            await context.bot.send_message(
-                chat_id=chat_id, text=message, parse_mode="Markdown"
-            )
-            if is_with_chart:
-                interval_count = 200
-                interval = "1h"
-                input = [currency_pair, interval_count, interval]
-                (indicators, df) = await fetch_data_and_get_indicators(
-                    input, create_true_preferences(), ()
-                )
-
-                chart_path = plot_price_chart(
-                    df,
-                    indicators,
-                    show_legend=preferences["show_legend"],
-                    show_volume=preferences["show_volume"],
-                )
-
-                await context.bot.send_message(
-                    chat_id=chat_id,
-                    text=(
-                        f"Below is a chart for {currency_pair} for the last {interval_count} intervals with {interval} interval:"
-                    ),
-                )
-
-                # Send the chart to the user
-                with open(chart_path, "rb") as chart_file:
-                    await context.bot.send_photo(chat_id=chat_id, photo=chart_file)
-        except Exception as e:
-            logger.info(
-                f"Error sending auto-signal message to user {user_id}: {str(e)}"
-            )
-    else:
-        # Optionally, no message is sent if the signal is too weak
-        pass
-
-
-###############################################################################
-# Creating and Deleting Signal Jobs
-###############################################################################
-async def createSignalJob(
-    symbol: str,
-    period_minutes: int,
-    is_with_chart: bool,
-    update,
-    context,
-    account_balance: float = 10000,
-    risk_percentage: float = 1.0,
-):
-    """
-    Creates a repeating job for auto-signal analysis (multi-timeframe).
-    Now includes risk management parameters.
-    """
-    user_id = update.effective_user.id
-    chat_id = update.effective_chat.id
-
-    if user_signal_request_exists(user_id, symbol):
-        await update.message.reply_text(
-            f"❌ You already have an auto-signal for {symbol}. "
-            "Please delete it first with /delete_signal or choose another pair."
-        )
-        return
-
-    # Update or insert into DB
-    signals_request = {
-        "currency_pair": symbol,
-        "frequency_minutes": period_minutes,
-        "is_with_chart": is_with_chart,
-        "account_balance": account_balance,  # NEW
-        "risk_percentage": risk_percentage,  # NEW
-    }
-    upsert_user_signal_request(user_id, signals_request)
-
-    job_key = (user_id, symbol)
-
-    # If there's an existing job for the same user & symbol, remove it
-    if job_key in auto_signal_jobs:
-        old_job = auto_signal_jobs[job_key]
-        old_job.schedule_removal()
-        del auto_signal_jobs[job_key]
-
-    # Create a new repeating job
-    job_ref = context.application.job_queue.run_repeating(
-        callback=auto_signal_job,
-        interval=timedelta(minutes=period_minutes),
-        first=0,
-        name=f"signal_job_{user_id}_{symbol}",
-        data={
-            "user_id": user_id,
-            "chat_id": chat_id,
-            "currency_pair": symbol,
-            "is_with_chart": is_with_chart,
-            "account_balance": account_balance,  # NEW
-            "risk_percentage": risk_percentage,  # NEW
-        },
-    )
-
-    # Save the job reference
-    auto_signal_jobs[job_key] = job_ref
-
-    await update.message.reply_text(
-        f"✅ Auto-signals started for {symbol}, every {period_minutes} minute(s)."
-        f"\n💰 Account Balance: ${account_balance}"
-        f"\n⚠️ Risk per trade: {risk_percentage}%"
-    )
-
-
-async def deleteSignalJob(currency_pair, update):
-    """
-    Stops a specific user's auto-signal job for a given symbol.
-    """
-    user_id = update.effective_user.id
-
-    # Remove from the database
-    delete_user_signal_request(user_id, currency_pair)
-
-    job_key = (user_id, currency_pair)
-    if job_key in auto_signal_jobs:
-        job_ref = auto_signal_jobs[job_key]
-        job_ref.schedule_removal()
-        del auto_signal_jobs[job_key]
-        await update.message.reply_text(f"✅ Auto-signals for {currency_pair} stopped.")
-    else:
-        await update.message.reply_text(f"No auto-signals running for {currency_pair}.")
-
-
-###############################################################################
-# Initialization of all Jobs at Startup
-###############################################################################
-async def initialize_jobs(application):
-    """
-    Called once at bot start-up to restore all jobs from the database.
-    """
-    signal_requests = get_signal_requests()
-
-    for req in signal_requests:
-        user_id = req["user_id"]
-        currency_pair = req["currency_pair"]
-        frequency_minutes = req["frequency_minutes"]
-        is_with_chart = req.get("is_with_chart", False)
-        account_balance = req.get("account_balance", 10000)
-        risk_percentage = req.get("risk_percentage", 1.0)
-        chat_id = get_chat_id_for_user(user_id)
-
-        if not chat_id:
-            logger.info(f"No chat_id found for user {user_id}. Skipping job creation.")
-            continue
-
-        job_key = (user_id, currency_pair)
-        if job_key in auto_signal_jobs:
-            logger.info(
-                f"Job for user_id {user_id}, pair {currency_pair} already exists."
-            )
-            continue
-
-        # Create a job
-        job_data = {
-            "user_id": user_id,
-            "chat_id": chat_id,
-            "currency_pair": currency_pair,
-            "is_with_chart": is_with_chart,
-            "account_balance": account_balance,
-            "risk_percentage": risk_percentage,
-        }
-        job_ref = application.job_queue.run_repeating(
-            callback=auto_signal_job,
-            interval=timedelta(minutes=frequency_minutes),
-            first=0,
-            name=f"signal_job_{user_id}_{currency_pair}",
-            data=job_data,
-        )
-
-        auto_signal_jobs[job_key] = job_ref
-
-    logger.info("All user signal jobs have been initialized.")
-
-
-# Performance Tracking (Optional - for future implementation)
-class PerformanceTracker:
-    """Track and analyze signal performance for optimization"""
-
-    def __init__(self):
-        self.signals_history = []
-        self.performance_metrics = {}
-
-    def record_signal(self, signal: TradingSignal):
-        """Record a signal for tracking"""
-        self.signals_history.append(
-            {"timestamp": signal.timestamp, "signal": signal, "status": "open"}
-        )
-
-    def calculate_performance_metrics(self) -> Dict:
-        """Calculate win rate, average R:R, etc."""
-        # Implementation for tracking performance
-        pass
-
-
-def analyze_liquidity_levels(
-    df: pd.DataFrame, tolerance: float = 0.001
-) -> List[Dict[str, Any]]:
-    """Analyze liquidity levels in the market"""
-    liquidity_levels = []
-
-    # Round numbers to analyze
-    round_numbers = [
-        0.1,
-        0.2,
-        0.5,
-        1.0,
-        2.0,
-        5.0,
-        10.0,
-        20.0,
-        50.0,
-        100.0,
-        200.0,
-        500.0,
-        1000.0,
-    ]
-
-    # Analyze each price point
-    for i in range(len(df)):
-        price = df["Close"].iloc[i]
-        volume = df["Volume"].iloc[i]
-
-        # Check if price is near a round number
-        for round_num in round_numbers:
-            # Avoid division by zero by checking if round_num is zero
-            if round_num == 0:
-                continue
-
-            # Calculate relative distance to round number
-            relative_distance = abs(price - round_num) / round_num
-
-            # If price is close to round number and volume is significant
-            if relative_distance < tolerance and volume > df["Volume"].mean():
-                liquidity_levels.append(
-                    {
-                        "price": price,
-                        "round_number": round_num,
-                        "volume": volume,
-                        "timestamp": df.index[i],
-                        "relative_distance": relative_distance,
-                    }
-                )
-
-    return liquidity_levels

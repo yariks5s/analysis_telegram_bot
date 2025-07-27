@@ -1,11 +1,26 @@
-from IndicatorUtils.order_block_utils import OrderBlocks
-from IndicatorUtils.fvg_utils import FVGs
-from IndicatorUtils.liquidity_level_utils import LiquidityLevels
-from IndicatorUtils.breaker_block_utils import BreakerBlocks
-from IndicatorUtils.liquidity_pool_utils import LiquidityPools
+"""
+Indicator model classes for CryptoBot.
+
+This module contains the base indicator models for storing technical analysis results.
+These classes serve as containers for various trading indicators detected in price action.
+"""
+
+# These imports will need to be updated after we reorganize the IndicatorUtils modules
+from src.analysis.utils.order_block_utils import OrderBlocks
+from src.analysis.utils.fvg_utils import FVGs
+from src.analysis.utils.liquidity_level_utils import LiquidityLevels
+from src.analysis.utils.breaker_block_utils import BreakerBlocks
+from src.analysis.utils.liquidity_pool_utils import LiquidityPools
 
 
 class Indicators:
+    """
+    Container class for all technical analysis indicators.
+
+    Provides methods to store, filter, and represent various indicator types
+    including order blocks, FVGs, liquidity levels, breaker blocks, and liquidity pools.
+    """
+
     def __init__(self):
         """
         Initialize an Indicators object to store various technical analysis features.
@@ -19,6 +34,9 @@ class Indicators:
     def __str__(self):
         """
         String representation of all indicators.
+
+        Returns:
+            str: Formatted string representation of all indicator data
         """
         return (
             f"**Indicators:**\n"
@@ -32,6 +50,12 @@ class Indicators:
     def filter(self, selected):
         """
         Filter indicators based on user selection.
+
+        Args:
+            selected (dict): Dictionary with indicator types as keys and boolean values
+
+        Returns:
+            Indicators: A new Indicators object with only the selected indicators
         """
         filtered = Indicators()
         if selected.get("order_blocks"):

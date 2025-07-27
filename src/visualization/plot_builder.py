@@ -1,12 +1,19 @@
+"""
+Plot builder module for CryptoBot.
+
+This module contains functions for generating and customizing cryptocurrency charts
+with various technical analysis indicators.
+"""
+
 import matplotlib.patches as mpatches  # type: ignore
 import matplotlib.lines as mlines  # type: ignore
-
 import mplfinance as mpf  # type: ignore
 import pandas as pd  # type: ignore
 
 from typing import List, Dict
-from utils import logger
-from chart_styles import ChartTheme
+
+from src.core.utils import logger
+from src.visualization.chart_styles import ChartTheme
 
 
 def plot_price_chart(
@@ -17,9 +24,18 @@ def plot_price_chart(
     dark_mode: bool = False,
 ):
     """
-    Generate a candlestick chart with detected order blocks, FVGs, and support/resistance levels as horizontal lines.
-    """
+    Generate a candlestick chart with detected order blocks, FVGs, and support/resistance levels.
 
+    Args:
+        df: DataFrame with OHLCV data
+        indicators: Dict of indicator objects
+        show_legend: Whether to show chart legend
+        show_volume: Whether to show volume
+        dark_mode: Whether to use dark mode styling
+
+    Returns:
+        str: Path to the saved chart image
+    """
     # Get the appropriate style based on the theme
     s = ChartTheme.get_mpf_style(dark_mode)
 
@@ -60,6 +76,14 @@ def plot_price_chart(
 
 
 def add_legend(ax, indicators, dark_mode=False):
+    """
+    Add legend to the chart based on available indicators.
+
+    Args:
+        ax: Matplotlib axes object
+        indicators: Dict of indicator objects
+        dark_mode: Whether to use dark mode styling
+    """
     handles = []
     if indicators.order_blocks:
         # Choose colors based on theme
@@ -138,8 +162,7 @@ def add_legend(ax, indicators, dark_mode=False):
                 [],
                 color=liq_level_color,
                 linestyle="--",
-                markersize=10,
-                label="Liquidity level",
+                label="Liquidity Level",
             )
         )
 
@@ -159,6 +182,15 @@ def add_legend(ax, indicators, dark_mode=False):
 
 
 def add_order_blocks(ax, order_blocks, df, dark_mode=False):
+    """
+    Add order blocks to the chart.
+
+    Args:
+        ax: Matplotlib axes object
+        order_blocks: OrderBlocks object containing order blocks to plot
+        df: DataFrame with price data
+        dark_mode: Whether to use dark mode styling
+    """
     for block in order_blocks.list:
         idx = block.index
         low = block.low
@@ -183,6 +215,14 @@ def add_order_blocks(ax, order_blocks, df, dark_mode=False):
 
 
 def add_fvgs(ax, fvgs, dark_mode=False):
+    """
+    Add Fair Value Gaps (FVGs) to the chart.
+
+    Args:
+        ax: Matplotlib axes object
+        fvgs: FVGs object containing FVGs to plot
+        dark_mode: Whether to use dark mode styling
+    """
     for fvg in fvgs.list:
         start_idx = fvg.start_index
         end_idx = fvg.end_index
@@ -204,6 +244,14 @@ def add_fvgs(ax, fvgs, dark_mode=False):
 
 
 def add_liquidity_levels(ax, liquidity_levels, dark_mode=False):
+    """
+    Add liquidity levels to the chart.
+
+    Args:
+        ax: Matplotlib axes object
+        liquidity_levels: LiquidityLevels object containing levels to plot
+        dark_mode: Whether to use dark mode styling
+    """
     for level in liquidity_levels.list:
         # Get style from ChartTheme
         style = ChartTheme.get_liquidity_level_style(dark_mode)
@@ -217,6 +265,14 @@ def add_liquidity_levels(ax, liquidity_levels, dark_mode=False):
 
 
 def add_breaker_blocks(ax, breaker_blocks, dark_mode=False):
+    """
+    Add breaker blocks to the chart.
+
+    Args:
+        ax: Matplotlib axes object
+        breaker_blocks: BreakerBlocks object containing blocks to plot
+        dark_mode: Whether to use dark mode styling
+    """
     for block in breaker_blocks.list:
         # Start time and end time (extend the block forward by 1-3 candles)
         start_index = block.index
@@ -242,6 +298,11 @@ def add_liquidity_pools(ax, liquidity_pools, dark_mode=False):
     """
     Add liquidity pools to the chart as semi-transparent horizontal bands.
     The opacity of each band is determined by the pool's strength.
+
+    Args:
+        ax: Matplotlib axes object
+        liquidity_pools: LiquidityPools object containing pools to plot
+        dark_mode: Whether to use dark mode styling
     """
     for pool in liquidity_pools.list:
         # Calculate the price range for the pool (using ATR or a fixed percentage)

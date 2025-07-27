@@ -1,13 +1,26 @@
+"""
+Analysis utility helpers for CryptoBot.
+
+This module contains various utility functions for technical analysis,
+data validation, and processing market data.
+"""
+
 import pandas as pd  # type: ignore
 
-from data_fetching_instruments import fetch_ohlc_data, analyze_data, fetch_candles
-from utils import VALID_INTERVALS
-from database import check_user_preferences, get_all_user_signal_requests
+from src.api.data_fetcher import fetch_ohlc_data, analyze_data, fetch_candles
+from src.core.utils import VALID_INTERVALS
+from src.database.operations import check_user_preferences, get_all_user_signal_requests
 
 
 def calculate_macd(data: pd.DataFrame):
     """
     Calculate MACD and Signal Line.
+
+    Args:
+        data: DataFrame with Close prices
+
+    Returns:
+        Tuple of (MACD, Signal Line)
     """
     short_ema = data["Close"].ewm(span=12, adjust=False).mean()
     long_ema = data["Close"].ewm(span=26, adjust=False).mean()
@@ -19,6 +32,13 @@ def calculate_macd(data: pd.DataFrame):
 def calculate_rsi(data: pd.DataFrame, period: int = 14):
     """
     Calculate Relative Strength Index (RSI).
+
+    Args:
+        data: DataFrame with Close prices
+        period: RSI calculation period
+
+    Returns:
+        Series of RSI values
     """
     delta = data["Close"].diff()
     gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
@@ -29,6 +49,16 @@ def calculate_rsi(data: pd.DataFrame, period: int = 14):
 
 
 async def input_sanity_check_show(args, update) -> tuple:
+    """
+    Validate input arguments for chart display.
+
+    Args:
+        args: Command arguments
+        update: Telegram update object
+
+    Returns:
+        Tuple of (symbol, hours, interval, liq_lev_tolerance) or empty tuple if invalid
+    """
     # Default values
     symbol = "BTCUSDT"
     hours = 24
@@ -53,10 +83,16 @@ async def input_sanity_check_show(args, update) -> tuple:
             )
             return tuple()
     if len(args) >= 4:
-        liq_lev_tolerance = float(args[3])
-        if liq_lev_tolerance < 0 or liq_lev_tolerance > 1:
+        try:
+            liq_lev_tolerance = float(args[3])
+            if liq_lev_tolerance < 0 or liq_lev_tolerance > 1:
+                await update.message.reply_text(
+                    f"Invalid liquidity level tolerance specified. It should be a number between 0 and 1"
+                )
+                return tuple()
+        except ValueError:
             await update.message.reply_text(
-                f"Invalid liquidity level tolerance specified. It should be a number between 0 and 1"
+                "Invalid tolerance value. Please provide a valid number."
             )
             return tuple()
 
@@ -117,6 +153,13 @@ async def input_sanity_check_historical(args, update) -> tuple:
     Parse and validate arguments for historical data command.
     Usage: /history <symbol> <length> <interval> <tolerance> <timestamp>
     Timestamp must be Unix epoch in seconds.
+
+    Args:
+        args: Command arguments
+        update: Telegram update object
+
+    Returns:
+        Tuple of validated arguments or empty tuple if invalid
     """
     if len(args) < 5:
         await update.message.reply_text(
@@ -162,71 +205,93 @@ async def input_sanity_check_historical(args, update) -> tuple:
     return (symbol, length, interval, tolerance, timestamp_sec)
 
 
-async def fetch_data_and_get_indicators(res, preferences, update):
-    symbol = {}
-    hours = {}
-    interval = {}
-    liq_lev_tolerance = {}
+async def fetch_data_and_get_indicators(
+    symbol, hours, interval, preferences, liq_lev_tolerance=0, update=None
+):
+    """
+    Fetch market data and calculate indicators.
 
-    if len(res) >= 1:
-        symbol = res[0]
-    if len(res) >= 2:
-        hours = res[1]
-    if len(res) >= 3:
-        interval = res[2]
-    if len(res) >= 4:
-        liq_lev_tolerance = res[3]
+    Args:
+        symbol: Trading pair symbol
+        hours: Number of hours/periods to fetch
+        interval: Time interval
+        preferences: User preferences for indicators
+        liq_lev_tolerance: Tolerance for liquidity level detection
+        update: Optional Telegram update object for notifications
 
+    Returns:
+        Tuple of (indicators, dataframe)
+    """
     if update:
         await update.message.reply_text(
             f"Fetching {symbol} price data for the last {hours} periods with interval {interval}, please wait..."
         )
 
-    df = []
+    df = None
     if hours <= 200:
         df = fetch_ohlc_data(symbol, hours, interval)
     else:
         df = fetch_candles(symbol, hours, interval)
-    if (df is None or df.empty) and update:
-        await update.message.reply_text(
-            f"Error fetching data for {symbol}. Please check the pair and try again."
-        )
-        return
+
+    if df is None or df.empty:
+        if update:
+            await update.message.reply_text(
+                f"Error fetching data for {symbol}. Please check the pair and try again."
+            )
+        return (None, None)
 
     indicators = analyze_data(df, preferences, liq_lev_tolerance)
     return (indicators, df)
 
 
 async def check_and_analyze(update, user_id, preferences, args):
+    """
+    Validate input, check user preferences, and fetch data with indicators.
+
+    Args:
+        update: Telegram update object
+        user_id: User ID
+        preferences: User preferences
+        args: Command arguments
+
+    Returns:
+        Tuple of (indicators, dataframe) or None if error
+    """
     res = await input_sanity_check_show(args, update)
 
     if not res:
-        return
+        return None, None
 
     # Check if user selected indicators
     if not check_user_preferences(user_id):
         await update.message.reply_text(
             "Please select indicators using /preferences before requesting a chart."
         )
-        return
+        return None, None
 
-    return await fetch_data_and_get_indicators(res, preferences, update)
+    return await fetch_data_and_get_indicators(
+        res[0], res[1], res[2], preferences, res[3], update
+    )
 
 
-async def check_signal_limit(update, build_signal_list_keyboard=None) -> bool:
-    previous_signals = get_all_user_signal_requests(update.effective_user.id)
+async def check_signal_limit(update):
+    """
+    Check if the user has reached the signal limit.
+
+    Args:
+        update: Telegram update object
+
+    Returns:
+        bool: True if limit reached, False otherwise
+    """
+    user_id = update.effective_user.id
+    previous_signals = get_all_user_signal_requests(user_id)
 
     if len(previous_signals) >= 10:
-        if build_signal_list_keyboard is not None:
-            await update.message.reply_text(
-                text=f"You've reached the limit of signals ({len(previous_signals)}). If you want to add a new signal, please remove some of existing signals.",
-                reply_markup=build_signal_list_keyboard(update.effective_user.id),
-            )
-        else:
-            await update.message.reply_text(
-                text=f"You've reached the limit of signals ({len(previous_signals)}). If you want to add a new signal, please remove some of existing signals."
-            )
-
+        await update.message.reply_text(
+            f"You've reached the limit of signals ({len(previous_signals)}). "
+            f"If you want to add a new signal, please remove some of existing signals."
+        )
         return True
 
     return False

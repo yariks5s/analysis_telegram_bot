@@ -1,7 +1,15 @@
+"""
+Core bot module for CryptoBot.
+
+This is the main module for the Telegram bot, handling initialization, setup,
+and running the bot with all necessary handlers.
+"""
+
 import asyncio
 import os
 import logging
 from dotenv import load_dotenv
+
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -11,8 +19,9 @@ from telegram.ext import (
     ConversationHandler,
 )
 
-from database import init_db
-from message_handlers import (
+# These imports will need to be updated once we've reorganized all files
+from src.database.operations import init_db
+from src.telegram.handlers import (
     select_indicators,
     handle_indicator_selection,
     manage_signals,
@@ -21,27 +30,28 @@ from message_handlers import (
     CHOOSING_ACTION,
     TYPING_SIGNAL_DATA,
 )
-from signal_detection import initialize_jobs
-from commands.chart_commands import (
+from src.telegram.signals.detection import initialize_jobs
+from src.telegram.commands.chart_commands import (
     send_crypto_chart,
     send_text_data,
     send_historical_chart,
 )
-from commands.signal_commands import create_signal_command, delete_signal_command
-from commands.help_commands import help_command
-from commands.db_commands import (
+from src.telegram.commands.signal_commands import (
+    create_signal_command,
+    delete_signal_command,
+)
+from src.telegram.commands.help_commands import help_command
+from src.telegram.commands.db_commands import (
     execute_sql_command,
     show_tables_command,
     describe_table_command,
 )
-from utils import logger
+from src.core.utils import logger
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
-
-load_dotenv()
 
 
 async def initialize_jobs_handler(application):
@@ -96,9 +106,16 @@ def setup_handlers(app):
 
 def main():
     """Main function to initialize and run the bot"""
+    # Load environment variables
+    load_dotenv()
+
+    # Initialize database
     init_db()
+
+    # Get token from environment
     TOKEN = os.getenv("API_TELEGRAM_KEY")
 
+    # Create bot application
     app = ApplicationBuilder().token(TOKEN).build()
 
     # Setup all handlers
@@ -109,10 +126,7 @@ def main():
         lambda _: asyncio.create_task(initialize_jobs_handler(app)), when=0
     )
 
-    logger.info("Bot is running...")
+    # Start the bot
+    logger.info("Bot is starting...")
     app.run_polling()
-    logger.info("Bot started")
-
-
-if __name__ == "__main__":
-    main()
+    logger.info("Bot started successfully")

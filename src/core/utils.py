@@ -1,28 +1,18 @@
+"""
+Core utility functions for the CryptoBot application.
+"""
+
 import logging
-from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-# Create a formatter
 formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 
-# NOTE: Uncomment to enable logging to a file
-# Create file handler for training logs
-# log_file = f'logs_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'
-# file_handler = logging.FileHandler(log_file)
-# file_handler.setLevel(logging.INFO)
-# file_handler.setFormatter(formatter)
-# logger.addHandler(file_handler)
-
-# Create console handler for training logs
 console_handler = logging.StreamHandler()
 console_handler.setLevel(logging.INFO)
 console_handler.setFormatter(formatter)
 
-# Add handlers to logger
 logger.addHandler(console_handler)
-
-# Prevent propagation to root logger
 logger.propagate = False
 
 VALID_INTERVALS = {
@@ -36,17 +26,21 @@ VALID_INTERVALS = {
     "1w": "W",  # 1 week
 }
 
-# Store user-selected indicators temporarily
-user_selected_indicators = {}
-
-auto_signal_jobs = {}
-
 API_URL = "https://api.bybit.com/v5/market/kline"
+
+user_selected_indicators = {}
+auto_signal_jobs = {}
 
 
 def plural_helper(num: int) -> str:
     """
-    Will help to decide whether we need to use the plural form of the words when communicating with the user
+    Helper function to determine plural form based on number.
+
+    Args:
+        num: The number to check
+
+    Returns:
+        str: "s" for plural, "" for singular
     """
     if num != 1:
         return "s"
@@ -54,26 +48,42 @@ def plural_helper(num: int) -> str:
 
 
 def create_true_preferences():
-    preferences = {}
+    """
+    Create a default preferences dictionary with all indicators enabled.
 
+    Returns:
+        dict: Default preferences dictionary
+    """
+    preferences = {}
     preferences["order_blocks"] = True
     preferences["fvgs"] = True
     preferences["liquidity_levels"] = True
     preferences["breaker_blocks"] = True
     preferences["liquidity_pools"] = True
-
     return preferences
 
 
 def is_bullish(candle):
     """
-    Detects whether the candle is bullish
+    Detects whether the candle is bullish.
+
+    Args:
+        candle: Dictionary or pandas Series with Open and Close prices
+
+    Returns:
+        bool: True if Close > Open (bullish candle)
     """
     return candle["Close"] > candle["Open"]
 
 
 def is_bearish(candle):
     """
-    Detects whether the candle is bullish
+    Detects whether the candle is bearish.
+
+    Args:
+        candle: Dictionary or pandas Series with Open and Close prices
+
+    Returns:
+        bool: True if Close < Open (bearish candle)
     """
     return candle["Close"] < candle["Open"]

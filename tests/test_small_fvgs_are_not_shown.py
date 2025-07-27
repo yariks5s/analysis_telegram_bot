@@ -1,16 +1,16 @@
 import pytest  # type: ignore
-from indicators import (
+from src.analysis.detection.indicators import (
     detect_order_blocks,
     detect_fvgs,
     detect_liquidity_levels,
     detect_breaker_blocks,
 )
-from IndicatorUtils.breaker_block_utils import BreakerBlocks
-from IndicatorUtils.fvg_utils import FVGs
-from IndicatorUtils.liquidity_level_utils import LiquidityLevels
-from IndicatorUtils.order_block_utils import OrderBlocks
+from src.analysis.utils.breaker_block_utils import BreakerBlocks
+from src.analysis.utils.fvg_utils import FVGs
+from src.analysis.utils.liquidity_level_utils import LiquidityLevels
+from src.analysis.utils.order_block_utils import OrderBlocks
 
-from data_fetching_instruments import fetch_from_json
+from src.api.data_fetcher import fetch_from_json
 
 
 @pytest.fixture
