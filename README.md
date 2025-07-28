@@ -230,8 +230,8 @@ You also have a chance to contribute to this project. Please create a pull reque
 - [x] Liquidity pools implementation
 - [x] Tests for liquidity pools
 - [x] Ability to show historical (not real-time) data
-- [ ] Proper exceptions for client
-- [ ] Fix this: '/history BTCUSDT 48 1h 0.05 17000000000'
+- [x] Proper exceptions for client
+- [x] Fix this: '/history BTCUSDT 48 1h 0.05 17000000000'
 - [ ] Possibility to open multiple signal management windows
 - [ ] Disclaimer in /help about temporary debugging commands
 - [ ] Shell script to launch ClickHouse from proper directory

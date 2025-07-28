@@ -47,6 +47,7 @@ from src.telegram.commands.db_commands import (
     describe_table_command,
 )
 from src.core.utils import logger
+from src.core.error_handler import global_error_handler
 
 # Configure logging
 logging.basicConfig(
@@ -117,6 +118,9 @@ def main():
 
     # Create bot application
     app = ApplicationBuilder().token(TOKEN).build()
+
+    # Register global error handler
+    app.add_error_handler(global_error_handler)
 
     # Setup all handlers
     setup_handlers(app)

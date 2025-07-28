@@ -5,11 +5,15 @@ This module contains various utility functions for technical analysis,
 data validation, and processing market data.
 """
 
+import logging
 import pandas as pd  # type: ignore
 
 from src.api.data_fetcher import fetch_ohlc_data, analyze_data, fetch_candles
 from src.core.utils import VALID_INTERVALS
 from src.database.operations import check_user_preferences, get_all_user_signal_requests
+from src.core.error_handler import handle_error
+
+logger = logging.getLogger(__name__)
 
 
 def calculate_macd(data: pd.DataFrame):
@@ -222,26 +226,57 @@ async def fetch_data_and_get_indicators(
     Returns:
         Tuple of (indicators, dataframe)
     """
-    if update:
-        await update.message.reply_text(
-            f"Fetching {symbol} price data for the last {hours} periods with interval {interval}, please wait..."
-        )
-
-    df = None
-    if hours <= 200:
-        df = fetch_ohlc_data(symbol, hours, interval)
-    else:
-        df = fetch_candles(symbol, hours, interval)
-
-    if df is None or df.empty:
+    try:
         if update:
             await update.message.reply_text(
-                f"Error fetching data for {symbol}. Please check the pair and try again."
+                f"Fetching {symbol} price data for the last {hours} periods with interval {interval}, please wait..."
             )
-        return (None, None)
 
-    indicators = analyze_data(df, preferences, liq_lev_tolerance)
-    return (indicators, df)
+        df = None
+        try:
+            if hours <= 200:
+                df = fetch_ohlc_data(symbol, hours, interval)
+            else:
+                df = fetch_candles(symbol, hours, interval)
+        except Exception as e:
+            logger.error(f"Error fetching data for {symbol}: {str(e)}")
+            if update:
+                await handle_error(
+                    update,
+                    "data_fetch",
+                    f"Error fetching data for {symbol}. The pair may not exist or the service might be temporarily unavailable.",
+                    exception=e,
+                )
+            return (None, None)
+
+        if df is None or df.empty:
+            if update:
+                await handle_error(
+                    update,
+                    "data_fetch",
+                    f"No data returned for {symbol}. Please check the pair name and try again.",
+                )
+            return (None, None)
+
+        try:
+            indicators = analyze_data(df, preferences, liq_lev_tolerance)
+            return (indicators, df)
+        except Exception as e:
+            logger.error(f"Error analyzing data: {str(e)}")
+            if update:
+                await handle_error(
+                    update,
+                    "data_processing",
+                    "Error analyzing market data. Please try different parameters or contact support.",
+                    exception=e,
+                )
+            return (None, None)
+
+    except Exception as e:
+        logger.error(f"Unexpected error in fetch_data_and_get_indicators: {str(e)}")
+        if update:
+            await handle_error(update, "unknown", exception=e)
+        return (None, None)
 
 
 async def check_and_analyze(update, user_id, preferences, args):
@@ -257,21 +292,48 @@ async def check_and_analyze(update, user_id, preferences, args):
     Returns:
         Tuple of (indicators, dataframe) or None if error
     """
-    res = await input_sanity_check_show(args, update)
+    try:
+        # Input validation
+        try:
+            res = await input_sanity_check_show(args, update)
+            if not res:
+                # input_sanity_check_show already sends appropriate error messages
+                return None, None
+        except Exception as e:
+            logger.error(f"Error in input validation: {str(e)}")
+            await handle_error(
+                update,
+                "invalid_input",
+                "Invalid command parameters. Please check the syntax and try again.",
+                exception=e,
+            )
+            return None, None
 
-    if not res:
-        return None, None
+        # Check if user selected indicators
+        try:
+            if not check_user_preferences(user_id):
+                await update.message.reply_text(
+                    "Please select indicators using /preferences before requesting a chart."
+                )
+                return None, None
+        except Exception as e:
+            logger.error(f"Error checking user preferences: {str(e)}")
+            await handle_error(
+                update,
+                "database",
+                "Could not verify your preferences. Please try setting your preferences again using /preferences.",
+                exception=e,
+            )
+            return None, None
 
-    # Check if user selected indicators
-    if not check_user_preferences(user_id):
-        await update.message.reply_text(
-            "Please select indicators using /preferences before requesting a chart."
+        # Fetch and analyze data
+        return await fetch_data_and_get_indicators(
+            res[0], res[1], res[2], preferences, res[3], update
         )
+    except Exception as e:
+        logger.error(f"Unexpected error in check_and_analyze: {str(e)}")
+        await handle_error(update, "unknown", exception=e)
         return None, None
-
-    return await fetch_data_and_get_indicators(
-        res[0], res[1], res[2], preferences, res[3], update
-    )
 
 
 async def check_signal_limit(update):
