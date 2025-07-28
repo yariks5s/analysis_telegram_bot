@@ -242,10 +242,10 @@ async def fetch_data_and_get_indicators(
             logger.error(f"Error fetching data for {symbol}: {str(e)}")
             if update:
                 await handle_error(
-                    update, 
-                    "data_fetch", 
+                    update,
+                    "data_fetch",
                     f"Error fetching data for {symbol}. The pair may not exist or the service might be temporarily unavailable.",
-                    exception=e
+                    exception=e,
                 )
             return (None, None)
 
@@ -254,7 +254,7 @@ async def fetch_data_and_get_indicators(
                 await handle_error(
                     update,
                     "data_fetch",
-                    f"No data returned for {symbol}. Please check the pair name and try again."
+                    f"No data returned for {symbol}. Please check the pair name and try again.",
                 )
             return (None, None)
 
@@ -268,10 +268,10 @@ async def fetch_data_and_get_indicators(
                     update,
                     "data_processing",
                     "Error analyzing market data. Please try different parameters or contact support.",
-                    exception=e
+                    exception=e,
                 )
             return (None, None)
-            
+
     except Exception as e:
         logger.error(f"Unexpected error in fetch_data_and_get_indicators: {str(e)}")
         if update:
@@ -302,10 +302,10 @@ async def check_and_analyze(update, user_id, preferences, args):
         except Exception as e:
             logger.error(f"Error in input validation: {str(e)}")
             await handle_error(
-                update, 
-                "invalid_input", 
+                update,
+                "invalid_input",
                 "Invalid command parameters. Please check the syntax and try again.",
-                exception=e
+                exception=e,
             )
             return None, None
 
@@ -322,7 +322,7 @@ async def check_and_analyze(update, user_id, preferences, args):
                 update,
                 "database",
                 "Could not verify your preferences. Please try setting your preferences again using /preferences.",
-                exception=e
+                exception=e,
             )
             return None, None
 

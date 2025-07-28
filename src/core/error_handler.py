@@ -23,20 +23,20 @@ ERROR_MESSAGES = {
     "timeout": "Operation timed out. Please try again.",
     "api_limit": "API rate limit reached. Please try again later.",
     "permission": "You don't have permission to perform this action.",
-    "unknown": "An unexpected error occurred. Please try again later."
+    "unknown": "An unexpected error occurred. Please try again later.",
 }
 
 
 async def handle_error(
-    update: Update, 
-    error_type: str = "unknown", 
+    update: Update,
+    error_type: str = "unknown",
     custom_message: Optional[str] = None,
     exception: Optional[Exception] = None,
-    notify_user: bool = True
+    notify_user: bool = True,
 ) -> None:
     """
     Handle errors by logging them and optionally sending a user-friendly message.
-    
+
     Args:
         update: The Telegram update object to respond to
         error_type: Type of error from ERROR_MESSAGES dictionary
@@ -49,10 +49,14 @@ async def handle_error(
         logger.error(f"Error: {error_type} - {str(exception)}")
         logger.debug(traceback.format_exc())
     else:
-        logger.error(f"Error: {error_type} - {custom_message or ERROR_MESSAGES.get(error_type, ERROR_MESSAGES['unknown'])}")
-    
+        logger.error(
+            f"Error: {error_type} - {custom_message or ERROR_MESSAGES.get(error_type, ERROR_MESSAGES['unknown'])}"
+        )
+
     if notify_user and update and update.effective_chat:
-        message = custom_message or ERROR_MESSAGES.get(error_type, ERROR_MESSAGES["unknown"])
+        message = custom_message or ERROR_MESSAGES.get(
+            error_type, ERROR_MESSAGES["unknown"]
+        )
         try:
             await update.message.reply_text(f"❌ {message}")
         except Exception as e:
@@ -67,14 +71,14 @@ async def global_error_handler(update: object, context):
     """
     Global error handler for the application.
     This catches all unhandled exceptions in handlers.
-    
+
     Args:
         update: The update that triggered the error
         context: The context containing the error
     """
     logger.error(f"Unhandled exception: {context.error}")
     logger.debug(traceback.format_exc())
-    
+
     # Ensure we have a valid update object
     if isinstance(update, Update) and update.effective_chat:
         try:

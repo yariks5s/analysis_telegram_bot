@@ -26,9 +26,12 @@ async def send_crypto_chart(update: Update, context: CallbackContext):
         try:
             preferences = get_user_preferences(user_id)
         except Exception as e:
-            await handle_error(update, "database", 
-                              "Failed to retrieve user preferences. Please try setting your preferences again using /preferences.", 
-                              exception=e)
+            await handle_error(
+                update,
+                "database",
+                "Failed to retrieve user preferences. Please try setting your preferences again using /preferences.",
+                exception=e,
+            )
             return
 
         # Analyze data
@@ -40,9 +43,12 @@ async def send_crypto_chart(update: Update, context: CallbackContext):
                 # The check_and_analyze function already handles user messaging for specific errors
                 return
         except Exception as e:
-            await handle_error(update, "data_processing", 
-                              "Failed to analyze data. Please check your inputs and try again.", 
-                              exception=e)
+            await handle_error(
+                update,
+                "data_processing",
+                "Failed to analyze data. Please check your inputs and try again.",
+                exception=e,
+            )
             return
 
         # Plot chart
@@ -63,11 +69,16 @@ async def send_crypto_chart(update: Update, context: CallbackContext):
 
         # Generate the probability-based signal
         try:
-            _, _, _, reason_str, _ = generate_price_prediction_signal_proba(df, indicators)
+            _, _, _, reason_str, _ = generate_price_prediction_signal_proba(
+                df, indicators
+            )
         except Exception as e:
-            await handle_error(update, "data_processing", 
-                              "Could not generate price prediction signal. Sending chart without analysis.", 
-                              exception=e)
+            await handle_error(
+                update,
+                "data_processing",
+                "Could not generate price prediction signal. Sending chart without analysis.",
+                exception=e,
+            )
             reason_str = "Analysis not available"
 
         # Send the chart to the user
@@ -75,7 +86,12 @@ async def send_crypto_chart(update: Update, context: CallbackContext):
             with open(chart_path, "rb") as f:
                 await context.bot.send_photo(chat_id=chat_id, photo=f)
         except Exception as e:
-            await handle_error(update, "unknown", "Failed to send chart. Please try again.", exception=e)
+            await handle_error(
+                update,
+                "unknown",
+                "Failed to send chart. Please try again.",
+                exception=e,
+            )
             return
 
         await update.message.reply_text(f"  {reason_str}")
@@ -97,9 +113,12 @@ async def send_text_data(update: Update, context: CallbackContext):
         try:
             preferences = get_user_preferences(user_id)
         except Exception as e:
-            await handle_error(update, "database", 
-                              "Failed to retrieve user preferences. Please try setting your preferences again using /preferences.", 
-                              exception=e)
+            await handle_error(
+                update,
+                "database",
+                "Failed to retrieve user preferences. Please try setting your preferences again using /preferences.",
+                exception=e,
+            )
             return
 
         # Analyze data
@@ -111,15 +130,23 @@ async def send_text_data(update: Update, context: CallbackContext):
                 # The check_and_analyze function already handles user messaging for specific errors
                 return
         except Exception as e:
-            await handle_error(update, "data_processing", 
-                              "Failed to analyze data. Please check your inputs and try again.", 
-                              exception=e)
+            await handle_error(
+                update,
+                "data_processing",
+                "Failed to analyze data. Please check your inputs and try again.",
+                exception=e,
+            )
             return
 
         try:
             await update.message.reply_text(str(indicators))
         except Exception as e:
-            await handle_error(update, "unknown", "Failed to send analysis results. Please try again.", exception=e)
+            await handle_error(
+                update,
+                "unknown",
+                "Failed to send analysis results. Please try again.",
+                exception=e,
+            )
             return
 
         df = df.reset_index(drop=True)
@@ -139,9 +166,12 @@ async def send_historical_chart(update: Update, context: CallbackContext):
         try:
             preferences = get_user_preferences(user_id)
         except Exception as e:
-            await handle_error(update, "database", 
-                              "Failed to retrieve user preferences. Please try setting your preferences again using /preferences.", 
-                              exception=e)
+            await handle_error(
+                update,
+                "database",
+                "Failed to retrieve user preferences. Please try setting your preferences again using /preferences.",
+                exception=e,
+            )
             return
 
         try:
@@ -151,9 +181,12 @@ async def send_historical_chart(update: Update, context: CallbackContext):
                 return
             symbol, length, interval, tolerance, timestamp_sec = res
         except Exception as e:
-            await handle_error(update, "invalid_input", 
-                              "Invalid command parameters. Usage: /history <symbol> <length> <interval> <tolerance> <timestamp>", 
-                              exception=e)
+            await handle_error(
+                update,
+                "invalid_input",
+                "Invalid command parameters. Usage: /history <symbol> <length> <interval> <tolerance> <timestamp>",
+                exception=e,
+            )
             return
 
         if timestamp_sec > datetime.datetime.now().timestamp():
@@ -166,22 +199,31 @@ async def send_historical_chart(update: Update, context: CallbackContext):
         try:
             df = fetch_candles(symbol, length, interval, timestamp=timestamp_sec)
             if df is None or df.empty:
-                await handle_error(update, "data_fetch", 
-                                  f"No data returned for {symbol} at timestamp {timestamp_sec}. The data may not be available for that period.")
+                await handle_error(
+                    update,
+                    "data_fetch",
+                    f"No data returned for {symbol} at timestamp {timestamp_sec}. The data may not be available for that period.",
+                )
                 return
         except Exception as e:
-            await handle_error(update, "data_fetch", 
-                              f"Failed to fetch historical data for {symbol}. Please check the symbol and timestamp.", 
-                              exception=e)
+            await handle_error(
+                update,
+                "data_fetch",
+                f"Failed to fetch historical data for {symbol}. Please check the symbol and timestamp.",
+                exception=e,
+            )
             return
 
         # Analyze data
         try:
             indicators = analyze_data(df, preferences, tolerance)
         except Exception as e:
-            await handle_error(update, "data_processing", 
-                              "Failed to analyze historical data. Please try with different parameters.", 
-                              exception=e)
+            await handle_error(
+                update,
+                "data_processing",
+                "Failed to analyze historical data. Please try with different parameters.",
+                exception=e,
+            )
             return
 
         # Plot chart
@@ -205,9 +247,16 @@ async def send_historical_chart(update: Update, context: CallbackContext):
             with open(chart_path, "rb") as f:
                 await context.bot.send_photo(chat_id=chat_id, photo=f)
         except Exception as e:
-            await handle_error(update, "unknown", "Failed to send chart. Please try again.", exception=e)
+            await handle_error(
+                update,
+                "unknown",
+                "Failed to send chart. Please try again.",
+                exception=e,
+            )
             return
 
-        await update.message.reply_text(f"Historical data for timestamp {timestamp_sec}")
+        await update.message.reply_text(
+            f"Historical data for timestamp {timestamp_sec}"
+        )
     except Exception as e:
         await handle_error(update, "unknown", exception=e)

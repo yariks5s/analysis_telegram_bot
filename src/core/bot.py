@@ -118,7 +118,7 @@ def main():
 
     # Create bot application
     app = ApplicationBuilder().token(TOKEN).build()
-    
+
     # Register global error handler
     app.add_error_handler(global_error_handler)
 
