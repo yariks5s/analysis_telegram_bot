@@ -201,63 +201,80 @@ async def handle_signal_text_input(update: Update, context: ContextTypes.DEFAULT
     return CHOOSING_ACTION
 
 
-def get_indicator_selection_keyboard(user_id):
+# Dictionary to store temporary preferences for each menu session
+# Format: {menu_id: {preference_key: value}}
+_menu_preferences = {}
+
+def get_indicator_selection_keyboard(user_id, menu_id=None):
     """
     Create an inline keyboard for selecting indicators with a checkmark for selected ones.
 
     Args:
         user_id: Telegram user ID
+        menu_id: Optional unique identifier for this preference menu instance
+        (was created to provide multiple menus being opened at the same time)
 
     Returns:
-        InlineKeyboardMarkup with indicator selection options
+        InlineKeyboardMarkup with indicator selection options and the menu_id
     """
-    selected = get_user_preferences(user_id)
+    current_preferences = get_user_preferences(user_id)
+    
+    if menu_id is None:
+        import uuid
+        menu_id = str(uuid.uuid4())[:8]
+        _menu_preferences[menu_id] = current_preferences.copy()
+    
+    selected = _menu_preferences.get(menu_id, current_preferences)
+    
+    def create_callback(action):
+        return f"{action}:{menu_id}"
+    
     keyboard = [
         [
             InlineKeyboardButton(
                 f"{'✔️ ' if selected['order_blocks'] else ''}Order Blocks",
-                callback_data="indicator_order_blocks",
+                callback_data=create_callback("indicator_order_blocks"),
             ),
             InlineKeyboardButton(
                 f"{'✔️ ' if selected['fvgs'] else ''}FVGs",
-                callback_data="indicator_fvgs",
+                callback_data=create_callback("indicator_fvgs"),
             ),
         ],
         [
             InlineKeyboardButton(
                 f"{'✔️ ' if selected['liquidity_levels'] else ''}Liquidity Levels",
-                callback_data="indicator_liquidity_levels",
+                callback_data=create_callback("indicator_liquidity_levels"),
             ),
             InlineKeyboardButton(
                 f"{'✔️ ' if selected['breaker_blocks'] else ''}Breaker Blocks",
-                callback_data="indicator_breaker_blocks",
+                callback_data=create_callback("indicator_breaker_blocks"),
             ),
         ],
         [
             InlineKeyboardButton(
                 f"{'✔️ ' if selected['show_legend'] else ''}Show Legend",
-                callback_data="indicator_show_legend",
+                callback_data=create_callback("indicator_show_legend"),
             ),
             InlineKeyboardButton(
                 f"{'✔️ ' if selected['show_volume'] else ''}Show Volume",
-                callback_data="indicator_show_volume",
+                callback_data=create_callback("indicator_show_volume"),
             ),
         ],
         [
             InlineKeyboardButton(
                 f"{'✔️ ' if selected['liquidity_pools'] else ''}Liquidity Pools",
-                callback_data="indicator_liquidity_pools",
+                callback_data=create_callback("indicator_liquidity_pools"),
             ),
         ],
         [
             InlineKeyboardButton(
                 f"{'🌙 ' if selected['dark_mode'] else '☀️ '}{'Dark Mode' if selected['dark_mode'] else 'Light Mode'}",
-                callback_data="indicator_dark_mode",
+                callback_data=create_callback("indicator_dark_mode"),
             ),
         ],
-        [InlineKeyboardButton("Done", callback_data="indicator_done")],
+        [InlineKeyboardButton("Done", callback_data=create_callback("indicator_done"))],
     ]
-    return InlineKeyboardMarkup(keyboard)
+    return InlineKeyboardMarkup(keyboard), menu_id
 
 
 async def handle_indicator_selection(update, _):
@@ -274,53 +291,65 @@ async def handle_indicator_selection(update, _):
     query = update.callback_query
     await query.answer()
 
-    # Get user ID and initialize preferences
     user_id = query.from_user.id
-    preferences = get_user_preferences(user_id)
 
-    # Update preferences based on user action
-    data = query.data
-    if data == "indicator_order_blocks":
-        preferences["order_blocks"] = not preferences["order_blocks"]
-    elif data == "indicator_fvgs":
-        preferences["fvgs"] = not preferences["fvgs"]
-    elif data == "indicator_liquidity_levels":
-        preferences["liquidity_levels"] = not preferences["liquidity_levels"]
-    elif data == "indicator_breaker_blocks":
-        preferences["breaker_blocks"] = not preferences["breaker_blocks"]
-    elif data == "indicator_liquidity_pools":
-        preferences["liquidity_pools"] = not preferences["liquidity_pools"]
-    elif data == "indicator_show_legend":
-        preferences["show_legend"] = not preferences["show_legend"]
-    elif data == "indicator_show_volume":
-        preferences["show_volume"] = not preferences["show_volume"]
-    elif data == "indicator_dark_mode":
-        preferences["dark_mode"] = not preferences["dark_mode"]
-    elif data == "indicator_done":
-        # Use the preferences module to get formatted preference names
-        selected_pretty = get_formatted_preferences(preferences)
+    try:
+        data_parts = query.data.split(":")
+        action = data_parts[0]
+        menu_id = data_parts[1] if len(data_parts) > 1 else None
+    except:
+        logger.error(f"Invalid callback data format: {query.data}")
+        return
+        
+    # Make sure this menu exists in our session store
+    if menu_id not in _menu_preferences:
+        _menu_preferences[menu_id] = get_user_preferences(user_id).copy()
+        
+    preferences = _menu_preferences[menu_id]
+
+    if action == "indicator_done":
+        # When Done is clicked, commit these preferences to the database
+        # This ensures that the most recently closed window always wins
+        final_preferences = preferences.copy()
+        
+        selected_pretty = get_formatted_preferences(final_preferences)
+        
+        update_user_preferences(user_id, final_preferences)
+        
+        # Clean up by removing this menu from our session store
+        if menu_id in _menu_preferences:
+            del _menu_preferences[menu_id]
 
         await query.edit_message_text(
             f"You selected: {', '.join(selected_pretty) or 'None'}"
         )
         return
+    
+    # Otherwise, toggle the appropriate preference
+    elif action == "indicator_order_blocks":
+        preferences["order_blocks"] = not preferences["order_blocks"]
+    elif action == "indicator_fvgs":
+        preferences["fvgs"] = not preferences["fvgs"]
+    elif action == "indicator_liquidity_levels":
+        preferences["liquidity_levels"] = not preferences["liquidity_levels"]
+    elif action == "indicator_breaker_blocks":
+        preferences["breaker_blocks"] = not preferences["breaker_blocks"]
+    elif action == "indicator_liquidity_pools":
+        preferences["liquidity_pools"] = not preferences["liquidity_pools"]
+    elif action == "indicator_show_legend":
+        preferences["show_legend"] = not preferences["show_legend"]
+    elif action == "indicator_show_volume":
+        preferences["show_volume"] = not preferences["show_volume"]
+    elif action == "indicator_dark_mode":
+        preferences["dark_mode"] = not preferences["dark_mode"]
+        
+    # Save the updated preferences back to the session store
+    _menu_preferences[menu_id] = preferences
 
-    # Save updated preferences in the database
-    update_user_preferences(user_id, preferences)
+    new_markup, _ = get_indicator_selection_keyboard(user_id, menu_id)
 
-    # Build a fresh keyboard and compare to the one already on the message
-    new_markup = get_indicator_selection_keyboard(user_id)
-    old_markup = query.message.reply_markup
-    if old_markup and old_markup.to_dict() == new_markup.to_dict():
-        # nothing changed, so skip the edit entirely
-        logger.debug("No change in indicator keyboard—skipping edit")
-        return CHOOSING_ACTION
-
-    # Update message with current selections and checkmarks
-    await query.edit_message_reply_markup(
-        reply_markup=get_indicator_selection_keyboard(user_id)
-    )
-
+    await query.edit_message_reply_markup(reply_markup=new_markup)
+    
     return CHOOSING_ACTION
 
 
@@ -336,7 +365,12 @@ async def select_indicators(update, _):
         None
     """
     user_id = update.effective_user.id
+    
+    # Generate a new keyboard with a unique menu ID
+    # This ensures each preferences window has its own identifier
+    keyboard, menu_id = get_indicator_selection_keyboard(user_id)
+    
     await update.message.reply_text(
         "Please choose the indicators you'd like to include:",
-        reply_markup=get_indicator_selection_keyboard(user_id),
+        reply_markup=keyboard,
     )
