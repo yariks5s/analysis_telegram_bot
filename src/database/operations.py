@@ -6,10 +6,11 @@ user preferences management, and signal request management.
 """
 
 import sqlite3
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any, Union
 
 from src.core.config import DATABASE_PATH, logger
 from src.database.models import create_tables
+from src.core.preferences import INDICATOR_PARAMS
 
 
 def init_db() -> None:
@@ -19,7 +20,7 @@ def init_db() -> None:
     create_tables()
 
 
-def get_user_preferences(user_id: int) -> Dict[str, bool]:
+def get_user_preferences(user_id: int) -> Dict[str, Union[bool, int, float]]:
     """
     Retrieve the user's indicator preferences from the database.
 
@@ -36,7 +37,7 @@ def get_user_preferences(user_id: int) -> Dict[str, bool]:
     conn.close()
 
     if row:
-        return {
+        prefs = {
             "order_blocks": bool(row[1]),
             "fvgs": bool(row[2]),
             "liquidity_levels": bool(row[3]),
@@ -46,17 +47,40 @@ def get_user_preferences(user_id: int) -> Dict[str, bool]:
             "liquidity_pools": bool(row[7]) if len(row) > 7 else True,
             "dark_mode": bool(row[8]) if len(row) > 8 else False,
         }
+
+        # Handle indicator parameters if they exist in the database
+        if len(row) > 9:
+            prefs["atr_period"] = (
+                int(row[9])
+                if row[9] is not None
+                else INDICATOR_PARAMS["atr_period"]["default"]
+            )
+            prefs["fvg_min_size"] = (
+                float(row[10])
+                if row[10] is not None
+                else INDICATOR_PARAMS["fvg_min_size"]["default"]
+            )
+        else:
+            prefs["atr_period"] = INDICATOR_PARAMS["atr_period"]["default"]
+            prefs["fvg_min_size"] = INDICATOR_PARAMS["fvg_min_size"]["default"]
+
+        return prefs
     else:
-        return {
+        prefs = {
             "order_blocks": False,
             "fvgs": False,
             "liquidity_levels": False,
             "breaker_blocks": False,
             "show_legend": True,
             "show_volume": True,
-            "liquidity_pools": True,
+            "liquidity_pools": False,
             "dark_mode": False,
         }
+
+        prefs["atr_period"] = INDICATOR_PARAMS["atr_period"]["default"]
+        prefs["fvg_min_size"] = INDICATOR_PARAMS["fvg_min_size"]["default"]
+
+        return prefs
 
 
 def check_user_preferences(user_id: int) -> bool:
@@ -77,7 +101,7 @@ def check_user_preferences(user_id: int) -> bool:
     return bool(exists)
 
 
-def update_user_preferences(user_id: int, preferences: Dict[str, bool]) -> None:
+def update_user_preferences(user_id: int, preferences: Dict[str, Any]) -> None:
     """
     Update or insert the user's indicator preferences in the database.
 
@@ -97,7 +121,8 @@ def update_user_preferences(user_id: int, preferences: Dict[str, bool]) -> None:
                 """
                 UPDATE user_preferences
                 SET order_blocks = ?, fvgs = ?, liquidity_levels = ?, breaker_blocks = ?,
-                    show_legend = ?, show_volume = ?, liquidity_pools = ?, dark_mode = ?
+                    show_legend = ?, show_volume = ?, liquidity_pools = ?, dark_mode = ?,
+                    atr_period = ?, fvg_min_size = ?
                 WHERE user_id = ?
             """,
                 (
@@ -109,6 +134,12 @@ def update_user_preferences(user_id: int, preferences: Dict[str, bool]) -> None:
                     preferences["show_volume"],
                     preferences["liquidity_pools"],
                     preferences["dark_mode"],
+                    preferences.get(
+                        "atr_period", INDICATOR_PARAMS["atr_period"]["default"]
+                    ),
+                    preferences.get(
+                        "fvg_min_size", INDICATOR_PARAMS["fvg_min_size"]["default"]
+                    ),
                     user_id,
                 ),
             )
@@ -117,8 +148,9 @@ def update_user_preferences(user_id: int, preferences: Dict[str, bool]) -> None:
                 """
                 INSERT INTO user_preferences 
                 (user_id, order_blocks, fvgs, liquidity_levels, breaker_blocks, 
-                 show_legend, show_volume, liquidity_pools, dark_mode)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 show_legend, show_volume, liquidity_pools, dark_mode,
+                 atr_period, fvg_min_size)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     user_id,
@@ -130,6 +162,12 @@ def update_user_preferences(user_id: int, preferences: Dict[str, bool]) -> None:
                     preferences["show_volume"],
                     preferences["liquidity_pools"],
                     preferences["dark_mode"],
+                    preferences.get(
+                        "atr_period", INDICATOR_PARAMS["atr_period"]["default"]
+                    ),
+                    preferences.get(
+                        "fvg_min_size", INDICATOR_PARAMS["fvg_min_size"]["default"]
+                    ),
                 ),
             )
 

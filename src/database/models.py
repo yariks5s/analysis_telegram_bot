@@ -24,6 +24,8 @@ class UserPreference:
     show_volume: bool = True
     liquidity_pools: bool = True
     dark_mode: bool = False
+    atr_period: int = 14
+    fvg_min_size: float = 0.0005
 
 
 @dataclass
@@ -66,7 +68,9 @@ def create_tables():
             show_legend BOOLEAN DEFAULT 1,
             show_volume BOOLEAN DEFAULT 1,
             liquidity_pools BOOLEAN DEFAULT 1,
-            dark_mode BOOLEAN DEFAULT 0
+            dark_mode BOOLEAN DEFAULT 0,
+            atr_period INTEGER DEFAULT 14,
+            fvg_min_size REAL DEFAULT 0.0005
         )
         """
         )

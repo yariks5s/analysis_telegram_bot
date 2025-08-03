@@ -16,6 +16,23 @@ PREFERENCE_DISPLAY_NAMES = {
     "dark_mode": "Dark Mode",
 }
 
+INDICATOR_PARAMS = {
+    "atr_period": {
+        "default": 14,
+        "min": 1,
+        "max": 50,
+        "step": 1,
+        "display_name": "ATR Period",
+    },
+    "fvg_min_size": {
+        "default": 0.0005,
+        "min": 0.0001,
+        "max": 0.01,
+        "step": 0.0001,
+        "display_name": "FVG Min Size",
+    },
+}
+
 
 def get_pretty_preference_name(key: str, value=None) -> str:
     """
@@ -46,28 +63,37 @@ def get_formatted_preferences(preferences_dict: Dict[str, Any]) -> List[str]:
         List of formatted preference strings
     """
     formatted = []
+    parameter_keys = set(INDICATOR_PARAMS.keys())
 
     for key, val in preferences_dict.items():
+        if key in parameter_keys:
+            continue
+
         if val or key == "dark_mode":
             formatted.append(get_pretty_preference_name(key, val))
 
     return formatted
 
 
-def create_default_preferences() -> Dict[str, bool]:
+def create_default_preferences() -> Dict[str, Any]:
     """
-    Create a default preferences dictionary with all indicators enabled.
+    Create a dictionary of default preferences.
 
     Returns:
-        dict: Default preferences dictionary
+        Dictionary of default preferences
     """
-    return {
+    prefs = {
         "order_blocks": True,
         "fvgs": True,
         "liquidity_levels": True,
         "breaker_blocks": True,
         "show_legend": True,
         "show_volume": True,
-        "liquidity_pools": True,
+        "liquidity_pools": False,
         "dark_mode": False,
     }
+
+    for param_name, param_config in INDICATOR_PARAMS.items():
+        prefs[param_name] = param_config["default"]
+
+    return prefs
