@@ -11,7 +11,7 @@ CryptoBot is an advanced Telegram bot for cryptocurrency traders, providing auto
 - **Automated Signal Generation**: Multi-timeframe, probability-based bullish/bearish/neutral signals for any crypto pair.
 - **Custom Technical Indicators**: Includes Order Blocks, Fair Value Gaps (FVGs), Liquidity Levels, and Breaker Blocks.
 - **Interactive Telegram Bot**: Manage signals, select indicators, and receive charts directly in Telegram.
-- **User Preferences**: Per-user indicator selection, chart options (legend, volume), and signal frequency.
+- **User Preferences**: Per-user indicator selection, chart options (legend, volume), custom indicator parameters, and signal frequency.
 - **Backtesting & Strategy Optimization**: Built-in backtesting and training modules for strategy evaluation.
 - **Database-Backed**: User preferences and signal jobs are persisted in a local SQLite database.
 - **Beautiful Charting**: Candlestick charts with overlays for all supported indicators.
@@ -99,8 +99,9 @@ All indicators can be enabled/disabled per user.
 - Signals are sent automatically at your chosen frequency, with or without charts, based on your preferences.
 - You can have up to 10 active signal jobs per user.
 
-### Indicator Selection
+### Indicator Selection & Parameters
 - Use `/preferences` to enable/disable Order Blocks, FVGs, Liquidity Levels, Breaker Blocks, and chart options.
+- Customize indicator parameters through the Parameter Settings menu (ATR period, FVG minimum size).
 - Preferences are saved per user.
 
 ---
@@ -232,13 +233,13 @@ You also have a chance to contribute to this project. Please create a pull reque
 - [x] Ability to show historical (not real-time) data
 - [x] Proper exceptions for client
 - [x] Fix this: '/history BTCUSDT 48 1h 0.05 17000000000'
-- [ ] Possibility to open multiple signal management windows
+- [x] Possibility to open multiple signal management windows
 - [ ] Disclaimer in /help about temporary debugging commands
 - [ ] Shell script to launch ClickHouse from proper directory
 - [ ] Implement testing for proper backtesting
 - [ ] Multi language support
 - [ ] Implement advanced risk management tools (e.g., stop-loss/take-profit suggestions)
-- [ ] Allow users to set custom indicator parameters (e.g., ATR period, FVG min size)
+- [x] Allow users to set custom indicator parameters (e.g., ATR period, FVG min size)
 - [ ] Add portfolio tracking: Let users track their holdings and PnL
 - [ ] Add a web dashboard for visualizing signals and statistics outside Telegram
 - [ ] Add a “strategy marketplace” where users can share and use custom signal strategies

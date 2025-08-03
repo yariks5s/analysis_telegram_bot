@@ -27,8 +27,12 @@ from src.telegram.handlers import (
     manage_signals,
     handle_signal_menu_callback,
     handle_signal_text_input,
+    handle_parameter_input,
+    handle_parameter_selection,
+    show_parameters,
     CHOOSING_ACTION,
     TYPING_SIGNAL_DATA,
+    TYPING_PARAM_VALUE,
 )
 from src.telegram.signals.detection import initialize_jobs
 from src.telegram.commands.chart_commands import (
@@ -100,6 +104,30 @@ def setup_handlers(app):
         fallbacks=[],
     )
     app.add_handler(manage_signals_conv_handler)
+
+    app.add_handler(CommandHandler("parameters", show_parameters))
+
+    # handles both callback queries and text input
+    param_handler = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(handle_parameter_selection, pattern=r"^param:")
+        ],
+        states={
+            CHOOSING_ACTION: [
+                CallbackQueryHandler(handle_parameter_selection, pattern=r"^param:")
+            ],
+            TYPING_PARAM_VALUE: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_parameter_input),
+            ],
+        },
+        fallbacks=[
+            # Allow exiting the conversation with commands
+            CommandHandler("cancel", lambda u, c: ConversationHandler.END)
+        ],
+        name="param_handler",
+        allow_reentry=True,
+    )
+    app.add_handler(param_handler)
 
     # Help command
     app.add_handler(CommandHandler("help", help_command))

@@ -2,6 +2,14 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 COMMAND_HELPS = {
+    "parameters": (
+        "<b>/parameters</b>\n"
+        "Open an interactive menu to customize indicator parameters.\n\n"
+        "Available parameters:\n"
+        "- ATR Period: Adjust the period used for Average True Range calculations (1-50)\n"
+        "- FVG Min Size: Set the minimum size ratio for Fair Value Gaps (0.0001-0.01)\n\n"
+        "Click on any parameter to modify its value."
+    ),
     "chart": (
         "<b>/chart &lt;symbol&gt; &lt;length&gt; &lt;interval&gt; &lt;tolerance&gt;</b>\n"
         "Get a candlestick chart with all enabled indicators.\n\n"
@@ -33,8 +41,7 @@ COMMAND_HELPS = {
         "Available options:\n"
         "- Technical indicators (Order Blocks, FVGs, Liquidity Levels, etc.)\n"
         "- Display settings (Show Legend, Show Volume)\n"
-        "- Theme selection (Light/Dark mode)\n\n"
-        "Your preferences are saved per user."
+        "- Theme selection (Light/Dark mode)"
     ),
     "create_signal": (
         "<b>/create_signal &lt;symbol&gt; &lt;minutes&gt; [&lt;show_chart&gt;]</b>\n"

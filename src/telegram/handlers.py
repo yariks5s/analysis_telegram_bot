@@ -5,6 +5,8 @@ This module contains handlers for processing Telegram bot messages,
 including conversation handlers, callback queries, and indicator selection.
 """
 
+import time
+
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton, Update  # type: ignore
 from telegram.ext import (  # type: ignore
     ContextTypes,
@@ -19,6 +21,7 @@ from src.database.operations import (
     get_user_preferences,
     update_user_preferences,
 )
+from src.core.preferences import INDICATOR_PARAMS
 from src.telegram.signals.detection import createSignalJob
 
 # Imports with updated module paths
@@ -28,7 +31,19 @@ from src.core.preferences import get_formatted_preferences
 ###############################################################################
 # States for Conversation
 ###############################################################################
-CHOOSING_ACTION, TYPING_SIGNAL_DATA = range(2)
+CHOOSING_ACTION, TYPING_SIGNAL_DATA, TYPING_PARAM_VALUE = range(3)
+
+# Dictionary to store temporary parameter editing states
+# Format: {user_id: {"param": param_name, "menu_id": menu_id}}
+_param_edit_states = {}
+
+# Dictionary to store temporary preferences for each menu session
+# Format: {menu_id: {preference_key: value}}
+_menu_preferences = {}
+
+# Dictionary to store temporary parameter values for each menu session
+# Format: {menu_id: {param_name: value}}
+_param_preferences = {}
 
 
 async def manage_signals(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -198,11 +213,6 @@ async def handle_signal_text_input(update: Update, context: ContextTypes.DEFAULT
     return CHOOSING_ACTION
 
 
-# Dictionary to store temporary preferences for each menu session
-# Format: {menu_id: {preference_key: value}}
-_menu_preferences = {}
-
-
 def get_indicator_selection_keyboard(user_id, menu_id=None):
     """
     Create an inline keyboard for selecting indicators with a checkmark for selected ones.
@@ -271,7 +281,11 @@ def get_indicator_selection_keyboard(user_id, menu_id=None):
                 callback_data=create_callback("indicator_dark_mode"),
             ),
         ],
-        [InlineKeyboardButton("Done", callback_data=create_callback("indicator_done"))],
+        [
+            InlineKeyboardButton(
+                "Done", callback_data=create_callback("indicator_done")
+            ),
+        ],
     ]
     return InlineKeyboardMarkup(keyboard), menu_id
 
@@ -294,9 +308,15 @@ async def handle_indicator_selection(update, _):
 
     try:
         data_parts = query.data.split(":")
-        action = data_parts[0]
-        menu_id = data_parts[1] if len(data_parts) > 1 else str(id(query))
-        logger.info(f"Processing action: {action}, menu_id: {menu_id}")
+
+        if len(data_parts) >= 3 and data_parts[0] == "indicator":
+            menu_id = data_parts[1]
+            action = data_parts[2]  # This will be param_edit_{param_name} or param_back
+            logger.info(f"Processing parameter action: {action}, menu_id: {menu_id}")
+        else:
+            action = data_parts[0]
+            menu_id = data_parts[1] if len(data_parts) > 1 else str(id(query))
+            logger.info(f"Processing action: {action}, menu_id: {menu_id}")
     except Exception as e:
         logger.error(f"Invalid callback data format: {query.data}, error: {str(e)}")
         return
@@ -308,8 +328,6 @@ async def handle_indicator_selection(update, _):
     preferences = _menu_preferences[menu_id].copy()
 
     if action == "indicator_done":
-        # When Done is clicked, commit these preferences to the database
-        # This ensures that the most recently closed window always wins
         final_preferences = preferences.copy()
 
         logger.info(
@@ -321,7 +339,6 @@ async def handle_indicator_selection(update, _):
         selected_pretty = get_formatted_preferences(final_preferences)
         logger.info(f"Formatted preferences: {selected_pretty}")
 
-        # Clean up by removing this menu from our session store
         if menu_id in _menu_preferences:
             del _menu_preferences[menu_id]
 
@@ -330,7 +347,6 @@ async def handle_indicator_selection(update, _):
         )
         return
 
-    # Otherwise, toggle the appropriate preference
     elif action == "indicator_order_blocks":
         preferences["order_blocks"] = not preferences["order_blocks"]
     elif action == "indicator_fvgs":
@@ -348,7 +364,6 @@ async def handle_indicator_selection(update, _):
     elif action == "indicator_dark_mode":
         preferences["dark_mode"] = not preferences["dark_mode"]
 
-    # Save the updated preferences back to the session store
     _menu_preferences[menu_id] = preferences
 
     new_markup, _ = get_indicator_selection_keyboard(user_id, menu_id)
@@ -356,6 +371,104 @@ async def handle_indicator_selection(update, _):
     await query.edit_message_reply_markup(reply_markup=new_markup)
 
     return CHOOSING_ACTION
+
+
+def get_parameter_keyboard(user_id, menu_id=None):
+    """
+    Create an inline keyboard for adjusting indicator parameters.
+
+    Args:
+        user_id: Telegram user ID
+        menu_id: Optional unique identifier for this parameter menu instance
+
+    Returns:
+        InlineKeyboardMarkup with parameter setting options and the menu_id
+    """
+    if menu_id is None:
+        menu_id = str(id(user_id)) + str(time.time())
+
+    if menu_id not in _param_preferences:
+        _param_preferences[menu_id] = get_user_preferences(user_id).copy()
+
+    preferences = _param_preferences[menu_id]
+
+    keyboard = []
+
+    for param_name, param_info in INDICATOR_PARAMS.items():
+        current_value = preferences.get(param_name, param_info["default"])
+        keyboard.append(
+            [
+                InlineKeyboardButton(
+                    f"{param_info['display_name']}: {current_value}",
+                    callback_data=f"param:{menu_id}:edit_{param_name}",
+                )
+            ]
+        )
+
+    keyboard.append(
+        [InlineKeyboardButton("Save", callback_data=f"param:{menu_id}:save")]
+    )
+
+    return InlineKeyboardMarkup(keyboard), menu_id
+
+
+async def handle_parameter_input(update, context):
+    """
+    Handle user input for parameter values.
+
+    Args:
+        update: Telegram update object
+        context: Telegram context object
+
+    Returns:
+        Conversation state
+    """
+    user_id = update.effective_user.id
+    user_text = update.message.text.strip()
+
+    if user_id not in _param_edit_states:
+        await update.message.reply_text(
+            "Sorry, I don't have an active parameter editing session. "
+            "Please use /select_indicators to start over."
+        )
+        return ConversationHandler.END
+
+    param_info = _param_edit_states[user_id]
+    param_name = param_info["param"]
+    menu_id = param_info["menu_id"]
+
+    try:
+        if param_name == "atr_period":
+            new_value = int(user_text)
+        else:  # fvg_min_size or other float params
+            new_value = float(user_text)
+
+        param_config = INDICATOR_PARAMS[param_name]
+        if new_value < param_config["min"] or new_value > param_config["max"]:
+            await update.message.reply_text(
+                f"Value must be between {param_config['min']} and {param_config['max']}. "
+                "Please try again."
+            )
+            return TYPING_PARAM_VALUE
+
+        _menu_preferences[menu_id][param_name] = new_value
+
+        # Clear the edit state
+        del _param_edit_states[user_id]
+
+        param_markup = get_parameter_keyboard(user_id, menu_id)
+        await update.message.reply_text(
+            f"{INDICATOR_PARAMS[param_name]['display_name']} set to {new_value}.",
+            reply_markup=param_markup,
+        )
+
+        return CHOOSING_ACTION
+
+    except (ValueError, TypeError):
+        await update.message.reply_text(
+            f"Invalid input. Please enter a valid number for {INDICATOR_PARAMS[param_name]['display_name']}."
+        )
+        return TYPING_PARAM_VALUE
 
 
 async def select_indicators(update, _):
@@ -371,11 +484,156 @@ async def select_indicators(update, _):
     """
     user_id = update.effective_user.id
 
-    # Generate a new keyboard with a unique menu ID
-    # This ensures each preferences window has its own identifier
-    keyboard, menu_id = get_indicator_selection_keyboard(user_id)
+    keyboard, _ = get_indicator_selection_keyboard(user_id)
 
     await update.message.reply_text(
         "Please choose the indicators you'd like to include:",
         reply_markup=keyboard,
     )
+
+
+async def handle_parameter_selection(update, _):
+    """
+    Handle the user's selection of parameter values.
+
+    Args:
+        update: Telegram update object
+        _: Context object (unused)
+
+    Returns:
+        Conversation state
+    """
+    query = update.callback_query
+    await query.answer()
+
+    user_id = query.from_user.id
+
+    try:
+        data_parts = query.data.split(":")
+        if len(data_parts) >= 3 and data_parts[0] == "param":
+            menu_id = data_parts[1]
+            action = data_parts[2]
+            logger.info(f"Processing parameter action: {action}, menu_id: {menu_id}")
+        else:
+            logger.error(f"Invalid callback data format: {query.data}")
+            return
+    except Exception as e:
+        logger.error(f"Invalid callback data format: {query.data}, error: {str(e)}")
+        return
+
+    if menu_id not in _param_preferences:
+        _param_preferences[menu_id] = get_user_preferences(user_id).copy()
+
+    preferences = _param_preferences[menu_id].copy()
+
+    if action == "save":
+        update_user_preferences(user_id, preferences)
+
+        if menu_id in _param_preferences:
+            del _param_preferences[menu_id]
+
+        await query.edit_message_text("Parameter settings saved successfully!")
+        return
+
+    elif action.startswith("edit_"):
+        param_name = action.replace("edit_", "")
+        _param_edit_states[user_id] = {"param": param_name, "menu_id": menu_id}
+
+        param_info = INDICATOR_PARAMS[param_name]
+        current_value = preferences.get(param_name, param_info["default"])
+
+        await query.edit_message_text(
+            f"Enter a new value for {param_info['display_name']}:\n\n"
+            f"Current value: {current_value}\n"
+            f"Valid range: {param_info['min']} to {param_info['max']} (step: {param_info['step']})\n\n"
+            f"Reply with a number to set the new value."
+        )
+
+        return TYPING_PARAM_VALUE
+
+    # If we got here, something unexpected happened
+    await query.edit_message_text(
+        "Sorry, I couldn't process that action. Please try again with /parameters."
+    )
+    return
+
+
+async def handle_parameter_input(update, context):
+    """
+    Handle user input for parameter values.
+
+    Args:
+        update: Telegram update object
+        context: Telegram context object
+
+    Returns:
+        Conversation state
+    """
+    user_id = update.effective_user.id
+    user_text = update.message.text.strip()
+
+    if user_id not in _param_edit_states:
+        await update.message.reply_text(
+            "Sorry, I don't have an active parameter editing session. "
+            "Please use /parameters to start over."
+        )
+        return ConversationHandler.END
+
+    param_info = _param_edit_states[user_id]
+    param_name = param_info["param"]
+    menu_id = param_info["menu_id"]
+
+    try:
+        if param_name == "atr_period":
+            new_value = int(user_text)
+        else:  # fvg_min_size or other float params
+            new_value = float(user_text)
+
+        param_config = INDICATOR_PARAMS[param_name]
+        if new_value < param_config["min"] or new_value > param_config["max"]:
+            await update.message.reply_text(
+                f"Value must be between {param_config['min']} and {param_config['max']}. "
+                "Please try again."
+            )
+            return TYPING_PARAM_VALUE
+
+        _param_preferences[menu_id][param_name] = new_value
+
+        del _param_edit_states[user_id]
+
+        param_markup, _ = get_parameter_keyboard(user_id, menu_id)
+        await update.message.reply_text(
+            f"{INDICATOR_PARAMS[param_name]['display_name']} set to {new_value}.",
+            reply_markup=param_markup,
+        )
+
+        return CHOOSING_ACTION
+
+    except (ValueError, TypeError):
+        await update.message.reply_text(
+            f"Invalid input. Please enter a valid number for {INDICATOR_PARAMS[param_name]['display_name']}."
+        )
+        return TYPING_PARAM_VALUE
+
+
+async def show_parameters(update, _):
+    """
+    Start the process of setting indicator parameters.
+
+    Args:
+        update: Telegram update object
+        _: Context object (unused)
+
+    Returns:
+        Conversation state
+    """
+    user_id = update.effective_user.id
+
+    keyboard, _ = get_parameter_keyboard(user_id)
+
+    await update.message.reply_text(
+        "Configure indicator parameters:",
+        reply_markup=keyboard,
+    )
+
+    return CHOOSING_ACTION

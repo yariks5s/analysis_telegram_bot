@@ -224,14 +224,19 @@ def analyze_data(df: pd.DataFrame, preferences, liq_lev_tolerance):
         indicators.order_blocks = order_blocks
 
     if preferences["fvgs"]:
-        fvgs = detect_fvgs(df)
+        fvg_min_size = preferences.get("fvg_min_size", 0.0005)
+        fvgs = detect_fvgs(df, min_fvg_ratio=fvg_min_size)
         logger.info(f"Detected FVGs: {fvgs}")
         indicators.fvgs = fvgs
 
     liquidity_levels = {}
     if preferences["liquidity_levels"]:
+        atr_period = preferences.get("atr_period", 14)
         liquidity_levels = detect_liquidity_levels(
-            df, window=len(df), stdev_multiplier=liq_lev_tolerance
+            df,
+            window=len(df),
+            stdev_multiplier=liq_lev_tolerance,
+            atr_period=atr_period,
         )
         logger.info(f"Detected Liquidity Levels: {liquidity_levels}")
         indicators.liquidity_levels = liquidity_levels
@@ -242,7 +247,8 @@ def analyze_data(df: pd.DataFrame, preferences, liq_lev_tolerance):
         indicators.breaker_blocks = breaker_blocks
 
     if preferences.get("liquidity_pools"):
-        liquidity_pools = detect_liquidity_pools(df)
+        atr_period = preferences.get("atr_period", 14)
+        liquidity_pools = detect_liquidity_pools(df, atr_period=atr_period)
         logger.info(f"Detected Liquidity Pools: {liquidity_pools}")
         indicators.liquidity_pools = liquidity_pools
 
