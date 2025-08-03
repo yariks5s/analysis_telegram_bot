@@ -37,42 +37,57 @@ async def test_handle_indicator_selection(mocker):
 @pytest.mark.asyncio
 async def test_handle_dark_mode_toggle(mocker):
     """Test that toggling dark mode works correctly"""
-    # Mock the database functions
+    mock_preferences = {
+        "order_blocks": False,
+        "fvgs": False,
+        "liquidity_levels": False,
+        "breaker_blocks": False,
+        "show_legend": True,
+        "show_volume": True,
+        "liquidity_pools": True,
+        "dark_mode": False,  # Start with light mode
+    }
+
     mocker.patch(
         "src.telegram.handlers.get_user_preferences",
-        return_value={
-            "order_blocks": False,
-            "fvgs": False,
-            "liquidity_levels": False,
-            "breaker_blocks": False,
-            "show_legend": True,
-            "show_volume": True,
-            "liquidity_pools": True,
-            "dark_mode": False,  # Start with light mode
-        },
+        return_value=mock_preferences,
     )
     update_preferences_mock = mocker.patch(
         "src.telegram.handlers.update_user_preferences"
     )
 
-    # Mock the query object
-    query = mocker.Mock()
-    query.from_user.id = 123
-    query.data = "indicator_dark_mode"  # Toggle dark mode
-    query.answer = mocker.AsyncMock()
-    query.edit_message_reply_markup = mocker.AsyncMock()
-    query.message.reply_markup = mocker.Mock()
-    query.message.reply_markup.to_dict.return_value = {"different": "value"}
+    menu_id = "test_menu_123"
 
-    # Mock the update object
-    update = mocker.Mock()
-    update.callback_query = query
+    # Step 1: Toggle dark mode
+    # -----------------------
+    toggle_query = mocker.Mock()
+    toggle_query.from_user.id = 123
+    toggle_query.data = f"indicator_dark_mode:{menu_id}"  # Include menu_id
+    toggle_query.answer = mocker.AsyncMock()
+    toggle_query.edit_message_reply_markup = mocker.AsyncMock()
+    toggle_query.message = mocker.Mock()
+    toggle_query.message.reply_markup = mocker.Mock()
+    toggle_query.message.reply_markup.to_dict.return_value = {"inline_keyboard": []}
+
+    toggle_update = mocker.Mock()
+    toggle_update.callback_query = toggle_query
     context = mocker.Mock()
 
-    # Call the handler function
-    await handle_indicator_selection(update, context)
+    await handle_indicator_selection(toggle_update, context)
 
-    # Verify update_user_preferences was called with dark_mode=True
+    # Step 2: Click Done to save preferences
+    # ------------------------------------
+    done_query = mocker.Mock()
+    done_query.from_user.id = 123
+    done_query.data = f"indicator_done:{menu_id}"  # Include the SAME menu_id
+    done_query.answer = mocker.AsyncMock()
+    done_query.edit_message_text = mocker.AsyncMock()
+
+    done_update = mocker.Mock()
+    done_update.callback_query = done_query
+
+    await handle_indicator_selection(done_update, context)
+
     update_preferences_mock.assert_called_once()
     called_args = update_preferences_mock.call_args[0]
     assert called_args[0] == 123  # user_id
