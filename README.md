@@ -244,7 +244,7 @@ You also have a chance to contribute to this project. Please create a pull reque
 - [ ] Add a web dashboard for visualizing signals and statistics outside Telegram
 - [ ] Add a “strategy marketplace” where users can share and use custom signal strategies
 - [ ] Implement a notification system for major market events (e.g., high volatility, news)
-- [ ] Add onboarding/tutorial messages for new users
+- [x] Add onboarding/tutorial messages for new users
 - [x] Provide inline help for each command (e.g., /help chart)
 - [ ] Add signal history for every user (single database with signals containing who requested the signal)
 - [ ] Allow users to export their signal history (CSV, Excel, etc.)

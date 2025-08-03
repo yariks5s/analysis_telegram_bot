@@ -137,11 +137,11 @@ def setup_handlers(app):
 
     # Help command
     app.add_handler(CommandHandler("help", help_command))
-    
+
     # Tutorial commands
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("tutorial", tutorial_command))
-    
+
     tutorial_conv_handler = ConversationHandler(
         entry_points=[
             CallbackQueryHandler(handle_tutorial_callback, pattern=r"^tutorial_")
@@ -151,9 +151,7 @@ def setup_handlers(app):
                 CallbackQueryHandler(handle_tutorial_callback, pattern=r"^tutorial_")
             ],
         },
-        fallbacks=[
-            CommandHandler("cancel", lambda u, c: ConversationHandler.END)
-        ],
+        fallbacks=[CommandHandler("cancel", lambda u, c: ConversationHandler.END)],
         name="tutorial_handler",
         allow_reentry=True,
     )

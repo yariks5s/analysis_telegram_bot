@@ -26,7 +26,7 @@ class UserPreference:
     dark_mode: bool = False
     atr_period: int = 14
     fvg_min_size: float = 0.0005
-    tutorial_stage: int = 0    # 0 = not started, 1+ = tutorial progress
+    tutorial_stage: int = 0  # 0 = not started, 1+ = tutorial progress
 
 
 @dataclass
