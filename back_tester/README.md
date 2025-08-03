@@ -264,3 +264,39 @@ cd reports/examples
 3. Implement portfolio-level backtesting for multiple assets
 4. Add regime switching capabilities based on market conditions
 5. Develop adaptive strategy selection based on market regime
+
+## Backtesting Launcher Script
+
+The `start_backtesting.sh` script provides a convenient way to start both ClickHouse (from the proper directory) and the backtesting system with a single command.
+
+### Usage
+
+```bash
+# Basic usage with defaults
+./start_backtesting.sh
+
+# Custom configuration
+./start_backtesting.sh --symbol ETHUSDT --interval 4h --candles 1500 --optimize
+```
+
+### Available Options
+
+- `--symbol` - Trading pair symbol (default: BTCUSDT)
+- `--interval` - Candle interval (default: 1h)
+- `--candles` - Number of candles to fetch (default: 1000)
+- `--window` - Lookback window (default: 300)
+- `--balance` - Initial balance (default: 10000.0)
+- `--risk` - Risk percentage (default: 1.0)
+- `--optimize` - Run parameter optimization
+- `--help` - Show help message
+
+### How It Works
+
+The script:
+1. Starts ClickHouse from the proper directory (`/clickhouse`)
+2. Initializes the backtesting environment
+3. Runs the backtester with specified parameters
+4. Provides colored output for better readability
+5. Handles errors gracefully
+
+Note that ClickHouse will continue running in the background after the script finishes. To stop ClickHouse, you can run `killall clickhouse-server`.
