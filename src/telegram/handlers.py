@@ -5,14 +5,11 @@ This module contains handlers for processing Telegram bot messages,
 including conversation handlers, callback queries, and indicator selection.
 """
 
-from telegram import InlineKeyboardMarkup, InlineKeyboardButton, Update, ReplyKeyboardRemove  # type: ignore
+from telegram import InlineKeyboardMarkup, InlineKeyboardButton, Update  # type: ignore
 from telegram.ext import (  # type: ignore
     ContextTypes,
     ConversationHandler,
-    CommandHandler,
-    MessageHandler,
     CallbackQueryHandler,
-    filters,
 )
 
 from src.core.utils import auto_signal_jobs, logger, plural_helper
@@ -298,25 +295,31 @@ async def handle_indicator_selection(update, _):
     try:
         data_parts = query.data.split(":")
         action = data_parts[0]
-        menu_id = data_parts[1] if len(data_parts) > 1 else None
-    except:
-        logger.error(f"Invalid callback data format: {query.data}")
+        menu_id = data_parts[1] if len(data_parts) > 1 else str(id(query))
+        logger.info(f"Processing action: {action}, menu_id: {menu_id}")
+    except Exception as e:
+        logger.error(f"Invalid callback data format: {query.data}, error: {str(e)}")
         return
 
     # Make sure this menu exists in our session store
     if menu_id not in _menu_preferences:
         _menu_preferences[menu_id] = get_user_preferences(user_id).copy()
 
-    preferences = _menu_preferences[menu_id]
+    preferences = _menu_preferences[menu_id].copy()
 
     if action == "indicator_done":
         # When Done is clicked, commit these preferences to the database
         # This ensures that the most recently closed window always wins
         final_preferences = preferences.copy()
 
-        selected_pretty = get_formatted_preferences(final_preferences)
+        logger.info(
+            f"Indicator done - preferences before formatting: {final_preferences}"
+        )
 
         update_user_preferences(user_id, final_preferences)
+
+        selected_pretty = get_formatted_preferences(final_preferences)
+        logger.info(f"Formatted preferences: {selected_pretty}")
 
         # Clean up by removing this menu from our session store
         if menu_id in _menu_preferences:
