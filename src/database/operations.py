@@ -46,6 +46,7 @@ def get_user_preferences(user_id: int) -> Dict[str, Union[bool, int, float]]:
             "show_volume": bool(row[6]),
             "liquidity_pools": bool(row[7]) if len(row) > 7 else True,
             "dark_mode": bool(row[8]) if len(row) > 8 else False,
+            "tutorial_stage": int(row[11]) if len(row) > 11 else 0,
         }
 
         # Handle indicator parameters if they exist in the database
@@ -75,6 +76,7 @@ def get_user_preferences(user_id: int) -> Dict[str, Union[bool, int, float]]:
             "show_volume": True,
             "liquidity_pools": False,
             "dark_mode": False,
+            "tutorial_stage": 0,
         }
 
         prefs["atr_period"] = INDICATOR_PARAMS["atr_period"]["default"]
@@ -122,7 +124,7 @@ def update_user_preferences(user_id: int, preferences: Dict[str, Any]) -> None:
                 UPDATE user_preferences
                 SET order_blocks = ?, fvgs = ?, liquidity_levels = ?, breaker_blocks = ?,
                     show_legend = ?, show_volume = ?, liquidity_pools = ?, dark_mode = ?,
-                    atr_period = ?, fvg_min_size = ?
+                    atr_period = ?, fvg_min_size = ?, tutorial_stage = ?
                 WHERE user_id = ?
             """,
                 (
@@ -140,17 +142,18 @@ def update_user_preferences(user_id: int, preferences: Dict[str, Any]) -> None:
                     preferences.get(
                         "fvg_min_size", INDICATOR_PARAMS["fvg_min_size"]["default"]
                     ),
+                    preferences.get("tutorial_stage", 0),
                     user_id,
                 ),
             )
         else:
             cursor.execute(
                 """
-                INSERT INTO user_preferences 
-                (user_id, order_blocks, fvgs, liquidity_levels, breaker_blocks, 
-                 show_legend, show_volume, liquidity_pools, dark_mode,
-                 atr_period, fvg_min_size)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO user_preferences (
+                    user_id, order_blocks, fvgs, liquidity_levels, breaker_blocks,
+                    show_legend, show_volume, liquidity_pools, dark_mode,
+                    atr_period, fvg_min_size, tutorial_stage
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     user_id,

@@ -26,6 +26,7 @@ class UserPreference:
     dark_mode: bool = False
     atr_period: int = 14
     fvg_min_size: float = 0.0005
+    tutorial_stage: int = 0  # 0 = not started, 1+ = tutorial progress
 
 
 @dataclass
@@ -70,7 +71,8 @@ def create_tables():
             liquidity_pools BOOLEAN DEFAULT 1,
             dark_mode BOOLEAN DEFAULT 0,
             atr_period INTEGER DEFAULT 14,
-            fvg_min_size REAL DEFAULT 0.0005
+            fvg_min_size REAL DEFAULT 0.0005,
+            tutorial_stage INTEGER DEFAULT 0
         )
         """
         )

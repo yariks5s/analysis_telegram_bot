@@ -50,6 +50,12 @@ from src.telegram.commands.db_commands import (
     show_tables_command,
     describe_table_command,
 )
+from src.telegram.tutorial import (
+    start_command,
+    tutorial_command,
+    handle_tutorial_callback,
+    CHOOSING_TUTORIAL_ACTION,
+)
 from src.core.utils import logger
 from src.core.error_handler import global_error_handler
 
@@ -131,6 +137,25 @@ def setup_handlers(app):
 
     # Help command
     app.add_handler(CommandHandler("help", help_command))
+
+    # Tutorial commands
+    app.add_handler(CommandHandler("start", start_command))
+    app.add_handler(CommandHandler("tutorial", tutorial_command))
+
+    tutorial_conv_handler = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(handle_tutorial_callback, pattern=r"^tutorial_")
+        ],
+        states={
+            CHOOSING_TUTORIAL_ACTION: [
+                CallbackQueryHandler(handle_tutorial_callback, pattern=r"^tutorial_")
+            ],
+        },
+        fallbacks=[CommandHandler("cancel", lambda u, c: ConversationHandler.END)],
+        name="tutorial_handler",
+        allow_reentry=True,
+    )
+    app.add_handler(tutorial_conv_handler)
 
 
 def main():
