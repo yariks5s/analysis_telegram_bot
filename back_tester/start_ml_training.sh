@@ -15,7 +15,7 @@ NC='\033[0m' # No Color
 
 echo -e "${BLUE}"
 echo "======================================================"
-echo "      CryptoBot Backtesting System Launcher           "
+echo "      CryptoBot ML Training System Launcher           "
 echo "======================================================"
 echo -e "${NC}"
 
@@ -56,46 +56,47 @@ function start_clickhouse() {
   return 1
 }
 
-function run_backtester() {
-  echo -e "${YELLOW}Starting backtesting system...${NC}"
+function run_ml_trainer() {
+  echo -e "${YELLOW}Starting ML training system...${NC}"
   
   cd "${SCRIPT_DIR}"
   
   local symbol=${1:-"BTCUSDT"}
   local interval=${2:-"1h"}
-  local candles=${3:-1000}
-  local window=${4:-300}
-  local balance=${5:-10000.0}
-  local risk=${6:-1.0}
-  local optimize=${7:-false}
+  local candles=${3:-2000}
+  local balance=${4:-10000.0}
+  local risk=${5:-1.0}
+  local iterations=${6:-50}
   
-  echo -e "${YELLOW}Running backtesting with parameters:${NC}"
+  echo -e "${YELLOW}Running ML training with parameters:${NC}"
   echo "Symbol: $symbol"
   echo "Interval: $interval"
   echo "Candles: $candles"
-  echo "Window: $window"
   echo "Initial Balance: $balance"
   echo "Risk Percentage: $risk"
-  echo "Optimize: $optimize"
+  echo "Training Iterations: $iterations"
   
   # Add project root directory to PYTHONPATH
   local project_root="$(cd "${SCRIPT_DIR}/.." && pwd)"
   export PYTHONPATH="${project_root}:${PYTHONPATH}"
   
-  local cmd="python3.11 -m back_tester.enhanced_backtester --symbol $symbol --interval $interval --candles $candles --window $window --balance $balance --risk $risk"
-  if [[ "$optimize" == "true" ]]; then
-    cmd="$cmd --optimize"
-  fi
+  # Ensure directories exist
+  mkdir -p "${project_root}/models/training"
+  mkdir -p "${project_root}/reports/training"
+  mkdir -p "${project_root}/logs"
+  
+  local cmd="python3.11 -m back_tester.ml_trainer --symbol $symbol --interval $interval --candles $candles --balance $balance --risk $risk --iterations $iterations"
   
   echo -e "${YELLOW}Executing: ${cmd}${NC}"
   eval $cmd
   
   local status=$?
   if [ $status -eq 0 ]; then
-    echo -e "${GREEN}Backtesting completed successfully!${NC}"
-    echo "Reports should be available in the reports directory."
+    echo -e "${GREEN}ML training completed successfully!${NC}"
+    echo "Models should be available in the models directory."
+    echo "Logs are available in the logs directory."
   else
-    echo -e "${RED}Backtesting failed with status $status${NC}"
+    echo -e "${RED}ML training failed with status $status${NC}"
   fi
   
   return $status
@@ -107,23 +108,21 @@ function show_usage() {
   echo "Options:"
   echo "  --symbol SYMBOL      Trading pair symbol (default: BTCUSDT)"
   echo "  --interval INTERVAL  Candle interval (default: 1h)"
-  echo "  --candles NUMBER     Number of candles to fetch (default: 1000)"
-  echo "  --window NUMBER      Lookback window (default: 300)"
-  echo "  --balance NUMBER     Initial balance (default: 10000.0)"
-  echo "  --risk NUMBER        Risk percentage (default: 1.0)"
-  echo "  --optimize          Run parameter optimization"
+  echo "  --candles NUMBER     Number of candles to fetch (default: 2000)"
+  echo "  --balance NUMBER     Initial balance for backtest (default: 10000.0)"
+  echo "  --risk NUMBER        Risk percentage for backtest (default: 1.0)"
+  echo "  --iterations NUMBER  Training iterations (default: 50)"
   echo "  --help              Show this help message"
   echo ""
-  echo "Example: $0 --symbol ETHUSDT --interval 4h --optimize"
+  echo "Example: $0 --symbol ETHUSDT --interval 4h --iterations 100"
 }
 
 SYMBOL="BTCUSDT"
 INTERVAL="1h"
-CANDLES=1000
-WINDOW=300
+CANDLES=2000
 BALANCE=10000.0
 RISK=1.0
-OPTIMIZE=false
+ITERATIONS=50
 
 while [[ $# -gt 0 ]]; do
   key="$1"
@@ -140,10 +139,6 @@ while [[ $# -gt 0 ]]; do
       CANDLES="$2"
       shift 2
       ;;
-    --window)
-      WINDOW="$2"
-      shift 2
-      ;;
     --balance)
       BALANCE="$2"
       shift 2
@@ -152,9 +147,9 @@ while [[ $# -gt 0 ]]; do
       RISK="$2"
       shift 2
       ;;
-    --optimize)
-      OPTIMIZE=true
-      shift
+    --iterations)
+      ITERATIONS="$2"
+      shift 2
       ;;
     --help)
       show_usage
@@ -168,7 +163,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-echo -e "${YELLOW}Preparing backtesting environment...${NC}"
+echo -e "${YELLOW}Preparing ML training environment...${NC}"
 
 start_clickhouse
 
@@ -179,13 +174,17 @@ fi
 
 sleep 5
 
-run_backtester "$SYMBOL" "$INTERVAL" "$CANDLES" "$WINDOW" "$BALANCE" "$RISK" "$OPTIMIZE"
+run_ml_trainer "$SYMBOL" "$INTERVAL" "$CANDLES" "$BALANCE" "$RISK" "$ITERATIONS"
 
 echo ""
-echo -e "${YELLOW}Backtesting session completed.${NC}"
+echo -e "${YELLOW}ML training session completed.${NC}"
 
 killall clickhouse server
 
+sleep 5
+
+echo -e "${YELLOW}Note: ClickHouse server may still run in the background.${NC}"
+echo -e "${YELLOW}To stop ClickHouse, run: killall clickhouse-server${NC}"
 echo ""
 
 exit 0
