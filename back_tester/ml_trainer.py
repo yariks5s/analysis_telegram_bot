@@ -311,8 +311,29 @@ def evaluate_ml_params(
         return -9999, None
 
 
-def optimize_ml_params(params: Dict[str, Any], iterations: int) -> Dict[str, Any]:
-    """Optimize ML parameters using similar approach to optimize_weights"""
+def optimize_ml_params(
+    params: Dict[str, Any],
+    iterations: int,
+    symbol="BTCUSDT",
+    interval="1h",
+    candles=2000,
+    initial_balance=10000.0,
+    risk_percentage=1.0,
+) -> Dict[str, Any]:
+    """Optimize ML parameters using similar approach to optimize_weights
+
+    Args:
+        params: Dictionary of ML parameters to optimize
+        iterations: Number of optimization iterations to run
+        symbol: Trading pair symbol
+        interval: Candle interval
+        candles: Number of candles to fetch
+        initial_balance: Initial balance for backtest
+        risk_percentage: Risk percentage for position sizing
+
+    Returns:
+        Dictionary of optimized parameters
+    """
     best_params = params.copy()
     best_fitness = float("-inf")
     no_improvement_count = 0
@@ -320,7 +341,15 @@ def optimize_ml_params(params: Dict[str, Any], iterations: int) -> Dict[str, Any
     iteration_id = str(uuid.uuid4())
 
     # Initial evaluation
-    fitness, metrics = evaluate_ml_params(best_params, iteration_id=iteration_id)
+    fitness, metrics = evaluate_ml_params(
+        best_params,
+        iteration_id=iteration_id,
+        symbol=symbol,
+        interval=interval,
+        candles=candles,
+        initial_balance=initial_balance,
+        risk_percentage=risk_percentage,
+    )
     if fitness > best_fitness:
         best_fitness = fitness
         logger.info(f"Initial fitness: {fitness:.4f}")
@@ -380,7 +409,15 @@ def optimize_ml_params(params: Dict[str, Any], iterations: int) -> Dict[str, Any
 
         # Evaluate fitness
         logger.info(f"Iteration {i+1}: Testing parameters: {test_params}")
-        fitness, metrics = evaluate_ml_params(test_params, iteration_id=iteration_id)
+        fitness, metrics = evaluate_ml_params(
+            test_params,
+            iteration_id=iteration_id,
+            symbol=symbol,
+            interval=interval,
+            candles=candles,
+            initial_balance=initial_balance,
+            risk_percentage=risk_percentage,
+        )
 
         if fitness > best_fitness:
             best_fitness = fitness
@@ -435,9 +472,26 @@ def optimize_ml_params(params: Dict[str, Any], iterations: int) -> Dict[str, Any
     return best_params
 
 
-def test_simplified_evaluation():
-    """A simplified test function to isolate the error"""
+def test_simplified_evaluation(
+    symbol="BTCUSDT",
+    interval="1h",
+    candles=500,
+    initial_balance=10000.0,
+    risk_percentage=1.0,
+):
+    """A simplified test function to isolate the error
+
+    Args:
+        symbol: Trading pair symbol
+        interval: Candle interval
+        candles: Number of candles to fetch
+        initial_balance: Initial balance for backtest
+        risk_percentage: Risk percentage for position sizing
+    """
     logger.info("Running simplified evaluation test")
+    logger.info(
+        f"Parameters: symbol={symbol}, interval={interval}, candles={candles}, initial_balance={initial_balance}, risk_percentage={risk_percentage}"
+    )
 
     # Create a simple test params object with all values explicitly typed
     test_params = {
@@ -481,7 +535,7 @@ def test_simplified_evaluation():
     # Attempt to fetch data
     try:
         logger.info("Fetching data")
-        data = backtester._fetch_data("BTCUSDT", "1h", 500)  # Small dataset for testing
+        data = backtester._fetch_data(symbol, interval, candles)
         logger.info(f"Data fetched successfully, shape: {data.shape}")
     except Exception as e:
         logger.error(f"Error fetching data: {str(e)}")
@@ -489,13 +543,13 @@ def test_simplified_evaluation():
 
     # Skip ML training and directly test backtesting
     try:
-        logger.info("Running backtest with fixed parameters")
+        logger.info("Running backtest with provided parameters")
         final_balance, trades, backtest_metrics = backtester.run_backtest(
-            symbol="BTCUSDT",
-            interval="1h",
-            candles=200,  # Fixed integer
-            initial_balance=10000.0,  # Fixed float
-            risk_percentage=1.0,  # Fixed float
+            symbol=symbol,
+            interval=interval,
+            candles=min(200, candles),  # Use smaller subset for testing
+            initial_balance=initial_balance,
+            risk_percentage=risk_percentage,
             use_ml_signals=False,  # Disable ML to simplify testing
         )
         logger.info("Backtest completed successfully")
@@ -507,16 +561,63 @@ def test_simplified_evaluation():
 
 
 if __name__ == "__main__":
+    import argparse
+
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description="ML Training for CryptoBot")
+    parser.add_argument(
+        "--symbol", type=str, default="BTCUSDT", help="Trading pair symbol"
+    )
+    parser.add_argument("--interval", type=str, default="1h", help="Candle interval")
+    parser.add_argument(
+        "--candles", type=int, default=2000, help="Number of candles to fetch"
+    )
+    parser.add_argument(
+        "--balance", type=float, default=10000.0, help="Initial balance for backtest"
+    )
+    parser.add_argument(
+        "--risk", type=float, default=1.0, help="Risk percentage for backtest"
+    )
+    parser.add_argument(
+        "--iterations", type=int, default=50, help="Number of training iterations"
+    )
+
+    args = parser.parse_args()
+
+    # Update iterations variable with command-line argument
+    iterations = args.iterations
+
     # First run the simplified test to see if we can isolate the error
-    if test_simplified_evaluation():
+    if test_simplified_evaluation(
+        symbol=args.symbol,
+        interval=args.interval,
+        candles=args.candles,
+        initial_balance=args.balance,
+        risk_percentage=args.risk,
+    ):
         logger.info("Simplified test passed, proceeding with full ML training")
         try:
             # Train the ML model
-            best_params = optimize_ml_params(ml_params, iterations)
+            best_params = optimize_ml_params(
+                ml_params,
+                iterations,
+                symbol=args.symbol,
+                interval=args.interval,
+                candles=args.candles,
+                initial_balance=args.balance,
+                risk_percentage=args.risk,
+            )
             logger.info(f"ML training completed successfully")
 
             # Evaluate final performance
-            fitness, metrics = evaluate_ml_params(best_params)
+            fitness, metrics = evaluate_ml_params(
+                best_params,
+                symbol=args.symbol,
+                interval=args.interval,
+                candles=args.candles,
+                initial_balance=args.balance,
+                risk_percentage=args.risk,
+            )
             if metrics:
                 logger.info(f"Final metrics: {metrics.get_metrics()}")
 
@@ -524,7 +625,7 @@ if __name__ == "__main__":
             os.makedirs("models", exist_ok=True)
             joblib.dump(
                 best_params,
-                f"models/best_ml_params_{datetime.now().strftime('%Y%m%d_%H%M')}.joblib",
+                f"models/best_ml_params_{args.symbol}_{args.interval}_{datetime.now().strftime('%Y%m%d_%H%M')}.joblib",
             )
 
         except Exception as e:
