@@ -235,7 +235,7 @@ You also have a chance to contribute to this project. Please create a pull reque
 - [x] Fix this: '/history BTCUSDT 48 1h 0.05 17000000000'
 - [x] Possibility to open multiple signal management windows
 - [ ] Disclaimer in /help about temporary debugging commands
-- [ ] Shell script to launch ClickHouse from proper directory
+- [x] Shell script to launch ClickHouse from proper directory
 - [ ] Implement testing for proper backtesting
 - [ ] Multi language support
 - [ ] Implement advanced risk management tools (e.g., stop-loss/take-profit suggestions)
