@@ -225,7 +225,6 @@ You also have a chance to contribute to this project. Please create a pull reque
 - [x] Ability to toggle volumes
 - [x] Optimize the process of normalizing the liquidity levels if no settings are specified
 - [x] Add a test for the task above (automatically create the right amount of liquidity levels if setting is not specified)
-- [x] Maybe do not add covered FVGs at all? UPD: Yes
 - [x] Logging system
 - [x] Disable info logging for training
 - [x] Liquidity pools implementation
@@ -238,7 +237,6 @@ You also have a chance to contribute to this project. Please create a pull reque
 - [x] Shell script to launch ClickHouse from proper directory
 - [ ] Implement testing for proper backtesting
 - [ ] Multi language support
-- [ ] Implement advanced risk management tools (e.g., stop-loss/take-profit suggestions)
 - [x] Allow users to set custom indicator parameters (e.g., ATR period, FVG min size)
 - [ ] Add portfolio tracking: Let users track their holdings and PnL
 - [ ] Add a web dashboard for visualizing signals and statistics outside Telegram
