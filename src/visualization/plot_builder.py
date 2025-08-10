@@ -10,7 +10,7 @@ import matplotlib.lines as mlines  # type: ignore
 import mplfinance as mpf  # type: ignore
 import pandas as pd  # type: ignore
 
-from typing import List, Dict
+from typing import Dict
 
 from src.core.utils import logger
 from src.visualization.chart_styles import ChartTheme
@@ -36,7 +36,6 @@ def plot_price_chart(
     Returns:
         str: Path to the saved chart image
     """
-    # Get the appropriate style based on the theme
     s = ChartTheme.get_mpf_style(dark_mode)
 
     fig, ax = mpf.plot(
@@ -86,7 +85,6 @@ def add_legend(ax, indicators, dark_mode=False):
     """
     handles = []
     if indicators.order_blocks:
-        # Choose colors based on theme
         if dark_mode:
             bearish_color = "#8BE9FD"  # Bright cyan for dark mode
             bullish_color = "#FF79C6"  # Bright pink for dark mode
@@ -199,9 +197,8 @@ def add_order_blocks(ax, order_blocks, df, dark_mode=False):
             logger.warning(f"Invalid order block index: {idx}")
             continue
 
-        circle_y_position = low * 0.995  # Slightly above the high for visibility
+        circle_y_position = low * 0.995
 
-        # Get style from ChartTheme
         style = ChartTheme.get_order_block_style(dark_mode, block.is_bullish())
 
         ax[0].scatter(
@@ -229,10 +226,8 @@ def add_fvgs(ax, fvgs, dark_mode=False):
         start_price = fvg.start_price
         end_price = fvg.end_price
 
-        # Get style from ChartTheme
         style = ChartTheme.get_fvg_style(dark_mode)
 
-        # Plot the FVG as a horizontal rectangle
         ax[0].fill_betweenx(
             y=[start_price, end_price],
             x1=start_idx,
@@ -253,7 +248,6 @@ def add_liquidity_levels(ax, liquidity_levels, dark_mode=False):
         dark_mode: Whether to use dark mode styling
     """
     for level in liquidity_levels.list:
-        # Get style from ChartTheme
         style = ChartTheme.get_liquidity_level_style(dark_mode)
 
         ax[0].axhline(
@@ -274,14 +268,11 @@ def add_breaker_blocks(ax, breaker_blocks, dark_mode=False):
         dark_mode: Whether to use dark mode styling
     """
     for block in breaker_blocks.list:
-        # Start time and end time (extend the block forward by 1-3 candles)
         start_index = block.index
-        end_index = start_index + 2  # Add ~2 candles forward
+        end_index = start_index + 2
 
-        # Breaker block price range
         y1, y2 = block.zone
 
-        # Get style from ChartTheme
         style = ChartTheme.get_breaker_block_style(dark_mode, block.is_bullish())
 
         # Fill between x-axis and y-axis values
@@ -305,23 +296,28 @@ def add_liquidity_pools(ax, liquidity_pools, dark_mode=False):
         dark_mode: Whether to use dark mode styling
     """
     for pool in liquidity_pools.list:
-        # Calculate the price range for the pool (using ATR or a fixed percentage)
         price_range = pool.price * 0.001  # 0.1% of price as default range
 
-        # Get style from ChartTheme
         style = ChartTheme.get_liquidity_pool_style(dark_mode)
+        
+        try:
+            if len(ax[0].get_lines()) > 0:
+                x_range = [0, len(ax[0].get_lines()[0].get_xdata())]
+            else:
+                x_range = [0, 100]
+        except (IndexError, AttributeError):
+            logger.warning("Could not determine x-axis range, using default value")
+            x_range = [0, 100]  # Default length as fallback
 
-        # Create a horizontal band for the pool
         ax[0].fill_between(
-            x=[0, len(ax[0].get_lines()[0].get_xdata())],
+            x=x_range,
             y1=[pool.price - price_range, pool.price - price_range],
             y2=[pool.price + price_range, pool.price + price_range],
             color=style["color"],
-            alpha=style["base_alpha"] * pool.strength,  # Scale opacity by pool strength
+            alpha=style["base_alpha"] * pool.strength,
             label="Liquidity Pool",
         )
 
-        # Add a horizontal line at the pool's price level
         ax[0].axhline(
             y=pool.price,
             color=style["color"],

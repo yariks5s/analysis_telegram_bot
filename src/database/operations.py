@@ -171,6 +171,7 @@ def update_user_preferences(user_id: int, preferences: Dict[str, Any]) -> None:
                     preferences.get(
                         "fvg_min_size", INDICATOR_PARAMS["fvg_min_size"]["default"]
                     ),
+                    preferences["tutorial_stage"],
                 ),
             )
 
