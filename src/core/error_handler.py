@@ -78,11 +78,15 @@ async def global_error_handler(update: object, context):
     """
     logger.error(f"Unhandled exception: {context.error}")
     logger.debug(traceback.format_exc())
-    
-    if hasattr(context, 'error') and isinstance(context.error, Exception):
+
+    if hasattr(context, "error") and isinstance(context.error, Exception):
         from src.core.logging_utils import log_error_with_stacktrace
-        log_error_with_stacktrace("unhandled_exception", context.error, 
-                                 update if isinstance(update, Update) else None)
+
+        log_error_with_stacktrace(
+            "unhandled_exception",
+            context.error,
+            update if isinstance(update, Update) else None,
+        )
 
     # Ensure we have a valid update object
     if isinstance(update, Update) and update.effective_chat:
@@ -95,5 +99,7 @@ async def global_error_handler(update: object, context):
         except Exception as e:
             logger.error(f"Failed to send global error message: {e}")
             from src.core.logging_utils import log_error_with_stacktrace
-            log_error_with_stacktrace("notification_error", e, 
-                                     update if isinstance(update, Update) else None)
+
+            log_error_with_stacktrace(
+                "notification_error", e, update if isinstance(update, Update) else None
+            )

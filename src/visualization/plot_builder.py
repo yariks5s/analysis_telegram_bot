@@ -299,7 +299,7 @@ def add_liquidity_pools(ax, liquidity_pools, dark_mode=False):
         price_range = pool.price * 0.001  # 0.1% of price as default range
 
         style = ChartTheme.get_liquidity_pool_style(dark_mode)
-        
+
         try:
             if len(ax[0].get_lines()) > 0:
                 x_range = [0, len(ax[0].get_lines()[0].get_xdata())]

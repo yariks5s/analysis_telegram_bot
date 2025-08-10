@@ -77,23 +77,37 @@ def setup_handlers(app):
     """Setup all command and callback handlers for the bot"""
     # Chart commands
     app.add_handler(CommandHandler("chart", log_message_decorator(send_crypto_chart)))
-    app.add_handler(CommandHandler("text_result", log_message_decorator(send_text_data)))
-    app.add_handler(CommandHandler("history", log_message_decorator(send_historical_chart)))
+    app.add_handler(
+        CommandHandler("text_result", log_message_decorator(send_text_data))
+    )
+    app.add_handler(
+        CommandHandler("history", log_message_decorator(send_historical_chart))
+    )
 
     # Preference commands
-    app.add_handler(CommandHandler("preferences", log_message_decorator(select_indicators)))
+    app.add_handler(
+        CommandHandler("preferences", log_message_decorator(select_indicators))
+    )
     app.add_handler(
         CallbackQueryHandler(handle_indicator_selection, pattern=r"^indicator_")
     )
 
     # Signal commands
-    app.add_handler(CommandHandler("create_signal", log_message_decorator(create_signal_command)))
-    app.add_handler(CommandHandler("delete_signal", log_message_decorator(delete_signal_command)))
+    app.add_handler(
+        CommandHandler("create_signal", log_message_decorator(create_signal_command))
+    )
+    app.add_handler(
+        CommandHandler("delete_signal", log_message_decorator(delete_signal_command))
+    )
 
     # Database commands
     app.add_handler(CommandHandler("sql", log_message_decorator(execute_sql_command)))
-    app.add_handler(CommandHandler("tables", log_message_decorator(show_tables_command)))
-    app.add_handler(CommandHandler("schema", log_message_decorator(describe_table_command)))
+    app.add_handler(
+        CommandHandler("tables", log_message_decorator(show_tables_command))
+    )
+    app.add_handler(
+        CommandHandler("schema", log_message_decorator(describe_table_command))
+    )
 
     # Signal management conversation handler
     manage_signals_conv_handler = ConversationHandler(
