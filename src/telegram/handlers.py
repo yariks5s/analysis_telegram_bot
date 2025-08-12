@@ -11,7 +11,6 @@ from telegram import InlineKeyboardMarkup, InlineKeyboardButton, Update  # type:
 from telegram.ext import (  # type: ignore
     ContextTypes,
     ConversationHandler,
-    CallbackQueryHandler,
 )
 
 from src.core.utils import auto_signal_jobs, logger, plural_helper
@@ -24,8 +23,7 @@ from src.database.operations import (
 from src.core.preferences import INDICATOR_PARAMS
 from src.telegram.signals.detection import createSignalJob
 
-# Imports with updated module paths
-from src.analysis.utils.helpers import input_sanity_check_analyzing, check_signal_limit
+from src.analysis.utils.helpers import input_sanity_check_text, check_signal_limit_by_id
 from src.core.preferences import get_formatted_preferences
 
 ###############################################################################
@@ -83,26 +81,21 @@ def build_signal_list_keyboard(user_id: int) -> InlineKeyboardMarkup:
             display_text = (
                 f"{pair} {freq}m chart {'✅' if str(is_with_chart) == '1' else '❌'}"
             )
-            # We use 'delete_signal_<pair>' as callback data for the delete button
             del_button = InlineKeyboardButton(
                 text=f"Delete {pair}", callback_data=f"delete_signal_{pair}"
             )
-            # 'no_op' is a do-nothing callback if user clicks on the display_text
             keyboard.append(
                 [InlineKeyboardButton(display_text, callback_data="no_op"), del_button]
             )
     else:
-        # If no signals, show a placeholder row
         keyboard.append(
             [InlineKeyboardButton("No signals found", callback_data="no_op")]
         )
 
-    # Add row for [Add New Signal]
     keyboard.append(
         [InlineKeyboardButton("➕ Add New Signal", callback_data="add_signal")]
     )
 
-    # Add row for [Done]
     keyboard.append([InlineKeyboardButton("Done", callback_data="signal_menu_done")])
 
     return InlineKeyboardMarkup(keyboard)
@@ -122,25 +115,21 @@ async def handle_signal_menu_callback(
         Conversation state
     """
     query = update.callback_query
-    data = query.data  # The callback_data from the button
+    data = query.data
     user_id = query.from_user.id
 
     logger.info(f"handle_signal_menu_callback -> callback_data = {data}")
-    await query.answer()  # Acknowledge callback, so Telegram stops the spinning loader
+    await query.answer()
 
     if data == "no_op":
-        # Do nothing
         logger.debug("No operation button clicked.")
         return CHOOSING_ACTION
 
     elif data.startswith("delete_signal_"):
-        # Example data: "delete_signal_BTCUSDT"
         pair = data.replace("delete_signal_", "")
 
-        # 1) Delete from DB
         delete_user_signal_request(user_id, pair)
 
-        # 2) Also stop any running job
         job_key = (user_id, pair)
         if job_key in auto_signal_jobs:
             auto_signal_jobs[job_key].schedule_removal()
@@ -168,7 +157,6 @@ async def handle_signal_menu_callback(
         await query.edit_message_text(f"You have {n_signals} active {signal_text}.")
         return ConversationHandler.END
 
-    # Catch-all
     return CHOOSING_ACTION
 
 
@@ -186,26 +174,26 @@ async def handle_signal_text_input(update: Update, context: ContextTypes.DEFAULT
     user_id = update.effective_user.id
     text = update.message.text.strip().upper()
 
-    # Pass user input through the sanity check
-    parse_result = input_sanity_check_analyzing(text)
+    parse_result = input_sanity_check_text(text)
     if not parse_result["is_valid"]:
         await update.message.reply_text(
             f"Invalid input: {parse_result['error_message']}. Try again or /cancel."
         )
         return TYPING_SIGNAL_DATA
 
-    # Check if user has reached their signal limit
-    limit_ok, limit_msg = check_signal_limit(user_id)
+    limit_ok, limit_msg = check_signal_limit_by_id(user_id)
     if not limit_ok:
         await update.message.reply_text(limit_msg)
-        # Exit to the list of signals
         await update.message.reply_text(
             text="Current signals:", reply_markup=build_signal_list_keyboard(user_id)
         )
         return CHOOSING_ACTION
 
-    # Create the job and return to signal management
-    await createSignalJob(update, context)
+    symbol = parse_result["symbol"]
+    period_minutes = parse_result["period_minutes"]
+    is_with_chart = parse_result["is_with_chart"]
+    
+    await createSignalJob(symbol, period_minutes, is_with_chart, update, context)
     await update.message.reply_text(
         text="Signal created! Current signals:",
         reply_markup=build_signal_list_keyboard(user_id),
@@ -311,7 +299,7 @@ async def handle_indicator_selection(update, _):
 
         if len(data_parts) >= 3 and data_parts[0] == "indicator":
             menu_id = data_parts[1]
-            action = data_parts[2]  # This will be param_edit_{param_name} or param_back
+            action = data_parts[2]
             logger.info(f"Processing parameter action: {action}, menu_id: {menu_id}")
         else:
             action = data_parts[0]

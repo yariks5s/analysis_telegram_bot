@@ -49,6 +49,23 @@ class UserChat:
     chat_id: int
 
 
+@dataclass
+class SignalHistory:
+    """Signal history record."""
+
+    id: int
+    user_id: int
+    currency_pair: str
+    signal_type: str
+    timestamp: str
+    entry_price: float
+    stop_loss: float
+    take_profit: float
+    probability: float
+    reasons: str
+    market_conditions: str
+
+
 def create_tables():
     """
     Create the database tables if they don't exist.
@@ -94,6 +111,25 @@ def create_tables():
         CREATE TABLE IF NOT EXISTS user_chats (
             user_id INTEGER PRIMARY KEY,
             chat_id INTEGER NOT NULL
+        )
+        """
+        )
+        
+        cursor.execute(
+            """
+        CREATE TABLE IF NOT EXISTS signal_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            currency_pair VARCHAR NOT NULL,
+            signal_type VARCHAR NOT NULL,
+            timestamp VARCHAR NOT NULL,
+            entry_price REAL NOT NULL,
+            stop_loss REAL NOT NULL,
+            take_profit REAL NOT NULL,
+            probability REAL NOT NULL,
+            reasons TEXT,
+            market_conditions TEXT,
+            FOREIGN KEY (user_id) REFERENCES user_preferences(user_id)
         )
         """
         )

@@ -40,6 +40,10 @@ from src.telegram.commands.chart_commands import (
     send_text_data,
     send_historical_chart,
 )
+from src.telegram.commands.history_commands import (
+    command_signal_history,
+    button_history_callback,
+)
 from src.telegram.commands.signal_commands import (
     create_signal_command,
     delete_signal_command,
@@ -152,6 +156,10 @@ def setup_handlers(app):
 
     # Help command
     app.add_handler(CommandHandler("help", help_command))
+
+    # Signal history commands
+    app.add_handler(CommandHandler("signal_history", command_signal_history))
+    app.add_handler(CallbackQueryHandler(button_history_callback, pattern="^hist_"))
 
     # Tutorial commands
     app.add_handler(CommandHandler("start", start_command))

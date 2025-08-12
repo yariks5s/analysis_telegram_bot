@@ -160,6 +160,7 @@ async def auto_signal_job(context):
     Scheduled job to check for signals and notify the user.
 
     This is called periodically based on the frequency set by the user.
+    Now also saves signals to the signal history database.
 
     Args:
         context: Telegram context with job data
@@ -169,16 +170,15 @@ async def auto_signal_job(context):
     chat_id = job_data["chat_id"]
     currency_pair = job_data["currency_pair"]
     is_with_chart = job_data.get("is_with_chart", False)
+    account_balance = job_data.get("account_balance", 10000)
+    risk_percentage = job_data.get("risk_percentage", 1.0)
 
     logger.info(f"Running auto signal job for {user_id}, {currency_pair}")
 
     try:
-        # Get user's indicator preferences, or use default if none
         preferences = get_user_preferences(user_id)
         if not any(preferences.values()):
             preferences = create_true_preferences()
-
-        # Fetch data for analysis
         (indicators, df) = await fetch_data_and_get_indicators(
             currency_pair, 100, "1h", preferences
         )
@@ -188,11 +188,50 @@ async def auto_signal_job(context):
                 chat_id=chat_id, text=f"❌ Error fetching data for {currency_pair}"
             )
             return
+            
+        _, _, _, _, trading_signal = generate_price_prediction_signal_proba(
+            df, 
+            indicators, 
+            weights=[], 
+            account_balance=account_balance,
+            risk_percentage=risk_percentage
+        )
+        
+        if trading_signal is not None:
+            from src.database.operations import save_signal_history
+            
+            signal_data = {
+                "user_id": user_id,
+                "currency_pair": currency_pair,
+                "signal_type": trading_signal.signal_type,
+                "probability": trading_signal.probability,
+                "confidence": trading_signal.confidence,
+                "entry_price": trading_signal.entry_price,
+                "stop_loss": trading_signal.stop_loss,
+                "take_profit_1": trading_signal.take_profit_1,
+                "take_profit_2": trading_signal.take_profit_2,
+                "take_profit_3": trading_signal.take_profit_3,
+                "risk_reward_ratio": trading_signal.risk_reward_ratio,
+                "position_size": trading_signal.position_size,
+                "max_risk_amount": trading_signal.max_risk_amount,
+                "reasons": trading_signal.reasons,
+                "market_conditions": trading_signal.market_conditions,
+                "timestamp": trading_signal.timestamp.isoformat()
+            }
+            
+            # Save the signal to history
+            try:
+                save_signal_history(signal_data)
+                logger.info(f"Signal saved to history for user {user_id}, {currency_pair}")
+            except Exception as save_error:
+                logger.error(f"Error saving signal to history: {save_error}")
 
-        # Generate analysis result
         analysis_result = generate_signal_analysis(df, indicators, currency_pair)
+        
+        if trading_signal is not None:
+            prediction_analysis = format_trading_signal_for_display(trading_signal)
+            analysis_result = analysis_result + "\n\n" + prediction_analysis
 
-        # Generate chart if requested
         if is_with_chart:
             chart_path = plot_price_chart(
                 df,
@@ -202,12 +241,10 @@ async def auto_signal_job(context):
                 preferences.get("dark_mode", False),
             )
 
-            # Send chart with analysis
             await context.bot.send_photo(
                 chat_id=chat_id, photo=open(chart_path, "rb"), caption=analysis_result
             )
         else:
-            # Send text analysis only
             await context.bot.send_message(chat_id=chat_id, text=analysis_result)
 
     except Exception as e:
@@ -229,23 +266,18 @@ def generate_signal_analysis(df: pd.DataFrame, indicators, currency_pair: str) -
     Returns:
         Formatted analysis text
     """
-    # Detect market regime
     regime = detect_market_regime(df)
 
-    # Calculate key technical indicators
     rsi = calculate_rsi(df["Close"]).iloc[-1]
     atr = calculate_atr(df).iloc[-1]
 
-    # Current price
     current_price = df["Close"].iloc[-1]
 
-    # Format the analysis text
     analysis = f"📊 *{currency_pair} Analysis*\n\n"
     analysis += f"*Price*: {current_price:.2f} USDT\n"
     analysis += f"*Market Regime*: {regime.value}\n"
     analysis += f"*RSI*: {rsi:.1f}\n\n"
 
-    # Add indicator information if available
     if hasattr(indicators, "order_blocks") and indicators.order_blocks.list:
         analysis += f"*Order Blocks*: {len(indicators.order_blocks.list)} detected\n"
 
@@ -257,7 +289,6 @@ def generate_signal_analysis(df: pd.DataFrame, indicators, currency_pair: str) -
             f"*Liquidity Levels*: {len(indicators.liquidity_levels.list)} detected\n"
         )
 
-    # Add a conclusion based on market regime
     analysis += "\n*Analysis*:\n"
     if regime == MarketRegime.TRENDING_UP:
         analysis += "Market is in an uptrend. Watch for bullish continuation patterns."
@@ -273,8 +304,40 @@ def generate_signal_analysis(df: pd.DataFrame, indicators, currency_pair: str) -
         analysis += (
             "Market is quiet with low volatility. Potential buildup for a larger move."
         )
-
+        
     return analysis
+
+
+def format_trading_signal_for_display(trading_signal):
+    """
+    Format a TradingSignal object into a user-friendly display string.
+    
+    Args:
+        trading_signal: TradingSignal object with prediction data
+        
+    Returns:
+        Formatted string with signal prediction details
+    """
+    if trading_signal is None:
+        return ""
+        
+    signal_emoji = "🔴" if trading_signal.signal_type == "Bearish" else "🟢"
+    signal_text = f"*{signal_emoji} {trading_signal.signal_type} Signal Prediction ({trading_signal.probability:.0%} probability)*\n\n"
+    
+    signal_text += f"*Entry*: {trading_signal.entry_price:.2f}\n"
+    signal_text += f"*Stop Loss*: {trading_signal.stop_loss:.2f}\n"
+    signal_text += f"*Take Profit 1*: {trading_signal.take_profit_1:.2f}\n"
+    
+    signal_text += f"*Risk/Reward*: {trading_signal.risk_reward_ratio:.2f}\n"
+    
+    if trading_signal.reasons and len(trading_signal.reasons) > 0:
+        signal_text += "\n*Signal Reasons*:\n"
+        for i, reason in enumerate(trading_signal.reasons[:3]):
+            signal_text += f"• {reason}\n"
+        if len(trading_signal.reasons) > 3:
+            signal_text += f"_...and {len(trading_signal.reasons) - 3} more reasons_\n"
+    
+    return signal_text
 
 
 async def createSignalJob(
@@ -300,25 +363,22 @@ async def createSignalJob(
         )
         return
 
-    # Update or insert into DB
     signals_request = {
         "currency_pair": symbol,
         "frequency_minutes": period_minutes,
         "is_with_chart": is_with_chart,
-        "account_balance": account_balance,  # NEW
-        "risk_percentage": risk_percentage,  # NEW
+        "account_balance": account_balance,
+        "risk_percentage": risk_percentage,
     }
     upsert_user_signal_request(user_id, signals_request)
 
     job_key = (user_id, symbol)
 
-    # If there's an existing job for the same user & symbol, remove it
     if job_key in auto_signal_jobs:
         old_job = auto_signal_jobs[job_key]
         old_job.schedule_removal()
         del auto_signal_jobs[job_key]
 
-    # Create a new repeating job
     job_ref = context.application.job_queue.run_repeating(
         callback=auto_signal_job,
         interval=timedelta(minutes=period_minutes),
@@ -329,12 +389,11 @@ async def createSignalJob(
             "chat_id": chat_id,
             "currency_pair": symbol,
             "is_with_chart": is_with_chart,
-            "account_balance": account_balance,  # NEW
-            "risk_percentage": risk_percentage,  # NEW
+            "account_balance": account_balance,
+            "risk_percentage": risk_percentage,
         },
     )
 
-    # Save the job reference
     auto_signal_jobs[job_key] = job_ref
 
     await update.message.reply_text(
@@ -350,7 +409,6 @@ async def deleteSignalJob(currency_pair, update):
     """
     user_id = update.effective_user.id
 
-    # Remove from the database
     delete_user_signal_request(user_id, currency_pair)
 
     job_key = (user_id, currency_pair)
