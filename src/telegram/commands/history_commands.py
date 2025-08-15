@@ -123,15 +123,15 @@ async def button_history_callback(update: Update, context: ContextTypes.DEFAULT_
         elif callback_data.startswith(HISTORY_PAGE):
             # TODO: Implement pagination for large result sets
             pass
-            
+
         # export requests
         elif callback_data.startswith(EXPORT_CSV):
-            pair = callback_data[len(EXPORT_CSV):]
+            pair = callback_data[len(EXPORT_CSV) :]
             currency_pair = None if pair == "all" else pair
             await handle_export(update, context, user_id, "csv", currency_pair)
-            
+
         elif callback_data.startswith(EXPORT_JSON):
-            pair = callback_data[len(EXPORT_JSON):]
+            pair = callback_data[len(EXPORT_JSON) :]
             currency_pair = None if pair == "all" else pair
             await handle_export(update, context, user_id, "json", currency_pair)
 
@@ -206,19 +206,31 @@ def build_history_keyboard(signals, selected_pair=None):
         keyboard.append(
             [InlineKeyboardButton("Show All", callback_data=f"{HISTORY_PERIOD}all")]
         )
-        
+
         export_buttons = []
         if selected_pair:
-            export_buttons.extend([
-                InlineKeyboardButton("Export CSV", callback_data=f"{EXPORT_CSV}{selected_pair}"),
-                InlineKeyboardButton("Export JSON", callback_data=f"{EXPORT_JSON}{selected_pair}")
-            ])
+            export_buttons.extend(
+                [
+                    InlineKeyboardButton(
+                        "Export CSV", callback_data=f"{EXPORT_CSV}{selected_pair}"
+                    ),
+                    InlineKeyboardButton(
+                        "Export JSON", callback_data=f"{EXPORT_JSON}{selected_pair}"
+                    ),
+                ]
+            )
         else:
-            export_buttons.extend([
-                InlineKeyboardButton("Export CSV", callback_data=f"{EXPORT_CSV}all"),
-                InlineKeyboardButton("Export JSON", callback_data=f"{EXPORT_JSON}all")
-            ])
-            
+            export_buttons.extend(
+                [
+                    InlineKeyboardButton(
+                        "Export CSV", callback_data=f"{EXPORT_CSV}all"
+                    ),
+                    InlineKeyboardButton(
+                        "Export JSON", callback_data=f"{EXPORT_JSON}all"
+                    ),
+                ]
+            )
+
         keyboard.append(export_buttons)
 
     return keyboard
@@ -320,7 +332,13 @@ async def safe_edit_message(query, text, reply_markup=None):
         await query.answer("Couldn't update message")
 
 
-async def handle_export(update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int, format_type: str, currency_pair: str = None):
+async def handle_export(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    user_id: int,
+    format_type: str,
+    currency_pair: str = None,
+):
     """
     Handle exporting signal history to a file and send it to the user.
 
@@ -339,7 +357,9 @@ async def handle_export(update: Update, context: ContextTypes.DEFAULT_TYPE, user
         await query.answer(f"Preparing {format_type.upper()} export...")
 
         if currency_pair:
-            signals = get_user_signal_history(user_id, limit=100, currency_pair=currency_pair)
+            signals = get_user_signal_history(
+                user_id, limit=100, currency_pair=currency_pair
+            )
             description = f"for {currency_pair}"
         else:
             signals = get_user_signal_history(user_id, limit=100)
@@ -347,27 +367,23 @@ async def handle_export(update: Update, context: ContextTypes.DEFAULT_TYPE, user
 
         if not signals:
             await context.bot.send_message(
-                chat_id=chat_id, 
+                chat_id=chat_id,
                 text=f"No signal data available {description} to export.",
-                reply_to_message_id=message_id
+                reply_to_message_id=message_id,
             )
             return
 
         filepath = export_user_signals(
-            signals, 
-            user_id, 
-            format_type, 
-            EXPORT_DIR,
-            currency_pair
+            signals, user_id, format_type, EXPORT_DIR, currency_pair
         )
 
-        with open(filepath, 'rb') as file:
+        with open(filepath, "rb") as file:
             await context.bot.send_document(
                 chat_id=chat_id,
                 document=file,
                 filename=os.path.basename(filepath),
                 caption=f"📊 Signal history {description} exported as {format_type.upper()}",
-                reply_to_message_id=message_id
+                reply_to_message_id=message_id,
             )
 
         try:
