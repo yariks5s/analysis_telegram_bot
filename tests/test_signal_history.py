@@ -13,7 +13,6 @@ from unittest.mock import patch, MagicMock
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.database.models import SignalHistory
 from src.database.operations import (
     save_signal_history,
     get_user_signal_history,
