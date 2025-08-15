@@ -6,8 +6,8 @@ The Signal Data Export feature allows users to download their trading signal his
 
 ## Supported Formats
 
-- **CSV**: Comma-Separated Values format, ideal for spreadsheet applications like Excel, Google Sheets, or LibreOffice Calc
-- **JSON**: JavaScript Object Notation format, ideal for programmatic integrations and data analysis in programming environments
+- **CSV**
+- **JSON**
 
 ## How to Use
 
@@ -37,14 +37,6 @@ Exported files contain the following information for each signal:
 - `probability`: Signal confidence level
 - `reasons`: List of technical reasons for the signal
 - `market_conditions`: Market context information when the signal was generated
-
-## Example Usage Scenarios
-
-1. **Performance Analysis**: Export your signal history to analyze win/loss rates and performance metrics
-2. **Pattern Recognition**: Identify market patterns by analyzing signals across different time periods
-3. **Custom Dashboards**: Import the data into visualization tools to create custom dashboards
-4. **Strategy Refinement**: Use historical signals to refine your trading strategy
-5. **Backtesting**: Incorporate signals into backtesting systems to evaluate performance
 
 ## Technical Notes
 
