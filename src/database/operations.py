@@ -146,8 +146,9 @@ def update_user_preferences(user_id: int, preferences: Dict[str, Any]) -> None:
             cursor.execute(
                 """
                 INSERT INTO user_preferences (
-                    user_id, order_blocks, fvgs, liquidity_levels, breaker_blocks, show_legend, 
-                    show_volume, liquidity_pools, dark_mode, atr_period, fvg_min_size, tutorial_stage
+                    user_id, order_blocks, fvgs, liquidity_levels, breaker_blocks,
+                    show_legend, show_volume, liquidity_pools, dark_mode,
+                    atr_period, fvg_min_size, tutorial_stage
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
@@ -187,8 +188,9 @@ def get_all_user_signal_requests(user_id: int) -> List[Dict[str, any]]:
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT user_id, currency_pair, frequency_minutes, is_with_chart 
-        FROM user_signals_requests WHERE user_id = ?
+        SELECT user_id, currency_pair, frequency_minutes, is_with_chart
+        FROM user_signals_requests
+        WHERE user_id = ?
         """,
         (user_id,),
     )
@@ -394,7 +396,7 @@ def user_signal_request_exists(user_id: int, currency_pair: str) -> bool:
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT 1 FROM user_signals_requests 
+        SELECT 1 FROM user_signals_requests
         WHERE user_id = ? AND currency_pair = ?
         """,
         (user_id, currency_pair),

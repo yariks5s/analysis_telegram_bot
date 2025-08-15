@@ -17,7 +17,6 @@ from src.database.operations import (
 )
 from src.core.error_handler import handle_error
 
-# Callback data prefixes
 HISTORY_PERIOD = "hist_period:"
 HISTORY_PAIR = "hist_pair:"
 HISTORY_PAGE = "hist_page:"
@@ -31,10 +30,8 @@ async def command_signal_history(update: Update, context: ContextTypes.DEFAULT_T
     try:
         user_id = update.effective_user.id
 
-        # Default to last 10 signals
         signals = get_user_signal_history(user_id, limit=10)
 
-        # Build the keyboard for filtering options
         keyboard = [
             [
                 InlineKeyboardButton("Last 24h", callback_data=f"{HISTORY_PERIOD}24h"),
@@ -43,22 +40,19 @@ async def command_signal_history(update: Update, context: ContextTypes.DEFAULT_T
             ]
         ]
 
-        # Add currency pair filters if there are signals
         if signals:
-            # Get unique currency pairs from the signals
+            # Get unique currency pairs
             currency_pairs = set(signal["currency_pair"] for signal in signals)
             pair_buttons = []
             for pair in currency_pairs:
                 pair_buttons.append(
                     InlineKeyboardButton(pair, callback_data=f"{HISTORY_PAIR}{pair}")
                 )
-            # Add pair buttons in rows of 3
             for i in range(0, len(pair_buttons), 3):
                 keyboard.append(pair_buttons[i : i + 3])
 
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        # Format the message with signal history
         if signals:
             message = "📜 *Your Signal History*\n\n"
             message += format_signal_history(signals)
@@ -82,14 +76,12 @@ async def button_history_callback(update: Update, context: ContextTypes.DEFAULT_
     """
     query = update.callback_query
 
-    # Answer the callback query immediately to improve UI responsiveness
     await query.answer()
 
     user_id = update.effective_user.id
     callback_data = query.data
 
     try:
-        # Handle time period filtering
         if callback_data.startswith(HISTORY_PERIOD):
             period = callback_data[len(HISTORY_PERIOD) :]
             signals = filter_by_period(user_id, period)
@@ -103,7 +95,6 @@ async def button_history_callback(update: Update, context: ContextTypes.DEFAULT_
             else:
                 message = f"No signals found in the last {period}."
 
-            # Use our safe message editing helper
             await safe_edit_message(query, message, reply_markup)
 
         # Handle currency pair filtering
@@ -120,10 +111,8 @@ async def button_history_callback(update: Update, context: ContextTypes.DEFAULT_
             else:
                 message = f"No signals found for {pair}."
 
-            # Use our safe message editing helper
             await safe_edit_message(query, message, reply_markup)
 
-        # Handle pagination
         elif callback_data.startswith(HISTORY_PAGE):
             # TODO: Implement pagination for large result sets
             pass
@@ -184,22 +173,17 @@ def build_history_keyboard(signals, selected_pair=None):
         ]
     ]
 
-    # Add currency pair filters if there are signals
     if signals:
-        # Get unique currency pairs from the signals
         currency_pairs = set(signal["currency_pair"] for signal in signals)
         pair_buttons = []
         for pair in currency_pairs:
-            # Mark the selected pair
             label = f"▶ {pair}" if pair == selected_pair else pair
             pair_buttons.append(
                 InlineKeyboardButton(label, callback_data=f"{HISTORY_PAIR}{pair}")
             )
-        # Add pair buttons in rows of 3
         for i in range(0, len(pair_buttons), 3):
             keyboard.append(pair_buttons[i : i + 3])
 
-    # Add a "Show All" button if a filter is applied
     if selected_pair:
         keyboard.append(
             [InlineKeyboardButton("Show All", callback_data=f"{HISTORY_PERIOD}all")]
@@ -221,11 +205,9 @@ def format_signal_history(signals, max_signals=10):
     """
     message = ""
 
-    # Limit the number of signals to display
     signals = signals[:max_signals]
 
     for i, signal in enumerate(signals):
-        # Extract key information
         timestamp = datetime.fromisoformat(signal["timestamp"]).strftime(
             "%Y-%m-%d %H:%M"
         )
@@ -233,16 +215,13 @@ def format_signal_history(signals, max_signals=10):
         signal_type = signal["signal_type"]
         probability = signal["probability"]
 
-        # Format the signal line
         line = f"{i+1}. *{pair}* - {timestamp}\n"
         line += f"   Type: {signal_type}, Probability: {probability:.2f}\n"
 
-        # Add entry/exit prices
         line += (
             f"   Entry: {signal['entry_price']:.2f}, SL: {signal['stop_loss']:.2f}, "
         )
 
-        # Handle both take_profit and take_profit_1 field names
         if "take_profit_1" in signal:
             take_profit = signal["take_profit_1"]
         elif "take_profit" in signal:
@@ -252,7 +231,6 @@ def format_signal_history(signals, max_signals=10):
 
         line += f"TP1: {take_profit:.2f}\n"
 
-        # Add reasons (limit to 2-3 for brevity)
         reasons = (
             json.loads(signal["reasons"])
             if isinstance(signal["reasons"], str)
@@ -286,15 +264,12 @@ async def safe_edit_message(query, text, reply_markup=None):
         )
     except BadRequest as e:
         if "Message is not modified" in str(e):
-            # Message content is the same, only try to update the keyboard
             if reply_markup:
                 try:
                     await query.edit_message_reply_markup(reply_markup=reply_markup)
                 except Exception:
-                    # If even this fails, silently continue
                     pass
         elif "can't parse entities" in str(e).lower():
-            # Markdown parsing error, try without markdown
             try:
                 await query.edit_message_text(text=text, reply_markup=reply_markup)
             except Exception:
@@ -303,14 +278,11 @@ async def safe_edit_message(query, text, reply_markup=None):
         else:
             # For any other errors, log but continue
             logger.error(f"Error editing message: {str(e)}")
-            # Try once more without parse mode
             try:
                 await query.edit_message_text(text=text, reply_markup=reply_markup)
             except Exception as inner_e:
                 logger.error(f"Second attempt to edit message failed: {str(inner_e)}")
-                # Final fallback is to do nothing but acknowledge
                 await query.answer("Couldn't update message")
     except Exception as e:
-        # Catch-all for any other errors
         logger.error(f"Unexpected error editing message: {str(e)}")
         await query.answer("Couldn't update message")
