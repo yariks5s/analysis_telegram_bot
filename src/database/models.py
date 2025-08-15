@@ -114,7 +114,7 @@ def create_tables():
         )
         """
         )
-        
+
         cursor.execute(
             """
         CREATE TABLE IF NOT EXISTS signal_history (

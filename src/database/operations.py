@@ -429,12 +429,12 @@ def save_signal_history(signal_data: Dict[str, any]) -> bool:
     try:
         conn = sqlite3.connect(DATABASE_PATH)
         cursor = conn.cursor()
-        
+
         reasons_json = json.dumps(signal_data.get("reasons", []))
         market_conditions_json = json.dumps(signal_data.get("market_conditions", {}))
-        
+
         timestamp = signal_data.get("timestamp", datetime.datetime.now().isoformat())
-        
+
         cursor.execute(
             """
             INSERT INTO signal_history (
@@ -458,7 +458,9 @@ def save_signal_history(signal_data: Dict[str, any]) -> bool:
         )
 
         conn.commit()
-        logger.info(f"Signal history saved for user {signal_data['user_id']} on {signal_data['currency_pair']}")
+        logger.info(
+            f"Signal history saved for user {signal_data['user_id']} on {signal_data['currency_pair']}"
+        )
         return True
     except KeyError as e:
         logger.error(f"Error saving signal to history: {str(e)}")
@@ -485,7 +487,7 @@ def get_user_signal_history(
         List of signal history records sorted by timestamp (newest first)
     """
     import json
-    
+
     signals = []
     try:
         conn = sqlite3.connect(DATABASE_PATH)
@@ -513,7 +515,7 @@ def get_user_signal_history(
         for row in rows:
             reasons = json.loads(row[9]) if row[9] else []
             market_conditions = json.loads(row[10]) if row[10] else {}
-            
+
             signal_dict = {
                 "id": row[0],
                 "user_id": row[1],
@@ -554,7 +556,7 @@ def get_signal_history_by_date_range(
         List of signal history records sorted by timestamp (newest first)
     """
     import json
-    
+
     signals = []
     try:
         conn = sqlite3.connect(DATABASE_PATH)
@@ -581,7 +583,7 @@ def get_signal_history_by_date_range(
         for row in rows:
             reasons = json.loads(row[9]) if row[9] else []
             market_conditions = json.loads(row[10]) if row[10] else {}
-            
+
             signal_dict = {
                 "id": row[0],
                 "user_id": row[1],

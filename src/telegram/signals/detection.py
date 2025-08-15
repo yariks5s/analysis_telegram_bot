@@ -188,18 +188,18 @@ async def auto_signal_job(context):
                 chat_id=chat_id, text=f"❌ Error fetching data for {currency_pair}"
             )
             return
-            
+
         _, _, _, _, trading_signal = generate_price_prediction_signal_proba(
-            df, 
-            indicators, 
-            weights=[], 
+            df,
+            indicators,
+            weights=[],
             account_balance=account_balance,
-            risk_percentage=risk_percentage
+            risk_percentage=risk_percentage,
         )
-        
+
         if trading_signal is not None:
             from src.database.operations import save_signal_history
-            
+
             signal_data = {
                 "user_id": user_id,
                 "currency_pair": currency_pair,
@@ -216,18 +216,20 @@ async def auto_signal_job(context):
                 "max_risk_amount": trading_signal.max_risk_amount,
                 "reasons": trading_signal.reasons,
                 "market_conditions": trading_signal.market_conditions,
-                "timestamp": trading_signal.timestamp.isoformat()
+                "timestamp": trading_signal.timestamp.isoformat(),
             }
-            
+
             # Save the signal to history
             try:
                 save_signal_history(signal_data)
-                logger.info(f"Signal saved to history for user {user_id}, {currency_pair}")
+                logger.info(
+                    f"Signal saved to history for user {user_id}, {currency_pair}"
+                )
             except Exception as save_error:
                 logger.error(f"Error saving signal to history: {save_error}")
 
         analysis_result = generate_signal_analysis(df, indicators, currency_pair)
-        
+
         if trading_signal is not None:
             prediction_analysis = format_trading_signal_for_display(trading_signal)
             analysis_result = analysis_result + "\n\n" + prediction_analysis
@@ -304,39 +306,39 @@ def generate_signal_analysis(df: pd.DataFrame, indicators, currency_pair: str) -
         analysis += (
             "Market is quiet with low volatility. Potential buildup for a larger move."
         )
-        
+
     return analysis
 
 
 def format_trading_signal_for_display(trading_signal):
     """
     Format a TradingSignal object into a user-friendly display string.
-    
+
     Args:
         trading_signal: TradingSignal object with prediction data
-        
+
     Returns:
         Formatted string with signal prediction details
     """
     if trading_signal is None:
         return ""
-        
+
     signal_emoji = "🔴" if trading_signal.signal_type == "Bearish" else "🟢"
     signal_text = f"*{signal_emoji} {trading_signal.signal_type} Signal Prediction ({trading_signal.probability:.0%} probability)*\n\n"
-    
+
     signal_text += f"*Entry*: {trading_signal.entry_price:.2f}\n"
     signal_text += f"*Stop Loss*: {trading_signal.stop_loss:.2f}\n"
     signal_text += f"*Take Profit 1*: {trading_signal.take_profit_1:.2f}\n"
-    
+
     signal_text += f"*Risk/Reward*: {trading_signal.risk_reward_ratio:.2f}\n"
-    
+
     if trading_signal.reasons and len(trading_signal.reasons) > 0:
         signal_text += "\n*Signal Reasons*:\n"
         for i, reason in enumerate(trading_signal.reasons[:3]):
             signal_text += f"• {reason}\n"
         if len(trading_signal.reasons) > 3:
             signal_text += f"_...and {len(trading_signal.reasons) - 3} more reasons_\n"
-    
+
     return signal_text
 
 

@@ -68,15 +68,16 @@ async def send_crypto_chart(update: Update, context: CallbackContext):
             return
 
         try:
-            _, _, _, reason_str, trading_signal = generate_price_prediction_signal_proba(
-                df, indicators
+            _, _, _, reason_str, trading_signal = (
+                generate_price_prediction_signal_proba(df, indicators)
             )
-            
+
             if trading_signal is not None:
                 from src.database.operations import save_signal_history
+
                 user_id = update.effective_user.id
                 currency_pair = df.attrs.get("symbol", "UNKNOWN")
-                
+
                 signal_data = {
                     "user_id": user_id,
                     "currency_pair": currency_pair,
@@ -93,15 +94,17 @@ async def send_crypto_chart(update: Update, context: CallbackContext):
                     "max_risk_amount": trading_signal.max_risk_amount,
                     "reasons": trading_signal.reasons,
                     "market_conditions": trading_signal.market_conditions,
-                    "timestamp": trading_signal.timestamp.isoformat()
+                    "timestamp": trading_signal.timestamp.isoformat(),
                 }
-                
+
                 try:
                     save_signal_history(signal_data)
-                    print(f"Signal saved to history for user {user_id}, {currency_pair}")
+                    print(
+                        f"Signal saved to history for user {user_id}, {currency_pair}"
+                    )
                 except Exception as save_error:
                     print(f"Error saving signal to history: {save_error}")
-            
+
         except Exception as e:
             await handle_error(
                 update,

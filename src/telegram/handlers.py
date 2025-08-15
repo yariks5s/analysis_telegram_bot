@@ -192,7 +192,7 @@ async def handle_signal_text_input(update: Update, context: ContextTypes.DEFAULT
     symbol = parse_result["symbol"]
     period_minutes = parse_result["period_minutes"]
     is_with_chart = parse_result["is_with_chart"]
-    
+
     await createSignalJob(symbol, period_minutes, is_with_chart, update, context)
     await update.message.reply_text(
         text="Signal created! Current signals:",
