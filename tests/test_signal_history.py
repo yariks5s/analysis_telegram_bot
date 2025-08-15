@@ -67,12 +67,12 @@ class TestSignalHistory(unittest.TestCase):
             "timestamp": self.trading_signal.timestamp.isoformat(),
         }
 
-    @patch("src.database.operations.get_db_connection")
-    def test_save_signal_history(self, mock_get_conn):
+    @patch("sqlite3.connect")
+    def test_save_signal_history(self, mock_connect):
         """Test saving a signal to history"""
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
-        mock_get_conn.return_value = mock_conn
+        mock_connect.return_value = mock_conn
         mock_conn.cursor.return_value = mock_cursor
         mock_cursor.lastrowid = 1
 
@@ -81,12 +81,12 @@ class TestSignalHistory(unittest.TestCase):
         mock_cursor.execute.assert_called_once()
         self.assertTrue(result)
 
-    @patch("src.database.operations.get_db_connection")
-    def test_get_user_signal_history(self, mock_get_conn):
+    @patch("sqlite3.connect")
+    def test_get_user_signal_history(self, mock_connect):
         """Test retrieving signal history for a user"""
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
-        mock_get_conn.return_value = mock_conn
+        mock_connect.return_value = mock_conn
         mock_conn.cursor.return_value = mock_cursor
 
         mock_cursor.fetchall.return_value = [
@@ -95,19 +95,13 @@ class TestSignalHistory(unittest.TestCase):
                 self.test_user_id,
                 self.test_currency_pair,
                 self.trading_signal.signal_type,
-                self.trading_signal.probability,
-                self.trading_signal.confidence,
+                self.trading_signal.timestamp.isoformat(),
                 self.trading_signal.entry_price,
                 self.trading_signal.stop_loss,
                 self.trading_signal.take_profit_1,
-                self.trading_signal.take_profit_2,
-                self.trading_signal.take_profit_3,
-                self.trading_signal.risk_reward_ratio,
-                self.trading_signal.position_size,
-                self.trading_signal.max_risk_amount,
+                self.trading_signal.probability,
                 json.dumps(self.trading_signal.reasons),
                 json.dumps(self.trading_signal.market_conditions),
-                self.trading_signal.timestamp.isoformat(),
             )
         ]
 
@@ -119,12 +113,12 @@ class TestSignalHistory(unittest.TestCase):
         self.assertEqual(result[0]["user_id"], self.test_user_id)
         self.assertEqual(result[0]["currency_pair"], self.test_currency_pair)
 
-    @patch("src.database.operations.get_db_connection")
-    def test_get_signal_history_by_date_range(self, mock_get_conn):
+    @patch("sqlite3.connect")
+    def test_get_signal_history_by_date_range(self, mock_connect):
         """Test retrieving signal history by date range"""
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
-        mock_get_conn.return_value = mock_conn
+        mock_connect.return_value = mock_conn
         mock_conn.cursor.return_value = mock_cursor
 
         mock_cursor.fetchall.return_value = [
@@ -133,19 +127,13 @@ class TestSignalHistory(unittest.TestCase):
                 self.test_user_id,
                 self.test_currency_pair,
                 self.trading_signal.signal_type,
-                self.trading_signal.probability,
-                self.trading_signal.confidence,
+                self.trading_signal.timestamp.isoformat(),
                 self.trading_signal.entry_price,
                 self.trading_signal.stop_loss,
                 self.trading_signal.take_profit_1,
-                self.trading_signal.take_profit_2,
-                self.trading_signal.take_profit_3,
-                self.trading_signal.risk_reward_ratio,
-                self.trading_signal.position_size,
-                self.trading_signal.max_risk_amount,
+                self.trading_signal.probability,
                 json.dumps(self.trading_signal.reasons),
                 json.dumps(self.trading_signal.market_conditions),
-                self.trading_signal.timestamp.isoformat(),
             )
         ]
 
