@@ -336,6 +336,76 @@ async def check_and_analyze(update, user_id, preferences, args):
         return None, None
 
 
+def input_sanity_check_text(text: str) -> dict:
+    """
+    Validate a text input for signal analysis in conversation flow.
+    Expected format: "SYMBOL MINUTES [WITH_CHART]"
+    Example: "BTCUSDT 60 0" (BTCUSDT every 60 minutes without chart)
+
+    Args:
+        text: User input text
+
+    Returns:
+        dict: Result with is_valid, error_message, and parsed parameters
+    """
+    result = {
+        "is_valid": True,
+        "error_message": "",
+        "symbol": "",
+        "period_minutes": 0,
+        "is_with_chart": False,
+    }
+
+    if not text or len(text) < 3:
+        result["is_valid"] = False
+        result["error_message"] = "Input is too short"
+        return result
+
+    parts = text.strip().split()
+
+    if len(parts) < 2:
+        result["is_valid"] = False
+        result["error_message"] = (
+            "Please provide both symbol and period in minutes (e.g., 'BTCUSDT 60')"
+        )
+        return result
+
+    result["symbol"] = parts[0].upper()
+
+    # Parse period_minutes
+    try:
+        result["period_minutes"] = int(parts[1])
+        if result["period_minutes"] <= 0:
+            result["is_valid"] = False
+            result["error_message"] = "Period must be a positive integer"
+            return result
+    except ValueError:
+        result["is_valid"] = False
+        result["error_message"] = "Period must be a valid integer"
+        return result
+
+    # Parse is_with_chart (optional)
+    if len(parts) >= 3:
+        try:
+            chart_value = parts[2].lower()
+            if chart_value in ["1", "true", "yes", "y"]:
+                result["is_with_chart"] = True
+            elif chart_value in ["0", "false", "no", "n"]:
+                result["is_with_chart"] = False
+            else:
+                result["is_valid"] = False
+                result["error_message"] = (
+                    "Third parameter should be 0/1, true/false, or yes/no"
+                )
+                return result
+        except ValueError:
+            result["is_valid"] = False
+            result["error_message"] = "Invalid format for chart parameter"
+            return result
+
+    return result
+
+
 async def check_signal_limit(update):
     """
     Check if the user has reached the signal limit.
@@ -357,3 +427,25 @@ async def check_signal_limit(update):
         return True
 
     return False
+
+
+def check_signal_limit_by_id(user_id: int) -> tuple:
+    """
+    Check if the user has reached the signal limit using only user_id.
+
+    Args:
+        user_id: User ID to check
+
+    Returns:
+        tuple: (ok, message) where ok is True if under limit, False if limit reached
+    """
+    previous_signals = get_all_user_signal_requests(user_id)
+
+    if len(previous_signals) >= 10:
+        message = (
+            f"You've reached the limit of signals ({len(previous_signals)}). "
+            f"If you want to add a new signal, please remove some of existing signals."
+        )
+        return (False, message)
+
+    return (True, "")

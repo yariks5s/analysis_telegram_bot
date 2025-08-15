@@ -67,11 +67,44 @@ async def send_crypto_chart(update: Update, context: CallbackContext):
             await handle_error(update, "chart_generation", exception=e)
             return
 
-        # Generate the probability-based signal
         try:
-            _, _, _, reason_str, _ = generate_price_prediction_signal_proba(
-                df, indicators
+            _, _, _, reason_str, trading_signal = (
+                generate_price_prediction_signal_proba(df, indicators)
             )
+
+            if trading_signal is not None:
+                from src.database.operations import save_signal_history
+
+                user_id = update.effective_user.id
+                currency_pair = df.attrs.get("symbol", "UNKNOWN")
+
+                signal_data = {
+                    "user_id": user_id,
+                    "currency_pair": currency_pair,
+                    "signal_type": trading_signal.signal_type,
+                    "probability": trading_signal.probability,
+                    "confidence": trading_signal.confidence,
+                    "entry_price": trading_signal.entry_price,
+                    "stop_loss": trading_signal.stop_loss,
+                    "take_profit_1": trading_signal.take_profit_1,
+                    "take_profit_2": trading_signal.take_profit_2,
+                    "take_profit_3": trading_signal.take_profit_3,
+                    "risk_reward_ratio": trading_signal.risk_reward_ratio,
+                    "position_size": trading_signal.position_size,
+                    "max_risk_amount": trading_signal.max_risk_amount,
+                    "reasons": trading_signal.reasons,
+                    "market_conditions": trading_signal.market_conditions,
+                    "timestamp": trading_signal.timestamp.isoformat(),
+                }
+
+                try:
+                    save_signal_history(signal_data)
+                    print(
+                        f"Signal saved to history for user {user_id}, {currency_pair}"
+                    )
+                except Exception as save_error:
+                    print(f"Error saving signal to history: {save_error}")
+
         except Exception as e:
             await handle_error(
                 update,
@@ -81,7 +114,6 @@ async def send_crypto_chart(update: Update, context: CallbackContext):
             )
             reason_str = "Analysis not available"
 
-        # Send the chart to the user
         try:
             with open(chart_path, "rb") as f:
                 await context.bot.send_photo(chat_id=chat_id, photo=f)
