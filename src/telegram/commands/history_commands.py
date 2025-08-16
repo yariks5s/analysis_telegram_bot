@@ -202,35 +202,37 @@ def build_history_keyboard(signals, selected_pair=None):
         for i in range(0, len(pair_buttons), 3):
             keyboard.append(pair_buttons[i : i + 3])
 
+    # Add 'Show All' button if a pair is selected
     if selected_pair:
         keyboard.append(
             [InlineKeyboardButton("Show All", callback_data=f"{HISTORY_PERIOD}all")]
         )
-
-        export_buttons = []
-        if selected_pair:
-            export_buttons.extend(
-                [
-                    InlineKeyboardButton(
-                        "Export CSV", callback_data=f"{EXPORT_CSV}{selected_pair}"
-                    ),
-                    InlineKeyboardButton(
-                        "Export JSON", callback_data=f"{EXPORT_JSON}{selected_pair}"
-                    ),
-                ]
-            )
-        else:
-            export_buttons.extend(
-                [
-                    InlineKeyboardButton(
-                        "Export CSV", callback_data=f"{EXPORT_CSV}all"
-                    ),
-                    InlineKeyboardButton(
-                        "Export JSON", callback_data=f"{EXPORT_JSON}all"
-                    ),
-                ]
-            )
-
+    
+    export_buttons = []
+    if selected_pair:
+        export_buttons.extend(
+            [
+                InlineKeyboardButton(
+                    "Export CSV", callback_data=f"{EXPORT_CSV}{selected_pair}"
+                ),
+                InlineKeyboardButton(
+                    "Export JSON", callback_data=f"{EXPORT_JSON}{selected_pair}"
+                ),
+            ]
+        )
+    else:
+        export_buttons.extend(
+            [
+                InlineKeyboardButton(
+                    "Export CSV", callback_data=f"{EXPORT_CSV}all"
+                ),
+                InlineKeyboardButton(
+                    "Export JSON", callback_data=f"{EXPORT_JSON}all"
+                ),
+            ]
+        )
+    
+    if signals:
         keyboard.append(export_buttons)
 
     return keyboard
@@ -339,6 +341,7 @@ async def handle_export(
     format_type: str,
     currency_pair: str = None,
 ):
+    logger.info(f"handle_export called with format_type={format_type}, currency_pair={currency_pair}")
     """
     Handle exporting signal history to a file and send it to the user.
 
