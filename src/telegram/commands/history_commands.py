@@ -3,6 +3,7 @@ Command handlers for retrieving and displaying signal history.
 """
 
 import json
+import os
 import logging
 from datetime import datetime, timedelta
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -15,11 +16,17 @@ from src.database.operations import (
     get_user_signal_history,
     get_signal_history_by_date_range,
 )
+from src.analysis.utils.export import export_user_signals
+
 from src.core.error_handler import handle_error
 
 HISTORY_PERIOD = "hist_period:"
 HISTORY_PAIR = "hist_pair:"
 HISTORY_PAGE = "hist_page:"
+EXPORT_CSV = "export_csv:"
+EXPORT_JSON = "export_json:"
+
+EXPORT_DIR = "exports"
 
 
 async def command_signal_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -117,6 +124,17 @@ async def button_history_callback(update: Update, context: ContextTypes.DEFAULT_
             # TODO: Implement pagination for large result sets
             pass
 
+        # export requests
+        elif callback_data.startswith(EXPORT_CSV):
+            pair = callback_data[len(EXPORT_CSV) :]
+            currency_pair = None if pair == "all" else pair
+            await handle_export(update, context, user_id, "csv", currency_pair)
+
+        elif callback_data.startswith(EXPORT_JSON):
+            pair = callback_data[len(EXPORT_JSON) :]
+            currency_pair = None if pair == "all" else pair
+            await handle_export(update, context, user_id, "json", currency_pair)
+
     except Exception as e:
         await handle_error(
             update,
@@ -184,10 +202,34 @@ def build_history_keyboard(signals, selected_pair=None):
         for i in range(0, len(pair_buttons), 3):
             keyboard.append(pair_buttons[i : i + 3])
 
+    # Add 'Show All' button if a pair is selected
     if selected_pair:
         keyboard.append(
             [InlineKeyboardButton("Show All", callback_data=f"{HISTORY_PERIOD}all")]
         )
+
+    export_buttons = []
+    if selected_pair:
+        export_buttons.extend(
+            [
+                InlineKeyboardButton(
+                    "Export CSV", callback_data=f"{EXPORT_CSV}{selected_pair}"
+                ),
+                InlineKeyboardButton(
+                    "Export JSON", callback_data=f"{EXPORT_JSON}{selected_pair}"
+                ),
+            ]
+        )
+    else:
+        export_buttons.extend(
+            [
+                InlineKeyboardButton("Export CSV", callback_data=f"{EXPORT_CSV}all"),
+                InlineKeyboardButton("Export JSON", callback_data=f"{EXPORT_JSON}all"),
+            ]
+        )
+
+    if signals:
+        keyboard.append(export_buttons)
 
     return keyboard
 
@@ -286,3 +328,70 @@ async def safe_edit_message(query, text, reply_markup=None):
     except Exception as e:
         logger.error(f"Unexpected error editing message: {str(e)}")
         await query.answer("Couldn't update message")
+
+
+async def handle_export(
+    update: Update,
+    context: ContextTypes.DEFAULT_TYPE,
+    user_id: int,
+    format_type: str,
+    currency_pair: str = None,
+):
+    logger.info(
+        f"handle_export called with format_type={format_type}, currency_pair={currency_pair}"
+    )
+    """
+    Handle exporting signal history to a file and send it to the user.
+
+    Args:
+        update: Telegram update object
+        context: Telegram context object
+        user_id: User ID for which to export data
+        format_type: Export format ('csv' or 'json')
+        currency_pair: Optional currency pair to filter by
+    """
+    try:
+        query = update.callback_query
+        message_id = query.message.message_id
+        chat_id = query.message.chat_id
+
+        await query.answer(f"Preparing {format_type.upper()} export...")
+
+        if currency_pair:
+            signals = get_user_signal_history(
+                user_id, limit=100, currency_pair=currency_pair
+            )
+            description = f"for {currency_pair}"
+        else:
+            signals = get_user_signal_history(user_id, limit=100)
+            description = "for all pairs"
+
+        if not signals:
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=f"No signal data available {description} to export.",
+                reply_to_message_id=message_id,
+            )
+            return
+
+        filepath = export_user_signals(
+            signals, user_id, format_type, EXPORT_DIR, currency_pair
+        )
+
+        with open(filepath, "rb") as file:
+            await context.bot.send_document(
+                chat_id=chat_id,
+                document=file,
+                filename=os.path.basename(filepath),
+                caption=f"📊 Signal history {description} exported as {format_type.upper()}",
+                reply_to_message_id=message_id,
+            )
+
+        try:
+            os.remove(filepath)
+        except Exception as e:
+            logger.error(f"Error removing temporary export file {filepath}: {str(e)}")
+
+    except Exception as e:
+        error_message = f"Failed to export signal history as {format_type.upper()}"
+        await handle_error(update, "export_error", error_message, exception=e)

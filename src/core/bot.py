@@ -159,7 +159,11 @@ def setup_handlers(app):
 
     # Signal history commands
     app.add_handler(CommandHandler("signal_history", command_signal_history))
-    app.add_handler(CallbackQueryHandler(button_history_callback, pattern="^hist_"))
+    app.add_handler(
+        CallbackQueryHandler(
+            button_history_callback, pattern="^(hist_|export_csv:|export_json:)"
+        )
+    )
 
     # Tutorial commands
     app.add_handler(CommandHandler("start", start_command))

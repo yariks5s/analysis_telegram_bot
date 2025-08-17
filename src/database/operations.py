@@ -508,7 +508,7 @@ def get_user_signal_history(
             query += " AND currency_pair = ?"
             params.append(currency_pair)
 
-        query += " ORDER BY timestamp DESC LIMIT ?"
+        query += " ORDER BY id ASC LIMIT ?"
         params.append(limit)
 
         cursor.execute(query, params)
@@ -577,7 +577,7 @@ def get_signal_history_by_date_range(
             query += " AND currency_pair = ?"
             params.append(currency_pair)
 
-        query += " ORDER BY timestamp DESC"
+        query += " ORDER BY id ASC"
 
         cursor.execute(query, params)
         rows = cursor.fetchall()
