@@ -348,60 +348,63 @@ def input_sanity_check_text(text: str) -> dict:
     Returns:
         dict: Result with is_valid, error_message, and parsed parameters
     """
-    result = {
-        "is_valid": True,
-        "error_message": "",
-        "symbol": "",
-        "period_minutes": 0,
-        "is_with_chart": False,
-    }
+    from src.core.error_handler import (
+        InputError,
+        ValidationError,
+        ParsingError,
+        validation_result,
+        handle_validation_error,
+    )
 
-    if not text or len(text) < 3:
-        result["is_valid"] = False
-        result["error_message"] = "Input is too short"
-        return result
+    result = validation_result(
+        symbol="",
+        period_minutes=0,
+        is_with_chart=False,
+    )
 
-    parts = text.strip().split()
-
-    if len(parts) < 2:
-        result["is_valid"] = False
-        result["error_message"] = (
-            "Please provide both symbol and period in minutes (e.g., 'BTCUSDT 60')"
-        )
-        return result
-
-    result["symbol"] = parts[0].upper()
-
-    # Parse period_minutes
     try:
-        result["period_minutes"] = int(parts[1])
-        if result["period_minutes"] <= 0:
-            result["is_valid"] = False
-            result["error_message"] = "Period must be a positive integer"
-            return result
-    except ValueError:
-        result["is_valid"] = False
-        result["error_message"] = "Period must be a valid integer"
-        return result
+        if not text or len(text) < 3:
+            raise InputError("Input is too short")
 
-    # Parse is_with_chart (optional)
-    if len(parts) >= 3:
+        parts = text.strip().split()
+
+        if len(parts) < 2:
+            raise InputError(
+                "Please provide both symbol and period in minutes (e.g., 'BTCUSDT 60')"
+            )
+
+        symbol = parts[0].upper()
+
         try:
+            period_minutes = int(parts[1])
+            if period_minutes <= 0:
+                raise ValidationError("Period must be a positive integer")
+        except ValueError:
+            raise ParsingError("Period must be a valid integer")
+
+        is_with_chart = False
+        if len(parts) >= 3:
             chart_value = parts[2].lower()
             if chart_value in ["1", "true", "yes", "y"]:
-                result["is_with_chart"] = True
+                is_with_chart = True
             elif chart_value in ["0", "false", "no", "n"]:
-                result["is_with_chart"] = False
+                is_with_chart = False
             else:
-                result["is_valid"] = False
-                result["error_message"] = (
+                raise ValidationError(
                     "Third parameter should be 0/1, true/false, or yes/no"
                 )
-                return result
-        except ValueError:
-            result["is_valid"] = False
-            result["error_message"] = "Invalid format for chart parameter"
-            return result
+
+        result = validation_result(
+            is_valid=True,
+            symbol=symbol,
+            period_minutes=period_minutes,
+            is_with_chart=is_with_chart,
+        )
+
+    except (InputError, ValidationError, ParsingError) as e:
+        result = handle_validation_error(e)
+    except Exception as e:
+        result = handle_validation_error(e, "Unexpected error in input validation")
 
     return result
 
