@@ -7,13 +7,14 @@ import logging
 from datetime import datetime
 from collections import deque
 import uuid
+import argparse
 
 project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(project_dir)
 
-from strategy import backtest_strategy
-from getTradingPairs import get_trading_pairs
-from db_operations import ClickHouseDB
+from back_tester.strategy import backtest_strategy
+from back_tester.getTradingPairs import get_trading_pairs
+from back_tester.db_operations import ClickHouseDB
 
 # Set up focused logging for training
 logger = logging.getLogger("training")
@@ -448,6 +449,22 @@ if __name__ == "__main__":
         fitness, metrics = evaluate_weights(best_weights)
         if metrics:
             logger.info(f"Final metrics: {metrics.get_metrics()}")
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        weights_file = f"models/weights_{timestamp}.txt"
+        os.makedirs("models", exist_ok=True)
+
+        with open(weights_file, "w") as f:
+            f.write(
+                f"# Optimized weights for {args.symbol} {args.interval} at {timestamp}\n"
+            )
+            f.write(f"# Fitness: {fitness:.4f}\n")
+            f.write(f"# Risk: {risk_percentage}\n\n")
+            for i, w in enumerate(best_weights):
+                f.write(f"W{i} = {w:.6f}\n")
+
+        logger.info(f"Weights saved to {weights_file}")
+
     except Exception as e:
         logger.error(f"Training failed: {str(e)}")
         sys.exit(1)
