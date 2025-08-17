@@ -107,6 +107,7 @@ async def global_error_handler(update: object, context):
 
 class ValidationError(Exception):
     """Base exception for validation errors."""
+
     def __init__(self, message: str = "Validation failed"):
         self.message = message
         super().__init__(self.message)
@@ -114,65 +115,69 @@ class ValidationError(Exception):
 
 class InputError(ValidationError):
     """Exception raised when input validation fails."""
+
     def __init__(self, message: str = "Invalid input"):
         super().__init__(message)
 
 
 class ParsingError(ValidationError):
     """Exception raised when parsing fails."""
+
     def __init__(self, message: str = "Failed to parse input"):
         super().__init__(message)
 
 
 def handle_validation_error(
-    exception: Union[ValidationError, Exception], 
+    exception: Union[ValidationError, Exception],
     default_message: str = "An error occurred",
-    include_details: bool = False
+    include_details: bool = False,
 ) -> Dict[str, Any]:
     """
     Handle validation errors and return standardized error response.
-    
+
     Args:
         exception: The exception to handle
         default_message: Default message if exception doesn't have one
         include_details: Whether to include exception type and traceback
-        
+
     Returns:
         dict: Standardized error response
     """
     if isinstance(exception, ValidationError):
         error_message = exception.message
-    elif hasattr(exception, 'message'):
+    elif hasattr(exception, "message"):
         error_message = exception.message
     elif str(exception):
         error_message = str(exception)
     else:
         error_message = default_message
-        
+
     result = {
         "is_valid": False,
         "error_message": error_message,
-        "error_type": exception.__class__.__name__
+        "error_type": exception.__class__.__name__,
     }
-    
+
     if include_details:
         result["exception_details"] = {
             "type": exception.__class__.__name__,
-            "traceback": traceback.format_exc()
+            "traceback": traceback.format_exc(),
         }
-        
+
     return result
 
 
-def validation_result(is_valid: bool = True, error_message: str = "", **kwargs) -> Dict[str, Any]:
+def validation_result(
+    is_valid: bool = True, error_message: str = "", **kwargs
+) -> Dict[str, Any]:
     """
     Create a standardized validation result.
-    
+
     Args:
         is_valid: Whether the validation passed
         error_message: Error message if validation failed
         **kwargs: Additional key-value pairs to include in the result
-        
+
     Returns:
         dict: Standardized validation result
     """
@@ -180,24 +185,26 @@ def validation_result(is_valid: bool = True, error_message: str = "", **kwargs) 
         "is_valid": is_valid,
         "error_message": error_message,
     }
-    
+
     result.update(kwargs)
-    
+
     return result
 
 
-F = TypeVar('F', bound=Callable[..., Dict[str, Any]])
+F = TypeVar("F", bound=Callable[..., Dict[str, Any]])
+
 
 def wrap_validation(validation_func: F) -> F:
     """
     Decorator for wrapping validation functions to handle exceptions.
-    
+
     Args:
         validation_func: The validation function to wrap
-        
+
     Returns:
         function: Wrapped function that catches exceptions
     """
+
     def wrapper(*args, **kwargs) -> Dict[str, Any]:
         try:
             return validation_func(*args, **kwargs)
@@ -207,4 +214,5 @@ def wrap_validation(validation_func: F) -> F:
             return handle_validation_error(
                 e, default_message=f"Unexpected error in {validation_func.__name__}"
             )
+
     return cast(F, wrapper)

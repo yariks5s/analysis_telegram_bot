@@ -348,7 +348,13 @@ def input_sanity_check_text(text: str) -> dict:
     Returns:
         dict: Result with is_valid, error_message, and parsed parameters
     """
-    from src.core.error_handler import InputError, ValidationError, ParsingError, validation_result, handle_validation_error
+    from src.core.error_handler import (
+        InputError,
+        ValidationError,
+        ParsingError,
+        validation_result,
+        handle_validation_error,
+    )
 
     result = validation_result(
         symbol="",
@@ -363,8 +369,10 @@ def input_sanity_check_text(text: str) -> dict:
         parts = text.strip().split()
 
         if len(parts) < 2:
-            raise InputError("Please provide both symbol and period in minutes (e.g., 'BTCUSDT 60')")
-        
+            raise InputError(
+                "Please provide both symbol and period in minutes (e.g., 'BTCUSDT 60')"
+            )
+
         symbol = parts[0].upper()
 
         try:
@@ -382,20 +390,22 @@ def input_sanity_check_text(text: str) -> dict:
             elif chart_value in ["0", "false", "no", "n"]:
                 is_with_chart = False
             else:
-                raise ValidationError("Third parameter should be 0/1, true/false, or yes/no")
-        
+                raise ValidationError(
+                    "Third parameter should be 0/1, true/false, or yes/no"
+                )
+
         result = validation_result(
             is_valid=True,
             symbol=symbol,
             period_minutes=period_minutes,
-            is_with_chart=is_with_chart
+            is_with_chart=is_with_chart,
         )
-        
+
     except (InputError, ValidationError, ParsingError) as e:
         result = handle_validation_error(e)
     except Exception as e:
         result = handle_validation_error(e, "Unexpected error in input validation")
-    
+
     return result
 
 
