@@ -207,7 +207,7 @@ def build_history_keyboard(signals, selected_pair=None):
         keyboard.append(
             [InlineKeyboardButton("Show All", callback_data=f"{HISTORY_PERIOD}all")]
         )
-    
+
     export_buttons = []
     if selected_pair:
         export_buttons.extend(
@@ -223,15 +223,11 @@ def build_history_keyboard(signals, selected_pair=None):
     else:
         export_buttons.extend(
             [
-                InlineKeyboardButton(
-                    "Export CSV", callback_data=f"{EXPORT_CSV}all"
-                ),
-                InlineKeyboardButton(
-                    "Export JSON", callback_data=f"{EXPORT_JSON}all"
-                ),
+                InlineKeyboardButton("Export CSV", callback_data=f"{EXPORT_CSV}all"),
+                InlineKeyboardButton("Export JSON", callback_data=f"{EXPORT_JSON}all"),
             ]
         )
-    
+
     if signals:
         keyboard.append(export_buttons)
 
@@ -341,7 +337,9 @@ async def handle_export(
     format_type: str,
     currency_pair: str = None,
 ):
-    logger.info(f"handle_export called with format_type={format_type}, currency_pair={currency_pair}")
+    logger.info(
+        f"handle_export called with format_type={format_type}, currency_pair={currency_pair}"
+    )
     """
     Handle exporting signal history to a file and send it to the user.
 
