@@ -54,6 +54,7 @@ from src.telegram.commands.db_commands import (
     show_tables_command,
     describe_table_command,
 )
+from src.telegram.commands.status_commands import rate_limit_command
 from src.telegram.tutorial import (
     start_command,
     tutorial_command,
@@ -63,6 +64,7 @@ from src.telegram.tutorial import (
 from src.core.utils import logger
 from src.core.error_handler import global_error_handler
 from src.core.logging_utils import log_message_decorator
+from src.core.rate_limiter import rate_limit
 
 # Configure logging
 logging.basicConfig(
@@ -79,18 +81,28 @@ async def initialize_jobs_handler(application):
 
 def setup_handlers(app):
     """Setup all command and callback handlers for the bot"""
-    # Chart commands
-    app.add_handler(CommandHandler("chart", log_message_decorator(send_crypto_chart)))
+    # Chart commands - data-intensive, higher cost
     app.add_handler(
-        CommandHandler("text_result", log_message_decorator(send_text_data))
+        CommandHandler(
+            "chart", log_message_decorator(rate_limit(cost=3)(send_crypto_chart))
+        )
     )
     app.add_handler(
-        CommandHandler("history", log_message_decorator(send_historical_chart))
+        CommandHandler(
+            "text_result", log_message_decorator(rate_limit(cost=2)(send_text_data))
+        )
+    )
+    app.add_handler(
+        CommandHandler(
+            "history", log_message_decorator(rate_limit(cost=5)(send_historical_chart))
+        )
     )
 
     # Preference commands
     app.add_handler(
-        CommandHandler("preferences", log_message_decorator(select_indicators))
+        CommandHandler(
+            "preferences", log_message_decorator(rate_limit()(select_indicators))
+        )
     )
     app.add_handler(
         CallbackQueryHandler(handle_indicator_selection, pattern=r"^indicator_")
@@ -98,24 +110,39 @@ def setup_handlers(app):
 
     # Signal commands
     app.add_handler(
-        CommandHandler("create_signal", log_message_decorator(create_signal_command))
+        CommandHandler(
+            "create_signal",
+            log_message_decorator(rate_limit(cost=2)(create_signal_command)),
+        )
     )
     app.add_handler(
-        CommandHandler("delete_signal", log_message_decorator(delete_signal_command))
+        CommandHandler(
+            "delete_signal", log_message_decorator(rate_limit()(delete_signal_command))
+        )
     )
 
-    # Database commands
-    app.add_handler(CommandHandler("sql", log_message_decorator(execute_sql_command)))
+    # Database commands - potential for abuse, higher cost
     app.add_handler(
-        CommandHandler("tables", log_message_decorator(show_tables_command))
+        CommandHandler(
+            "sql", log_message_decorator(rate_limit(cost=3)(execute_sql_command))
+        )
     )
     app.add_handler(
-        CommandHandler("schema", log_message_decorator(describe_table_command))
+        CommandHandler(
+            "tables", log_message_decorator(rate_limit()(show_tables_command))
+        )
+    )
+    app.add_handler(
+        CommandHandler(
+            "schema", log_message_decorator(rate_limit()(describe_table_command))
+        )
     )
 
     # Signal management conversation handler
     manage_signals_conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("manage_signals", manage_signals)],
+        entry_points=[
+            CommandHandler("manage_signals", rate_limit(cost=2)(manage_signals))
+        ],
         states={
             CHOOSING_ACTION: [
                 CallbackQueryHandler(handle_signal_menu_callback),
@@ -130,7 +157,7 @@ def setup_handlers(app):
     )
     app.add_handler(manage_signals_conv_handler)
 
-    app.add_handler(CommandHandler("parameters", show_parameters))
+    app.add_handler(CommandHandler("parameters", rate_limit()(show_parameters)))
 
     # handles both callback queries and text input
     param_handler = ConversationHandler(
@@ -154,20 +181,25 @@ def setup_handlers(app):
     )
     app.add_handler(param_handler)
 
-    # Help command
-    app.add_handler(CommandHandler("help", help_command))
+    # Help command - lightweight, low cost
+    app.add_handler(CommandHandler("help", rate_limit()(help_command)))
 
-    # Signal history commands
-    app.add_handler(CommandHandler("signal_history", command_signal_history))
+    # Status commands
+    app.add_handler(CommandHandler("rate_limits", rate_limit()(rate_limit_command)))
+
+    # Signal history commands - data retrieval, medium cost
+    app.add_handler(
+        CommandHandler("signal_history", rate_limit(cost=2)(command_signal_history))
+    )
     app.add_handler(
         CallbackQueryHandler(
             button_history_callback, pattern="^(hist_|export_csv:|export_json:)"
         )
     )
 
-    # Tutorial commands
-    app.add_handler(CommandHandler("start", start_command))
-    app.add_handler(CommandHandler("tutorial", tutorial_command))
+    # Tutorial commands - lightweight, low cost
+    app.add_handler(CommandHandler("start", rate_limit()(start_command)))
+    app.add_handler(CommandHandler("tutorial", rate_limit()(tutorial_command)))
 
     tutorial_conv_handler = ConversationHandler(
         entry_points=[

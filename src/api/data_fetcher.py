@@ -182,7 +182,7 @@ def fetch_ohlc_data(
     try:
         response = requests.get(url, params=params, timeout=10)
         logger.info(f"Response Status: {response.status_code}")
-        logger.info(f"Response Content: {response.text}")
+        logger.debug(f"Response Content: {response.text}")
 
         if response.status_code != 200:
             logger.error(f"Non-200 response from API: {response.status_code}")
