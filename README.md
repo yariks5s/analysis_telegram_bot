@@ -14,7 +14,8 @@ CryptoBot is an advanced Telegram bot for cryptocurrency traders, providing auto
 - **User Preferences**: Per-user indicator selection, chart options (legend, volume), custom indicator parameters, and signal frequency.
 - **Backtesting & Strategy Optimization**: Built-in backtesting and training modules for strategy evaluation.
 - **Database-Backed**: User preferences and signal jobs are persisted in a local SQLite database.
-- **Beautiful Charting**: Candlestick charts with overlays for all supported indicators, in light or dark mode.
+- **Beautiful Charting**: Candlestick charts with overlays for all supported indicators.
+- **Rate Limiting & Abuse Prevention**: Advanced protection against API abuse with per-user quotas and metadata-based fingerprinting.
 
 ---
 
@@ -120,6 +121,12 @@ All indicators can be enabled/disabled per user.
 ## Database
 - Uses SQLite (`preferences.db`) for user preferences and signal job persistence.
 - No manual setup required; tables are created automatically on first run.
+
+---
+
+## Rate Limiting & Abuse Prevention
+
+The bot implements advanced rate limiting and adaptive abuse prevention mechanisms to protect API resources
 
 ---
 
@@ -245,12 +252,12 @@ You also have a chance to contribute to this project. Please create a pull reque
 - [x] Add onboarding/tutorial messages for new users
 - [x] Provide inline help for each command (e.g., /help chart)
 - [ ] Add signal history for every user (single database with signals containing who requested the signal)
-- [ ] Allow users to export their signal history (CSV, Excel, etc.)
+- [x] Allow users to export their signal history (CSV, Excel, etc.)
 - [ ] Add some optimizations techiques (if two users requested the same signal at the same time, calculate it only once)
 - [x] Add dark/light mode for charts
 - [x] Fix this: "You selected: ..., **dark_mode**"
 - [x] Fix instrument markings for dark mode on the plot
-- [ ] Implement rate limiting and abuse prevention
+- [x] Implement rate limiting and abuse prevention
 - [ ] Make the system that will set the right logic coefficients based on backtesting
 - [ ] If possible, make the bot to continue sending signals after it is restarted
 - [ ] Integrate a neural network to the predictions system
