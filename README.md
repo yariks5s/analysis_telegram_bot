@@ -251,7 +251,7 @@ You also have a chance to contribute to this project. Please create a pull reque
 - [ ] Implement a notification system for major market events (e.g., high volatility, news)
 - [x] Add onboarding/tutorial messages for new users
 - [x] Provide inline help for each command (e.g., /help chart)
-- [ ] Add signal history for every user (single database with signals containing who requested the signal)
+- [x] Add signal history for every user (single database with signals containing who requested the signal)
 - [x] Allow users to export their signal history (CSV, Excel, etc.)
 - [ ] Add some optimizations techiques (if two users requested the same signal at the same time, calculate it only once)
 - [x] Add dark/light mode for charts
