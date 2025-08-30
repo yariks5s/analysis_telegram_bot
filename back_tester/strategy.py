@@ -486,7 +486,7 @@ def backtest_strategy(
                 entry_index = None
                 entry_signal = None
                 parent_trade_id = None
-                
+
                 # Skip the rest
                 return
 
@@ -562,7 +562,7 @@ def backtest_strategy(
                         "parent_trade_id": parent_trade_id,
                     }
                     db.insert_trade(trade_data)
-                
+
                 # Reset trade tracking since position is fully closed at stop loss
                 current_trade = None
                 position = 0
@@ -571,7 +571,7 @@ def backtest_strategy(
                 entry_index = None
                 entry_signal = None
                 parent_trade_id = None
-                
+
                 # Skip the rest
                 return
 
