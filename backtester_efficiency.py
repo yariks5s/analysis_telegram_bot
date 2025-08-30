@@ -615,7 +615,7 @@ def main():
     parser.add_argument("--database", default="crypto_bot", help="Database name")
     parser.add_argument(
         "--output",
-        default="backtester_efficiency_results.json",
+        default="backtesting_metrics/backtester_efficiency_results.json",
         help="Output file path",
     )
 
