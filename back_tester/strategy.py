@@ -22,9 +22,19 @@ if project_dir not in sys.path:
 
 from utils import create_true_preferences
 from .db_operations import ClickHouseDB
-from .enhanced_trade_management import calculate_trailing_stop, should_exit_based_on_time, calculate_volatility_based_take_profits, calculate_atr_based_stops
+from .enhanced_trade_management import (
+    calculate_trailing_stop,
+    should_exit_based_on_time,
+    calculate_volatility_based_take_profits,
+    calculate_atr_based_stops,
+)
 from .enhanced_risk_management import calculate_tighter_stop_loss
-from .market_filters import detect_market_regime, should_trade_in_regime, is_favorable_trading_time, confirm_entry_criteria
+from .market_filters import (
+    detect_market_regime,
+    should_trade_in_regime,
+    is_favorable_trading_time,
+    confirm_entry_criteria,
+)
 
 
 def backtest_strategy(
@@ -65,7 +75,7 @@ def backtest_strategy(
     use_partial_exits: bool = True,
     tp1_exit_percentage: float = 0.33,  # Percentage of position to exit at TP1
     tp2_exit_percentage: float = 0.50,  # Percentage of remaining position to exit at TP2
-    tp3_exit_percentage: float = 1.0,   # Percentage of remaining position to exit at TP3
+    tp3_exit_percentage: float = 1.0,  # Percentage of remaining position to exit at TP3
     iteration_id: Optional[str] = None,
     db: Optional[ClickHouseDB] = None,
 ) -> Tuple[float, list, Optional[str]]:
@@ -148,17 +158,21 @@ def backtest_strategy(
                 and not current_trade["tp1_hit"]
             ):
                 current_trade["tp1_hit"] = True
-                
+
                 # Calculate amount to close based on configured percentage
                 if use_partial_exits:
                     # Close the configured percentage of initial position at TP1
-                    close_amount = current_trade["initial_position"] * tp1_exit_percentage
-                    close_amount = min(close_amount, position)  # Don't close more than we have
-                    
+                    close_amount = (
+                        current_trade["initial_position"] * tp1_exit_percentage
+                    )
+                    close_amount = min(
+                        close_amount, position
+                    )  # Don't close more than we have
+
                     profit = close_amount * (current_price - entry_price)
                     balance += close_amount * current_price
                     position -= close_amount
-                    
+
                     trade_log.append(
                         {
                             "type": "take_profit_1",
@@ -180,7 +194,7 @@ def backtest_strategy(
                     profit = close_amount * (current_price - entry_price)
                     balance += close_amount * current_price
                     position = 0
-                    
+
                     trade_log.append(
                         {
                             "type": "take_profit_1",
@@ -195,7 +209,7 @@ def backtest_strategy(
                     print(
                         f"[Index {i}] TP1 hit at {current_price:.5f} - Closed entire position ({close_amount:.5f} units)"
                     )
-                    
+
                     # Reset trade tracking since position is closed
                     entry_price = None
                     entry_time = None
@@ -206,8 +220,10 @@ def backtest_strategy(
 
                 # Store TP1 trade in database
                 if db:
-                    trade_id = str(uuid.uuid4()) if use_partial_exits else parent_trade_id
-                    
+                    trade_id = (
+                        str(uuid.uuid4()) if use_partial_exits else parent_trade_id
+                    )
+
                     trade_data = {
                         "trade_id": trade_id,
                         "iteration_id": str(iteration_id),
@@ -233,43 +249,50 @@ def backtest_strategy(
                         "take_profit_3": float(current_trade["take_profit_3"]),
                         "risk_percentage": float(risk_percentage),
                         "amount_traded": float(close_amount * current_price),
-                        "parent_trade_id": parent_trade_id if use_partial_exits else None,
+                        "parent_trade_id": (
+                            parent_trade_id if use_partial_exits else None
+                        ),
                     }
-                    
+
                     if use_partial_exits:
                         # For partial exits, insert a new trade record
                         db.insert_trade(trade_data)
                     else:
                         # For full exit, update the original trade record
-                        db.update_trade(parent_trade_id, {
-                            "exit_timestamp": current_time,
-                            "exit_index": int(i),
-                            "exit_price": float(current_price),
-                            "profit_loss": float(profit),
-                            "trade_duration": int(i - entry_index),
-                            "exit_signal": "Take Profit 1"
-                        })
+                        db.update_trade(
+                            parent_trade_id,
+                            {
+                                "exit_timestamp": current_time,
+                                "exit_index": int(i),
+                                "exit_price": float(current_price),
+                                "profit_loss": float(profit),
+                                "trade_duration": int(i - entry_index),
+                                "exit_signal": "Take Profit 1",
+                            },
+                        )
 
             elif (
                 current_trade["take_profit_2"] is not None
                 and current_price >= current_trade["take_profit_2"]
-                and current_trade["tp1_hit"] 
+                and current_trade["tp1_hit"]
                 and not current_trade["tp2_hit"]
                 and position > 0
             ):
                 current_trade["tp2_hit"] = True
-                
+
                 # Calculate amount to close at TP2
                 if use_partial_exits:
                     # Calculate percentage of remaining position to close
                     remaining_percentage = tp2_exit_percentage
                     close_amount = position * remaining_percentage
-                    close_amount = min(close_amount, position)  # Don't close more than we have
-                    
+                    close_amount = min(
+                        close_amount, position
+                    )  # Don't close more than we have
+
                     profit = close_amount * (current_price - entry_price)
                     balance += close_amount * current_price
                     position -= close_amount
-                    
+
                     trade_log.append(
                         {
                             "type": "take_profit_2",
@@ -291,7 +314,7 @@ def backtest_strategy(
                     profit = close_amount * (current_price - entry_price)
                     balance += close_amount * current_price
                     position = 0
-                    
+
                     trade_log.append(
                         {
                             "type": "take_profit_2",
@@ -306,7 +329,7 @@ def backtest_strategy(
                     print(
                         f"[Index {i}] TP2 hit at {current_price:.5f} - Closed entire position ({close_amount:.5f} units)"
                     )
-                    
+
                     # Reset trade tracking since position is closed
                     entry_price = None
                     entry_time = None
@@ -314,12 +337,14 @@ def backtest_strategy(
                     entry_signal = None
                     current_trade = None
                     parent_trade_id = None
-                    
+
                 # Store TP2 trade in database
                 if db:
                     # Generate a new trade ID for this partial exit if using partial exits
-                    trade_id = str(uuid.uuid4()) if use_partial_exits else parent_trade_id
-                    
+                    trade_id = (
+                        str(uuid.uuid4()) if use_partial_exits else parent_trade_id
+                    )
+
                     trade_data = {
                         "trade_id": trade_id,
                         "iteration_id": str(iteration_id),
@@ -345,41 +370,45 @@ def backtest_strategy(
                         "take_profit_3": float(current_trade["take_profit_3"]),
                         "risk_percentage": float(risk_percentage),
                         "amount_traded": float(close_amount * current_price),
-                        "parent_trade_id": parent_trade_id if use_partial_exits else None,
+                        "parent_trade_id": (
+                            parent_trade_id if use_partial_exits else None
+                        ),
                     }
-                    
+
                     if use_partial_exits:
                         # For partial exits, insert a new trade record
                         db.insert_trade(trade_data)
                     else:
                         # For full exit, update the original trade record
-                        db.update_trade(parent_trade_id, {
-                            "exit_timestamp": current_time,
-                            "exit_index": int(i),
-                            "exit_price": float(current_price),
-                            "profit_loss": float(profit),
-                            "trade_duration": int(i - entry_index),
-                            "exit_signal": "Take Profit 2"
-                        })
-
+                        db.update_trade(
+                            parent_trade_id,
+                            {
+                                "exit_timestamp": current_time,
+                                "exit_index": int(i),
+                                "exit_price": float(current_price),
+                                "profit_loss": float(profit),
+                                "trade_duration": int(i - entry_index),
+                                "exit_signal": "Take Profit 2",
+                            },
+                        )
 
             # Check TP3 - always closes the full remaining position
             elif (
                 current_trade["take_profit_3"] is not None
                 and current_price >= current_trade["take_profit_3"]
-                and current_trade["tp1_hit"] 
-                and current_trade["tp2_hit"] 
+                and current_trade["tp1_hit"]
+                and current_trade["tp2_hit"]
                 and not current_trade["tp3_hit"]
                 and position > 0
             ):
                 current_trade["tp3_hit"] = True
-                
+
                 # Always close the full remaining position at TP3
                 close_amount = position
                 profit = close_amount * (current_price - entry_price)
                 balance += close_amount * current_price
                 position = 0
-                
+
                 trade_log.append(
                     {
                         "type": "take_profit_3",
@@ -394,14 +423,14 @@ def backtest_strategy(
                 print(
                     f"[Index {i}] TP3 hit at {current_price:.5f} - Closed remaining position ({close_amount:.5f} units)"
                 )
-                
+
                 # Reset trade tracking since position is fully closed
                 entry_price = None
                 entry_time = None
                 entry_index = None
                 entry_signal = None
                 parent_trade_id = None
-                
+
                 # Store TP3 trade in database
                 if db and parent_trade_id:
                     # Always close the parent trade when TP3 is hit
@@ -411,10 +440,10 @@ def backtest_strategy(
                         "exit_price": float(current_price),
                         "profit_loss": float(profit),
                         "trade_duration": int(i - entry_index),
-                        "exit_signal": "Take Profit 3"
+                        "exit_signal": "Take Profit 3",
                     }
                     db.update_trade(parent_trade_id, trade_data)
-                    
+
                     # Also insert a TP3 trade record if using partial exits
                     if use_partial_exits:
                         tp3_trade_id = str(uuid.uuid4())
@@ -435,7 +464,9 @@ def backtest_strategy(
                             "trade_duration": int(i - entry_index),
                             "entry_signal": str(entry_signal),
                             "exit_signal": "Take Profit 3",
-                            "risk_reward_ratio": float(current_trade["risk_reward_ratio"]),
+                            "risk_reward_ratio": float(
+                                current_trade["risk_reward_ratio"]
+                            ),
                             "position_size": float(close_amount),
                             "stop_loss": float(current_trade["stop_loss"]),
                             "take_profit_1": float(current_trade["take_profit_1"]),
@@ -443,10 +474,10 @@ def backtest_strategy(
                             "take_profit_3": float(current_trade["take_profit_3"]),
                             "risk_percentage": float(risk_percentage),
                             "amount_traded": float(close_amount * current_price),
-                            "parent_trade_id": parent_trade_id
+                            "parent_trade_id": parent_trade_id,
                         }
                         db.insert_trade(tp3_trade_data)
-                
+
                 # Reset all trade tracking since position is fully closed at TP3
                 current_trade = None
                 position = 0
@@ -455,28 +486,34 @@ def backtest_strategy(
                 entry_index = None
                 entry_signal = None
                 parent_trade_id = None
-            
+
             # Update trailing stop if enabled
             if use_trailing_stop and current_trade and current_price > entry_price:
                 updated_stop = calculate_trailing_stop(
                     entry_price,
-                    current_price, 
+                    current_price,
                     current_trade["stop_loss"],
                     trail_percent,
-                    trail_activation_threshold
+                    trail_activation_threshold,
                 )
                 current_trade["stop_loss"] = updated_stop
-            
+
             # Check time-based exit
-            time_exit_triggered = should_exit_based_on_time(entry_index, i, max_trade_duration)
-            
+            time_exit_triggered = should_exit_based_on_time(
+                entry_index, i, max_trade_duration
+            )
+
             # Check stop loss
             if current_price <= current_trade["stop_loss"] or time_exit_triggered:
                 # Close entire position at stop loss or time-based exit
                 loss = position * (current_price - entry_price)
                 balance += position * current_price
-                
-                exit_reason = "Stop Loss" if current_price <= current_trade["stop_loss"] else "Time-Based Exit"
+
+                exit_reason = (
+                    "Stop Loss"
+                    if current_price <= current_trade["stop_loss"]
+                    else "Time-Based Exit"
+                )
 
                 trade_log.append(
                     {
@@ -537,52 +574,75 @@ def backtest_strategy(
             # We'll keep the code but bypass the filter logic
             if False and use_market_regime_filter:  # Added False to bypass
                 # Detect current market regime
-                market_regime = detect_market_regime(df.iloc[:i+1], lookback_period=20)
+                market_regime = detect_market_regime(
+                    df.iloc[: i + 1], lookback_period=20
+                )
                 should_trade, regime_reason = should_trade_in_regime(
-                    market_regime, 
+                    market_regime,
                     signal,
                     min_regime_strength=min_regime_strength,
-                    allow_volatile=allow_volatile_regime
+                    allow_volatile=allow_volatile_regime,
                 )
-                
+
                 if not should_trade:
-                    print(f"[Index {i}] Skipping trade due to market regime: {regime_reason}")
+                    print(
+                        f"[Index {i}] Skipping trade due to market regime: {regime_reason}"
+                    )
                     continue
-            
+
             # Time filter disabled as it's too restrictive
             # We'll keep the code but bypass the filter logic
             if False and use_time_filter:  # Added False to bypass
                 # Set default favorable hours if not provided
                 if favorable_hours is None:
                     # Default to common active market hours (UTC)
-                    favorable_hours = [1, 2, 3, 8, 9, 10, 11, 12, 13, 14, 15, 20, 21, 22]
-                
+                    favorable_hours = [
+                        1,
+                        2,
+                        3,
+                        8,
+                        9,
+                        10,
+                        11,
+                        12,
+                        13,
+                        14,
+                        15,
+                        20,
+                        21,
+                        22,
+                    ]
+
                 favorable_time, time_reason = is_favorable_trading_time(
                     current_time,
                     timezone=trading_timezone,
-                    favorable_hours=favorable_hours
+                    favorable_hours=favorable_hours,
                 )
-                
+
                 if not favorable_time:
-                    print(f"[Index {i}] Skipping trade due to time filter: {time_reason}")
+                    print(
+                        f"[Index {i}] Skipping trade due to time filter: {time_reason}"
+                    )
                     continue
-            
+
             # Entry criteria filter disabled as it's too restrictive
             # We'll keep the code but bypass the filter logic
-            if False and strengthen_entry_criteria:  
+            if False and strengthen_entry_criteria:
                 criteria_met, criteria_reason = confirm_entry_criteria(
-                    df.iloc[:i+1],
+                    df.iloc[: i + 1],
                     i,
                     signal,
                     min_confidence=min_entry_confidence,
                     min_confirmation_candles=min_price_action_confirmation,
-                    require_volume_confirmation=require_volume_confirmation
+                    require_volume_confirmation=require_volume_confirmation,
                 )
-                
+
                 if not criteria_met:
-                    print(f"[Index {i}] Skipping trade due to entry criteria: {criteria_reason}")
+                    print(
+                        f"[Index {i}] Skipping trade due to entry criteria: {criteria_reason}"
+                    )
                     continue
-            
+
             # Proceed with the trade if it passes all filters
             if signal == "Bullish":
                 # Validate price is reasonable
@@ -604,20 +664,26 @@ def backtest_strategy(
                         atr_period=14,
                         baseline_multiplier=atr_stop_multiplier,
                         min_distance_percent=min_stop_distance_percent,
-                        max_distance_percent=max_stop_distance_percent
+                        max_distance_percent=max_stop_distance_percent,
                     )
                     # Only update if tighter stop is actually better (closer but still safe)
                     if signal == "Bullish" and tighter_stop > trading_signal.stop_loss:
                         trading_signal.stop_loss = tighter_stop
-                    elif signal == "Bearish" and tighter_stop < trading_signal.stop_loss:
+                    elif (
+                        signal == "Bearish" and tighter_stop < trading_signal.stop_loss
+                    ):
                         trading_signal.stop_loss = tighter_stop
-                
+
                 # Apply volatility-based take profits if enabled
                 if use_volatility_based_tps:
                     # Default ATR multipliers if not provided
                     if atr_tp_multipliers is None:
-                        atr_tp_multipliers = [2.0, 3.5, 5.0]  # Default multipliers for 3 TPs
-                    
+                        atr_tp_multipliers = [
+                            2.0,
+                            3.5,
+                            5.0,
+                        ]  # Default multipliers for 3 TPs
+
                     # Calculate volatility-based take profit levels
                     vol_based_tps = calculate_volatility_based_take_profits(
                         df,
@@ -627,9 +693,9 @@ def backtest_strategy(
                         atr_period=14,
                         tp_multipliers=atr_tp_multipliers,
                         min_distance_percent=min_tp_distance_percent,
-                        max_distance_percent=max_tp_distance_percent
+                        max_distance_percent=max_tp_distance_percent,
                     )
-                    
+
                     # Update take profit levels based on volatility
                     # For bullish signals, only update if the volatility-based TP is lower (closer)
                     if signal == "Bullish":
@@ -639,12 +705,12 @@ def backtest_strategy(
                             trading_signal.take_profit_2 = vol_based_tps[1]
                         if vol_based_tps[2] < trading_signal.take_profit_3:
                             trading_signal.take_profit_3 = vol_based_tps[2]
-                
+
                 # Recalculate position size with potentially updated stop loss
                 position_sizing = calculate_position_size(
                     balance, risk_percentage, current_price, trading_signal.stop_loss
                 )
-                
+
                 # Enter position with calculated size
                 position = position_sizing["position_size"]
                 amount_to_invest = position * current_price
@@ -657,14 +723,14 @@ def backtest_strategy(
                 # Skip if position size is unreasonably large
                 if position > 1e12:  # 1 trillion units max
                     continue
-                    
+
                 balance -= amount_to_invest
                 entry_price = current_price
                 entry_time = current_time
                 entry_index = i
                 entry_signal = signal
                 parent_trade_id = str(uuid.uuid4())  # Generate parent trade ID
-                
+
                 # Store trade details
                 current_trade = {
                     "stop_loss": float(trading_signal.stop_loss),
@@ -678,7 +744,7 @@ def backtest_strategy(
                     "tp2_hit": False,
                     "tp3_hit": False,
                 }
-                
+
                 trade_log.append(
                     {
                         "type": "entry",
@@ -693,7 +759,7 @@ def backtest_strategy(
                         "take_profit_3": float(trading_signal.take_profit_3),
                     }
                 )
-                
+
                 # Store entry trade in database
                 if db:
                     trade_data = {
@@ -724,11 +790,11 @@ def backtest_strategy(
                         "parent_trade_id": None,  # This is the parent trade
                     }
                     db.insert_trade(trade_data)
-                
+
                 print(
                     f"[Index {i}] {symbol}: ENTRY at {entry_price:.5f} | Size: {position:.5f} | Risk/Reward: {trading_signal.risk_reward_ratio:.2f} | Reason: {reason.splitlines()[0]}"
                 )
-                
+
             # Handle bearish signals - mirror of bullish signal handling
             elif signal == "Bearish":
                 # Validate price is reasonable
@@ -750,18 +816,22 @@ def backtest_strategy(
                         atr_period=14,
                         baseline_multiplier=atr_stop_multiplier,
                         min_distance_percent=min_stop_distance_percent,
-                        max_distance_percent=max_stop_distance_percent
+                        max_distance_percent=max_stop_distance_percent,
                     )
                     # Only update if tighter stop is actually better (closer but still safe)
                     if signal == "Bearish" and tighter_stop < trading_signal.stop_loss:
                         trading_signal.stop_loss = tighter_stop
-                
+
                 # Apply volatility-based take profits if enabled
                 if use_volatility_based_tps:
                     # Default ATR multipliers if not provided
                     if atr_tp_multipliers is None:
-                        atr_tp_multipliers = [2.0, 3.5, 5.0]  # Default multipliers for 3 TPs
-                    
+                        atr_tp_multipliers = [
+                            2.0,
+                            3.5,
+                            5.0,
+                        ]  # Default multipliers for 3 TPs
+
                     # Calculate volatility-based take profit levels
                     vol_based_tps = calculate_volatility_based_take_profits(
                         df,
@@ -771,9 +841,9 @@ def backtest_strategy(
                         atr_period=14,
                         tp_multipliers=atr_tp_multipliers,
                         min_distance_percent=min_tp_distance_percent,
-                        max_distance_percent=max_tp_distance_percent
+                        max_distance_percent=max_tp_distance_percent,
                     )
-                    
+
                     # Update take profit levels based on volatility
                     # For bearish signals, only update if the volatility-based TP is higher (closer)
                     if signal == "Bearish":
@@ -783,12 +853,12 @@ def backtest_strategy(
                             trading_signal.take_profit_2 = vol_based_tps[1]
                         if vol_based_tps[2] > trading_signal.take_profit_3:
                             trading_signal.take_profit_3 = vol_based_tps[2]
-                
+
                 # Recalculate position size with potentially updated stop loss
                 position_sizing = calculate_position_size(
                     balance, risk_percentage, current_price, trading_signal.stop_loss
                 )
-                
+
                 # Enter position with calculated size
                 position = position_sizing["position_size"]
                 amount_to_invest = position * current_price
@@ -801,14 +871,14 @@ def backtest_strategy(
                 # Skip if position size is unreasonably large
                 if position > 1e12:  # 1 trillion units max
                     continue
-                    
+
                 balance -= amount_to_invest
                 entry_price = current_price
                 entry_time = current_time
                 entry_index = i
                 entry_signal = signal
                 parent_trade_id = str(uuid.uuid4())  # Generate parent trade ID
-                
+
                 # Store trade details
                 current_trade = {
                     "stop_loss": float(trading_signal.stop_loss),
@@ -822,7 +892,7 @@ def backtest_strategy(
                     "tp2_hit": False,
                     "tp3_hit": False,
                 }
-                
+
                 trade_log.append(
                     {
                         "type": "entry",
@@ -837,7 +907,7 @@ def backtest_strategy(
                         "take_profit_3": float(trading_signal.take_profit_3),
                     }
                 )
-                
+
                 # Store entry trade in database
                 if db:
                     trade_data = {
@@ -868,7 +938,7 @@ def backtest_strategy(
                         "parent_trade_id": None,  # This is the parent trade
                     }
                     db.insert_trade(trade_data)
-                
+
                 print(
                     f"[Index {i}] {symbol}: ENTRY at {entry_price:.5f} | Size: {position:.5f} | Risk/Reward: {trading_signal.risk_reward_ratio:.2f} | Reason: {reason.splitlines()[0]}"
                 )
