@@ -1,0 +1,68 @@
+{
+  "timestamp": "2025-08-30 12:00:21",
+  "metrics": {
+    "trading_performance": {
+      "total_trades": 39,
+      "winning_trades": 28,
+      "losing_trades": 11,
+      "win_rate": 0.7179,
+      "profit_factor": 2.0903,
+      "avg_profit_loss": 5.47,
+      "avg_win": 14.62,
+      "avg_loss": -17.8,
+      "largest_win": 84.06,
+      "largest_loss": -109.76,
+      "total_profit_loss": 213.52,
+      "avg_trade_duration": 26.95,
+      "median_trade_duration": 14.0,
+      "trading_performance_score": 37.29
+    },
+    "risk_management": {
+      "total_trades": 57,
+      "sl_hits": 11,
+      "tp1_hits": 12,
+      "tp2_hits": 7,
+      "tp3_hits": 5,
+      "sl_hit_rate": 0.193,
+      "tp_hit_rate": 0.4211,
+      "avg_risk_reward_ratio": 1.99,
+      "avg_max_drawdown": NaN,
+      "risk_management_score": 40.71
+    },
+    "consistency": {
+      "total_iterations": 0,
+      "avg_win_rate": NaN,
+      "stddev_win_rate": NaN,
+      "avg_profit_factor": NaN,
+      "stddev_profit_factor": NaN,
+      "avg_revenue": NaN,
+      "stddev_revenue": NaN,
+      "avg_max_drawdown": NaN,
+      "stddev_max_drawdown": NaN,
+      "coefficient_variation_win_rate": 0,
+      "coefficient_variation_profit_factor": 0,
+      "coefficient_variation_revenue": 0,
+      "coefficient_variation_max_drawdown": 0,
+      "consistency_score": 100.0
+    },
+    "adaptability": {
+      "symbol_count": 0,
+      "overall_win_rate": NaN,
+      "overall_revenue": NaN,
+      "stddev_win_rate_by_symbol": NaN,
+      "stddev_revenue_by_symbol": NaN,
+      "win_rate_variation_across_symbols": NaN,
+      "revenue_variation_across_symbols": NaN,
+      "adaptability_score": 0
+    },
+    "execution": {
+      "avg_trades_per_day": 31.0,
+      "max_trades_per_day": 39,
+      "distinct_trade_durations": 27,
+      "total_trades": 62,
+      "execution_score": 63.5
+    }
+  },
+  "overall_efficiency_score": 49.58,
+  "rating": "Needs Improvement"
+}
