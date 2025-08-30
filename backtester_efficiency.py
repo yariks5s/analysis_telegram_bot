@@ -183,25 +183,38 @@ class BacktesterEfficiencyEvaluator:
             ),
             max_drawdowns AS (
                 SELECT
-                    iteration_id,
-                    max_drawdown
-                FROM iterations
-                ORDER BY created_at DESC
-                LIMIT 100
+                    avg(max_drawdown) AS avg_max_drawdown
+                FROM (
+                    SELECT max_drawdown
+                    FROM iterations
+                    ORDER BY created_at DESC
+                    LIMIT 100
+                )
+            ),
+            combined AS (
+                SELECT
+                    tc.total_trades,
+                    tc.sl_hits,
+                    tc.tp1_hits,
+                    tc.tp2_hits,
+                    tc.tp3_hits,
+                    tc.avg_risk_reward_ratio,
+                    md.avg_max_drawdown
+                FROM trade_counts tc
+                CROSS JOIN max_drawdowns md
             )
         
         SELECT
-            tc.total_trades,
-            tc.sl_hits,
-            tc.tp1_hits,
-            tc.tp2_hits,
-            tc.tp3_hits,
-            round(tc.sl_hits / tc.total_trades, 4) AS sl_hit_rate,
-            round((tc.tp1_hits + tc.tp2_hits + tc.tp3_hits) / tc.total_trades, 4) AS tp_hit_rate,
-            round(tc.avg_risk_reward_ratio, 2) AS avg_risk_reward_ratio,
-            round(avg(md.max_drawdown), 4) AS avg_max_drawdown
-        FROM trade_counts tc
-        CROSS JOIN max_drawdowns md
+            total_trades,
+            sl_hits,
+            tp1_hits,
+            tp2_hits,
+            tp3_hits,
+            round(sl_hits / total_trades, 4) AS sl_hit_rate,
+            round((tp1_hits + tp2_hits + tp3_hits) / total_trades, 4) AS tp_hit_rate,
+            round(avg_risk_reward_ratio, 2) AS avg_risk_reward_ratio,
+            round(avg_max_drawdown, 4) AS avg_max_drawdown
+        FROM combined
         """
 
         risk_metrics = self.run_query(query)
@@ -259,8 +272,7 @@ class BacktesterEfficiencyEvaluator:
                     win_rate,
                     profit_factor,
                     total_revenue,
-                    max_drawdown,
-                    sharpe_ratio
+                    max_drawdown
                 FROM iterations
                 WHERE created_at > now() - INTERVAL 30 DAY
                 ORDER BY created_at DESC
@@ -276,9 +288,7 @@ class BacktesterEfficiencyEvaluator:
             round(avg(total_revenue), 2) AS avg_revenue,
             round(stddevPop(total_revenue), 2) AS stddev_revenue,
             round(avg(max_drawdown), 4) AS avg_max_drawdown,
-            round(stddevPop(max_drawdown), 4) AS stddev_max_drawdown,
-            round(avg(sharpe_ratio), 4) AS avg_sharpe_ratio,
-            round(stddevPop(sharpe_ratio), 4) AS stddev_sharpe_ratio
+            round(stddevPop(max_drawdown), 4) AS stddev_max_drawdown
         FROM iteration_metrics
         """
 
@@ -315,42 +325,24 @@ class BacktesterEfficiencyEvaluator:
             if metrics["avg_max_drawdown"] > 0
             else 0
         )
-        metrics["coefficient_variation_sharpe"] = (
-            round(metrics["stddev_sharpe_ratio"] / metrics["avg_sharpe_ratio"], 4)
-            if metrics["avg_sharpe_ratio"] > 0
-            else 0
-        )
 
         # Calculate consistency score (0-100)
         # Lower coefficient of variation is better (more consistent)
-        win_rate_consistency = (
-            100 - min(metrics["coefficient_variation_win_rate"] * 100, 100)
-            if "coefficient_variation_win_rate" in metrics
-            else 0
+        win_rate_consistency = 100 - min(
+            metrics["coefficient_variation_win_rate"] * 100, 100
         )
-        pf_consistency = (
-            100 - min(metrics["coefficient_variation_profit_factor"] * 100, 100)
-            if "coefficient_variation_profit_factor" in metrics
-            else 0
+        pf_consistency = 100 - min(
+            metrics["coefficient_variation_profit_factor"] * 100, 100
         )
-        revenue_consistency = (
-            100 - min(metrics["coefficient_variation_revenue"] * 100, 100)
-            if "coefficient_variation_revenue" in metrics
-            else 0
-        )
-        sharpe_consistency = (
-            100 - min(metrics["coefficient_variation_sharpe"] * 100, 100)
-            if "coefficient_variation_sharpe" in metrics
-            else 0
+        revenue_consistency = 100 - min(
+            metrics["coefficient_variation_revenue"] * 100, 100
         )
 
         consistency_score = (
-            win_rate_consistency * 0.25
-            + pf_consistency * 0.25
-            + revenue_consistency * 0.25
-            + sharpe_consistency * 0.25
+            win_rate_consistency * 0.33
+            + pf_consistency * 0.33
+            + revenue_consistency * 0.34
         )
-
         metrics["consistency_score"] = round(consistency_score, 2)
 
         return metrics
@@ -370,7 +362,6 @@ class BacktesterEfficiencyEvaluator:
                     symbol,
                     avg(win_rate) AS avg_win_rate,
                     avg(revenue) AS avg_revenue,
-                    avg(risk_reward_ratio) AS avg_risk_reward,
                     count() AS iterations_count
                 FROM sub_iterations
                 WHERE created_at > now() - INTERVAL 30 DAY
