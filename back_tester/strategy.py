@@ -487,9 +487,6 @@ def backtest_strategy(
                 entry_signal = None
                 parent_trade_id = None
 
-                # Skip the rest
-                return
-
             # Update trailing stop if enabled
             if use_trailing_stop and current_trade and current_price > entry_price:
                 updated_stop = calculate_trailing_stop(
@@ -563,17 +560,13 @@ def backtest_strategy(
                     }
                     db.insert_trade(trade_data)
 
-                # Reset trade tracking since position is fully closed at stop loss
-                current_trade = None
                 position = 0
                 entry_price = None
                 entry_time = None
                 entry_index = None
                 entry_signal = None
+                current_trade = None
                 parent_trade_id = None
-
-                # Skip the rest
-                return
 
         # Handle new signal
         if signal in ["Bullish", "Bearish"] and position == 0 and trading_signal:
