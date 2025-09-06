@@ -37,7 +37,7 @@ def backtest_strategy(
     weights: list = [],
     risk_percentage: float = 1.0,
     use_trailing_stop: bool = True,
-    trailing_stop_distance_percent: float = 0.5,    # Distance to maintain from highest price
+    trailing_stop_distance_percent: float = 0.5,  # Distance to maintain from highest price
     iteration_id: Optional[str] = None,
     db: Optional[ClickHouseDB] = None,
 ) -> Tuple[float, list, Optional[str]]:
@@ -119,24 +119,33 @@ def backtest_strategy(
             # Update trailing stop if enabled and price has moved favorably
             if use_trailing_stop and current_price > current_trade["highest_price"]:
                 current_trade["highest_price"] = current_price
-                
+
                 # Check if trailing stop should be activated
-                if not current_trade["trailing_stop_active"] and current_price >= current_trade["trailing_activation_price"]:
+                if (
+                    not current_trade["trailing_stop_active"]
+                    and current_price >= current_trade["trailing_activation_price"]
+                ):
                     current_trade["trailing_stop_active"] = True
-                    print(f"[Index {i}] Trailing stop activated at price: {current_price:.5f}")
-                
+                    print(
+                        f"[Index {i}] Trailing stop activated at price: {current_price:.5f}"
+                    )
+
                 # Update trailing stop level if active
                 if current_trade["trailing_stop_active"]:
-                    new_stop_level = current_price * (1 - trailing_stop_distance_percent/100)
-                    
+                    new_stop_level = current_price * (
+                        1 - trailing_stop_distance_percent / 100
+                    )
+
                     if new_stop_level > current_trade["trailing_stop_level"]:
                         if current_trade["trailing_stop_level"] < new_stop_level:
-                            print(f"[Index {i}] Trailing stop updated: {current_trade['trailing_stop_level']:.5f} → {new_stop_level:.5f}")
-                        
+                            print(
+                                f"[Index {i}] Trailing stop updated: {current_trade['trailing_stop_level']:.5f} → {new_stop_level:.5f}"
+                            )
+
                         # Update the stop loss level
                         current_trade["trailing_stop_level"] = new_stop_level
                         current_trade["stop_loss"] = new_stop_level
-            
+
             # Check take profit levels
             if (
                 current_price >= current_trade["take_profit_1"]
@@ -317,18 +326,24 @@ def backtest_strategy(
                 # Close entire position at stop loss
                 loss = position * (current_price - entry_price)
                 balance += position * current_price
-                
+
                 # Determine if this was a trailing stop or initial stop loss
-                stop_type = "Trailing Stop" if current_trade.get("trailing_stop_active", False) else "Stop Loss"
+                stop_type = (
+                    "Trailing Stop"
+                    if current_trade.get("trailing_stop_active", False)
+                    else "Stop Loss"
+                )
                 log_message = f"{stop_type} - Position closed"
-                
+
                 # Additional context if it was a trailing stop
                 if stop_type == "Trailing Stop":
                     # Calculate how much better the trailing stop was compared to initial stop
-                    improvement = current_trade["stop_loss"] - current_trade["initial_stop_loss"]
+                    improvement = (
+                        current_trade["stop_loss"] - current_trade["initial_stop_loss"]
+                    )
                     if improvement > 0:
                         log_message += f" (Improved by {improvement:.5f})"
-                
+
                 trade_log.append(
                     {
                         "type": "stop_loss",
@@ -340,7 +355,7 @@ def backtest_strategy(
                         "profit": loss,
                     }
                 )
-                
+
                 print(
                     f"[Index {i}] {stop_type} hit at {current_price:.5f} - {'Loss' if loss < 0 else 'Profit'}: {loss:.2f}"
                 )
@@ -348,8 +363,12 @@ def backtest_strategy(
                 # Store stop loss trade in database
                 if db:
                     # Determine if this was a trailing stop or initial stop loss
-                    stop_type = "Trailing Stop" if current_trade.get("trailing_stop_active", False) else "Stop Loss"
-                    
+                    stop_type = (
+                        "Trailing Stop"
+                        if current_trade.get("trailing_stop_active", False)
+                        else "Stop Loss"
+                    )
+
                     trade_data = {
                         "iteration_id": iteration_id,
                         "sub_iteration_id": sub_iteration_id,
@@ -539,13 +558,17 @@ def backtest_strategy(
 if __name__ == "__main__":
     symbol = "BTCUSDT"
     interval = "1h"
-    
+
     # Run with trailing stop enabled
     print("\n===== Testing with Trailing Stop Enabled =====\n")
     final_balance_ts, trades_ts, _ = backtest_strategy(
-        symbol, interval, candles=600, window=300, risk_percentage=1.0,
+        symbol,
+        interval,
+        candles=600,
+        window=300,
+        risk_percentage=1.0,
         use_trailing_stop=True,
-        trailing_stop_distance_percent=0.5     # Keep trailing stop 0.5% below highest price
+        trailing_stop_distance_percent=0.5,  # Keep trailing stop 0.5% below highest price
     )
     print(f"Final Balance: {final_balance:.2f}")
     print("Trade Log:")
