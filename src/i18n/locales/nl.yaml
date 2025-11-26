@@ -1,0 +1,364 @@
+# Dutch translations for CryptoBot
+# Nederlandse vertalingen voor CryptoBot
+
+common:
+  done: "Gereed"
+  cancel: "Annuleren"
+  save: "Opslaan"
+  back: "Terug"
+  continue: "Doorgaan"
+  skip: "Overslaan"
+  finish: "Voltooien"
+  yes: "Ja"
+  no: "Nee"
+  error: "Fout"
+  success: "Succes"
+  loading: "Laden..."
+  no_data: "Geen gegevens beschikbaar"
+
+language:
+  select_prompt: "🌐 Selecteer uw voorkeurstaal:"
+  changed: "✅ Taal gewijzigd naar Nederlands"
+  current: "Huidige taal: Nederlands 🇳🇱"
+
+tutorial:
+  welcome:
+    title: "🎉 Welkom bij CryptoBot!"
+    content: |
+      Ik ben uw persoonlijke assistent voor crypto-marktanalyse. Ik kan u helpen bij het analyseren van cryptocurrency-grafieken met geavanceerde technische indicatoren.
+      
+      Deze korte tutorial laat u zien hoe u mijn belangrijkste functies kunt gebruiken. U kunt de tutorial overslaan of er op elk moment naar terugkeren met het /tutorial commando.
+
+  chart:
+    title: "📊 Grafiekanalyse"
+    content: |
+      Het basiscommando voor een grafiekanalyse is:
+      
+      <code>/chart SYMBOOL LENGTE INTERVAL TOLERANTIE</code>
+      
+      Bijvoorbeeld: <code>/chart BTCUSDT 48 1h 0.05</code>
+      
+      Dit geeft u een 48-kaarsen, 1-uurs grafiek voor BTC/USDT met een tolerantie van 0.05 voor het detecteren van liquiditeitsniveaus.
+      
+      Probeer het uit of ga verder om meer te leren!
+
+  preferences:
+    title: "⚙️ Indicatoren aanpassen"
+    content: |
+      U kunt aanpassen welke indicatoren op uw grafieken verschijnen met het <code>/preferences</code> commando.
+      
+      Dit opent een interactief menu waar u kunt in- of uitschakelen:
+      • Order Blocks
+      • Fair Value Gaps (FVGs)
+      • Liquiditeitsniveaus
+      • Breaker Blocks
+      • En weergave-opties wijzigen
+      
+      Uw voorkeuren worden opgeslagen voor toekomstige verzoeken.
+
+  signals:
+    title: "🔔 Automatische signalen"
+    content: |
+      Wilt u automatische meldingen ontvangen? Stel signaalalerts in met:
+      
+      <code>/create_signal SYMBOOL MINUTEN [GRAFIEK]</code>
+      
+      Bijvoorbeeld: <code>/create_signal BTCUSDT 60 true</code>
+      
+      Dit stuurt u elke 60 minuten een melding met grafiek voor BTC/USDT.
+      
+      U kunt uw signalen beheren met het <code>/manage_signals</code> commando.
+
+  parameters:
+    title: "🔧 Geavanceerde parameters"
+    content: |
+      Verfijn indicatorparameters met het <code>/parameters</code> commando.
+      
+      U kunt aanpassen:
+      • ATR-periode: voor het berekenen van de Average True Range
+      • FVG min. grootte: minimale grootte voor Fair Value Gaps
+      
+      Deze instellingen beïnvloeden hoe indicatoren worden berekend en weergegeven.
+
+  completed:
+    title: "🚀 Tutorial voltooid!"
+    content: |
+      Geweldig! U hebt de CryptoBot-tutorial voltooid.
+      
+      Onthoud, u kunt altijd hulp krijgen met:
+      • <code>/help</code> - Algemene hulp
+      • <code>/help COMMANDO</code> - Hulp voor een specifiek commando
+      
+      Klaar om te beginnen? Probeer <code>/chart BTCUSDT 48 1h 0.05</code> voor een BTC/USDT-analyse!
+
+  buttons:
+    continue: "Doorgaan"
+    skip_tutorial: "Tutorial overslaan"
+    skip_to_end: "Naar het einde"
+    complete: "Tutorial voltooien"
+    view_commands: "Commando's bekijken"
+    back_to_tutorial: "Terug naar tutorial"
+
+  welcome_back:
+    title: "Welkom terug bij CryptoBot!"
+    content: |
+      U hebt de tutorial al voltooid. Wat wilt u doen?
+      
+      • Een grafiek krijgen: <code>/chart BTCUSDT 48 1h 0.05</code>
+      • Voorkeuren instellen: <code>/preferences</code>
+      • Signalen maken: <code>/create_signal</code>
+      • Tutorial herhalen: <code>/tutorial</code>
+
+  commands_list:
+    title: "Beschikbare commando's:"
+    content: |
+      <code>/chart</code> - Grafiek met indicatoren
+      <code>/text_result</code> - Tekstanalyse
+      <code>/preferences</code> - Indicatorvoorkeuren
+      <code>/parameters</code> - Indicatorinstellingen
+      <code>/create_signal</code> - Automatische signalen instellen
+      <code>/manage_signals</code> - Signalen beheren
+      <code>/help</code> - Hulp krijgen
+      <code>/tutorial</code> - Tutorial herhalen
+      <code>/language</code> - Taal wijzigen
+
+  happy_trading: "Veel succes met handelen! 📈\n\nGebruik <code>/help</code> voor hulp."
+
+signals:
+  manage_title: "Uw signalen beheren:"
+  no_signals: "Geen signalen gevonden"
+  add_new: "➕ Nieuw signaal toevoegen"
+  delete: "{pair} verwijderen"
+  deleted: "Signaal verwijderd. Bijgewerkte lijst:"
+  created: "Signaal aangemaakt! Huidige signalen:"
+  active_count: "U hebt {count} actieve signaal(en)."
+
+  add_prompt: |
+    Voer uw gewenste signaal in het formaat in:
+    
+    `SYMBOOL INTERVAL [with_chart]`
+    
+    Voorbeeld: `BTCUSDT 60` of `ETHUSDT 15 with_chart`
+    
+    SYMBOOL moet een geldig handelspaar zijn (bijv. BTCUSDT).
+    INTERVAL moet in minuten zijn (bijv. 5, 15, 60).
+
+  invalid_input: "Ongeldige invoer: {error}. Probeer opnieuw of /cancel."
+  limit_reached: "U hebt het maximale aantal signalen bereikt ({limit})."
+
+  usage:
+    create: "Gebruik: /create_signal <symbool> <minuten> [<met_grafiek>], u hebt {count} argument(en) verzonden."
+    delete: "Gebruik: /delete_signal <symbool>"
+
+  errors:
+    unexpected: "❌ Er is een onverwachte fout opgetreden."
+    invalid_symbol: "❌ Ongeldig symbool: {symbol}"
+
+preferences:
+  select_prompt: "Kies de indicatoren die u wilt opnemen:"
+  selected: "U hebt geselecteerd: {indicators}"
+  none_selected: "Geen"
+
+  indicators:
+    order_blocks: "Order Blocks"
+    fvgs: "FVGs"
+    liquidity_levels: "Liquiditeitsniveaus"
+    breaker_blocks: "Breaker Blocks"
+    liquidity_pools: "Liquiditeitspools"
+    show_legend: "Legenda tonen"
+    show_volume: "Volume tonen"
+    dark_mode: "Donkere modus"
+    light_mode: "Lichte modus"
+
+parameters:
+  configure_title: "Indicatorparameters configureren:"
+  saved: "Parameterinstellingen succesvol opgeslagen!"
+  value_set: "{param} ingesteld op {value}."
+
+  edit_prompt: |
+    Voer een nieuwe waarde in voor {param}:
+    
+    Huidige waarde: {current}
+    Geldig bereik: {min} tot {max} (stap: {step})
+    
+    Antwoord met een getal om de nieuwe waarde in te stellen.
+
+  errors:
+    invalid_number: "Ongeldige invoer. Voer een geldig getal in voor {param}."
+    out_of_range: "Waarde moet tussen {min} en {max} liggen. Probeer opnieuw."
+    no_session: "Sorry, ik heb geen actieve bewerkingssessie. Gebruik /parameters om opnieuw te beginnen."
+    process_failed: "Sorry, ik kon die actie niet verwerken. Probeer opnieuw met /parameters."
+
+help:
+  title: "CryptoBot Help"
+  main: |
+    Hier zijn de belangrijkste commando's die u kunt gebruiken:
+    
+    <b>/chart &lt;symbool&gt; &lt;lengte&gt; &lt;interval&gt; &lt;tolerantie&gt;</b>
+    <b>/text_result &lt;symbool&gt; &lt;lengte&gt; &lt;interval&gt; &lt;tolerantie&gt;</b>
+    <b>/history &lt;symbool&gt; &lt;lengte&gt; &lt;interval&gt; &lt;tolerantie&gt; &lt;timestamp&gt;</b>
+    <b>/preferences</b>
+    <b>/create_signal &lt;symbool&gt; &lt;minuten&gt; [&lt;met_grafiek&gt;]</b>
+    <b>/delete_signal &lt;symbool&gt;</b>
+    <b>/manage_signals</b>
+    <b>/sql &lt;query&gt;</b>
+    <b>/tables</b>
+    <b>/schema &lt;tabelnaam&gt;</b>
+    <b>/language</b>
+    <b>/help &lt;commando&gt;</b>
+    
+    Typ <code>/help &lt;commando&gt;</code> voor gedetailleerde hulp.
+    
+    Voorbeeld: <code>/help chart</code>
+    
+    Voor meer details, zie de README of neem contact op met de beheerder (@yarik_is_working).
+
+  commands:
+    parameters: |
+      <b>/parameters</b>
+      Open een interactief menu om indicatorparameters aan te passen.
+
+    chart: |
+      <b>/chart &lt;symbool&gt; &lt;lengte&gt; &lt;interval&gt; &lt;tolerantie&gt;</b>
+      Krijg een candlestick-grafiek met alle ingeschakelde indicatoren.
+      
+      Voorbeeld: <code>/chart BTCUSDT 48 1h 0.05</code>
+
+    text_result: |
+      <b>/text_result &lt;symbool&gt; &lt;lengte&gt; &lt;interval&gt; &lt;tolerantie&gt;</b>
+      Krijg een tekstsamenvatting van alle gedetecteerde indicatoren.
+      
+      Voorbeeld: <code>/text_result ETHUSDT 24 15m 0.03</code>
+
+    history: |
+      <b>/history &lt;symbool&gt; &lt;lengte&gt; &lt;interval&gt; &lt;tolerantie&gt; &lt;timestamp&gt;</b>
+      Krijg een candlestick-grafiek voor historische gegevens op een opgegeven timestamp.
+      
+      Voorbeeld: <code>/history BTCUSDT 48 1h 0.05 1700000000</code>
+
+    preferences: |
+      <b>/preferences</b>
+      Open een interactief menu om indicatoren en grafiekopties te selecteren.
+
+    create_signal: |
+      <b>/create_signal &lt;symbool&gt; &lt;minuten&gt; [&lt;met_grafiek&gt;]</b>
+      Begin met het ontvangen van automatische signalen voor een paar met een bepaalde frequentie.
+      
+      Voorbeeld: <code>/create_signal BTCUSDT 60 true</code>
+
+    delete_signal: |
+      <b>/delete_signal &lt;symbool&gt;</b>
+      Stop automatische signalen voor een paar.
+
+    manage_signals: |
+      <b>/manage_signals</b>
+      Open een interactief menu om uw signalen te bekijken, toe te voegen of te verwijderen.
+
+    help: |
+      <b>/help</b>
+      Toon het algemene helpbericht.
+
+    sql: |
+      <b>/sql &lt;query&gt;</b>
+      Voer een SQL-query uit op de database.
+
+    tables: |
+      <b>/tables</b>
+      Toon een lijst van alle beschikbare tabellen in de database.
+
+    schema: |
+      <b>/schema &lt;tabelnaam&gt;</b>
+      Toon het schema van een specifieke tabel.
+
+    language: |
+      <b>/language</b>
+      Wijzig de taal van de bot.
+
+errors:
+  network: "Netwerkfout opgetreden. Probeer het later opnieuw."
+  data_fetch: "Gegevens ophalen mislukt. Controleer het symbool en probeer opnieuw."
+  data_processing: "Fout bij gegevensverwerking. Probeer met andere parameters."
+  chart_generation: "Fout bij grafiekgeneratie. Probeer met andere instellingen."
+  invalid_input: "Ongeldige invoer. Controleer de commandosyntax."
+  database: "Databasebewerking mislukt. Probeer opnieuw."
+  timeout: "Time-out opgetreden. Probeer opnieuw."
+  api_limit: "API-limiet bereikt. Probeer het later opnieuw."
+  permission: "U hebt geen toestemming voor deze actie."
+  unknown: "Er is een onverwachte fout opgetreden. Probeer het later opnieuw."
+
+  global: |
+    ❌ Er is een onverwachte fout opgetreden bij het verwerken van uw verzoek. Probeer het later opnieuw.
+    
+    Als u denkt dat dit een bug is, meld het hier: https://github.com/yariks5s/analysis_telegram_bot/issues
+
+  preferences_failed: "Voorkeuren ophalen mislukt. Stel ze opnieuw in via /preferences."
+  analyze_failed: "Gegevensanalyse mislukt. Controleer uw invoer en probeer opnieuw."
+  chart_send_failed: "Grafiek verzenden mislukt. Probeer opnieuw."
+  signal_generation_failed: "Prijsvoorspellingssignaal kon niet worden gegenereerd. Grafiek verzonden zonder analyse."
+  analysis_not_available: "Analyse niet beschikbaar"
+  invalid_timestamp: "❌ Ongeldige timestamp. Moet een Unix-timestamp in het verleden zijn."
+  historical_usage: "Ongeldige parameters. Gebruik: /history <symbool> <lengte> <interval> <tolerantie> <timestamp>"
+
+rate_limit:
+  title: "**Limietstatus**"
+  remaining: "• Resterend: {remaining}/{limit} verzoeken{suffix}"
+  reset_in: "• Reset in: {seconds} seconden"
+  reduced_notice: "ℹ️ Uw limiet is tijdelijk verlaagd vanwege gedetecteerde hoogfrequente activiteit. Dit zal automatisch normaliseren na een afkoelperiode."
+  footer: "Het systeem gebruikt limieten om eerlijk API-gebruik voor alle gebruikers te garanderen."
+  suspicious_suffix: " (verlaagd vanwege verdachte activiteit)"
+
+database:
+  sql:
+    no_query: |
+      Geef een SQL-query op.
+      Gebruik: /sql <query>
+      Voorbeeld: /sql SELECT * FROM trades LIMIT 5
+    results: "Queryresultaten:\n\n{results}"
+    success_no_results: "Query succesvol uitgevoerd. Geen resultaten geretourneerd."
+    error: "❌ Fout bij uitvoeren query: {error}"
+
+  tables:
+    title: "Beschikbare tabellen:\n\n"
+    empty: "Geen tabellen gevonden in de database."
+    error: "❌ Fout: {error}"
+
+  schema:
+    no_table: |
+      Geef een tabelnaam op.
+      Gebruik: /schema <tabelnaam>
+      Voorbeeld: /schema trades
+    title: "Schema voor tabel '{table}':\n\n"
+    not_found: "Geen schema gevonden voor tabel '{table}'."
+    error: "❌ Fout: {error}"
+
+history:
+  title: "📜 *Uw signaalgeschiedenis*"
+  filter_prompt: "\n\nFilter op tijdsperiode of valutapaar:"
+  no_signals: "Geen signaalgeschiedenis gevonden. Signalen worden geregistreerd wanneer ze worden gegenereerd."
+
+  periods:
+    last_24h: "Laatste 24u"
+    last_7d: "Laatste 7d"
+    last_30d: "Laatste 30d"
+
+  filtered_title: "📜 *Signaalgeschiedenis - Laatste {period}*"
+  pair_title: "📜 *Signaalgeschiedenis - {pair}*"
+
+  no_signals_period: "Geen signalen gevonden in de laatste {period}."
+  no_signals_pair: "Geen signalen gevonden voor {pair}."
+
+  show_all: "Alles tonen"
+  showing_recent: "_Toont {count} meest recente signalen._"
+
+  export:
+    csv: "CSV exporteren"
+    json: "JSON exporteren"
+    preparing: "{format}-export voorbereiden..."
+    no_data: "Geen signaalgegevens {description} om te exporteren."
+    caption: "📊 Signaalgeschiedenis {description} geëxporteerd als {format}"
+    for_pair: "voor {pair}"
+    for_all: "voor alle paren"
+    error: "Signaalgeschiedenis exporteren als {format} mislukt"
+
+  update_failed: "Bericht kon niet worden bijgewerkt"
+

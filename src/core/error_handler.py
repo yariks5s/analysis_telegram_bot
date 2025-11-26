@@ -10,20 +10,22 @@ import traceback
 from typing import Any, Callable, Dict, Optional, TypeVar, Union, cast
 from telegram import Update
 
+from src.i18n import t, get_user_language, DEFAULT_LANGUAGE
+
 logger = logging.getLogger(__name__)
 
-# Error message templates
-ERROR_MESSAGES = {
-    "network": "Network error occurred. Please try again later.",
-    "data_fetch": "Failed to fetch data. Please check the symbol and try again.",
-    "data_processing": "Error processing data. Please try with different parameters.",
-    "chart_generation": "Error generating chart. Please try again with different settings.",
-    "invalid_input": "Invalid input provided. Please check your command syntax.",
-    "database": "Database operation failed. Please try again.",
-    "timeout": "Operation timed out. Please try again.",
-    "api_limit": "API rate limit reached. Please try again later.",
-    "permission": "You don't have permission to perform this action.",
-    "unknown": "An unexpected error occurred. Please try again later.",
+# Error type to translation key mapping
+ERROR_TYPE_KEYS = {
+    "network": "errors.network",
+    "data_fetch": "errors.data_fetch",
+    "data_processing": "errors.data_processing",
+    "chart_generation": "errors.chart_generation",
+    "invalid_input": "errors.invalid_input",
+    "database": "errors.database",
+    "timeout": "errors.timeout",
+    "api_limit": "errors.api_limit",
+    "permission": "errors.permission",
+    "unknown": "errors.unknown",
 }
 
 
@@ -39,24 +41,34 @@ async def handle_error(
 
     Args:
         update: The Telegram update object to respond to
-        error_type: Type of error from ERROR_MESSAGES dictionary
+        error_type: Type of error from ERROR_TYPE_KEYS dictionary
         custom_message: Optional custom message to override the template
         exception: The exception object if available
         notify_user: Whether to send a message to the user
     """
+    # Get user language for translations
+    lang = DEFAULT_LANGUAGE
+    if update and update.effective_user:
+        try:
+            lang = get_user_language(update.effective_user.id)
+        except Exception:
+            pass  # Use default language if we can't get user preferences
+
+    # Get the translated error message
+    error_key = ERROR_TYPE_KEYS.get(error_type, ERROR_TYPE_KEYS["unknown"])
+    default_message = t(error_key, lang)
+
     # Log the error with details
     if exception:
         logger.error(f"Error: {error_type} - {str(exception)}")
         logger.debug(traceback.format_exc())
     else:
         logger.error(
-            f"Error: {error_type} - {custom_message or ERROR_MESSAGES.get(error_type, ERROR_MESSAGES['unknown'])}"
+            f"Error: {error_type} - {custom_message or default_message}"
         )
 
     if notify_user and update and update.effective_chat:
-        message = custom_message or ERROR_MESSAGES.get(
-            error_type, ERROR_MESSAGES["unknown"]
-        )
+        message = custom_message or default_message
         try:
             await update.message.reply_text(f"❌ {message}")
         except Exception as e:
@@ -90,12 +102,16 @@ async def global_error_handler(update: object, context):
 
     # Ensure we have a valid update object
     if isinstance(update, Update) and update.effective_chat:
+        # Get user language for translations
+        lang = DEFAULT_LANGUAGE
+        if update.effective_user:
+            try:
+                lang = get_user_language(update.effective_user.id)
+            except Exception:
+                pass  # Use default language if we can't get user preferences
+
         try:
-            await update.effective_chat.send_message(
-                "❌ An unexpected error occurred while processing your request. "
-                "Please try again later.\n\n"
-                "If you think this is a bug, please report it here: https://github.com/yariks5s/analysis_telegram_bot/issues"
-            )
+            await update.effective_chat.send_message(t("errors.global", lang))
         except Exception as e:
             logger.error(f"Failed to send global error message: {e}")
             from src.core.logging_utils import log_error_with_stacktrace

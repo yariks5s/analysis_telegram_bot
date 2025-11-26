@@ -17,6 +17,7 @@ from src.database.operations import (
     get_signal_history_by_date_range,
 )
 from src.analysis.utils.export import export_user_signals
+from src.i18n import t, get_user_language
 
 from src.core.error_handler import handle_error
 
@@ -36,14 +37,15 @@ async def command_signal_history(update: Update, context: ContextTypes.DEFAULT_T
     """
     try:
         user_id = update.effective_user.id
+        lang = get_user_language(user_id)
 
         signals = get_user_signal_history(user_id, limit=10)
 
         keyboard = [
             [
-                InlineKeyboardButton("Last 24h", callback_data=f"{HISTORY_PERIOD}24h"),
-                InlineKeyboardButton("Last 7d", callback_data=f"{HISTORY_PERIOD}7d"),
-                InlineKeyboardButton("Last 30d", callback_data=f"{HISTORY_PERIOD}30d"),
+                InlineKeyboardButton(t("history.periods.last_24h", lang), callback_data=f"{HISTORY_PERIOD}24h"),
+                InlineKeyboardButton(t("history.periods.last_7d", lang), callback_data=f"{HISTORY_PERIOD}7d"),
+                InlineKeyboardButton(t("history.periods.last_30d", lang), callback_data=f"{HISTORY_PERIOD}30d"),
             ]
         ]
 
@@ -61,11 +63,11 @@ async def command_signal_history(update: Update, context: ContextTypes.DEFAULT_T
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         if signals:
-            message = "📜 *Your Signal History*\n\n"
+            message = f"{t('history.title', lang)}\n\n"
             message += format_signal_history(signals)
-            message += "\n\nFilter by time period or currency pair:"
+            message += t("history.filter_prompt", lang)
         else:
-            message = "No signal history found. Signals will be recorded when they are generated."
+            message = t("history.no_signals", lang)
 
         await update.message.reply_text(
             message, reply_markup=reply_markup, parse_mode="Markdown"
@@ -86,6 +88,7 @@ async def button_history_callback(update: Update, context: ContextTypes.DEFAULT_
     await query.answer()
 
     user_id = update.effective_user.id
+    lang = get_user_language(user_id)
     callback_data = query.data
 
     try:
@@ -93,32 +96,32 @@ async def button_history_callback(update: Update, context: ContextTypes.DEFAULT_
             period = callback_data[len(HISTORY_PERIOD) :]
             signals = filter_by_period(user_id, period)
 
-            keyboard = build_history_keyboard(signals)
+            keyboard = build_history_keyboard(signals, lang=lang)
             reply_markup = InlineKeyboardMarkup(keyboard)
 
             if signals:
-                message = f"📜 *Signal History - Last {period}*\n\n"
-                message += format_signal_history(signals)
+                message = f"{t('history.filtered_title', lang, period=period)}\n\n"
+                message += format_signal_history(signals, lang=lang)
             else:
-                message = f"No signals found in the last {period}."
+                message = t("history.no_signals_period", lang, period=period)
 
-            await safe_edit_message(query, message, reply_markup)
+            await safe_edit_message(query, message, reply_markup, lang)
 
         # Handle currency pair filtering
         elif callback_data.startswith(HISTORY_PAIR):
             pair = callback_data[len(HISTORY_PAIR) :]
             signals = get_user_signal_history(user_id, limit=20, currency_pair=pair)
 
-            keyboard = build_history_keyboard(signals, selected_pair=pair)
+            keyboard = build_history_keyboard(signals, selected_pair=pair, lang=lang)
             reply_markup = InlineKeyboardMarkup(keyboard)
 
             if signals:
-                message = f"📜 *Signal History - {pair}*\n\n"
-                message += format_signal_history(signals)
+                message = f"{t('history.pair_title', lang, pair=pair)}\n\n"
+                message += format_signal_history(signals, lang=lang)
             else:
-                message = f"No signals found for {pair}."
+                message = t("history.no_signals_pair", lang, pair=pair)
 
-            await safe_edit_message(query, message, reply_markup)
+            await safe_edit_message(query, message, reply_markup, lang)
 
         elif callback_data.startswith(HISTORY_PAGE):
             # TODO: Implement pagination for large result sets
@@ -172,22 +175,23 @@ def filter_by_period(user_id, period):
     return get_signal_history_by_date_range(user_id, start_date, end_date)
 
 
-def build_history_keyboard(signals, selected_pair=None):
+def build_history_keyboard(signals, selected_pair=None, lang="en"):
     """
     Build the keyboard for history filtering.
 
     Args:
         signals: List of signals
         selected_pair: Currently selected currency pair
+        lang: Language code for translations
 
     Returns:
         List of button rows for the keyboard
     """
     keyboard = [
         [
-            InlineKeyboardButton("Last 24h", callback_data=f"{HISTORY_PERIOD}24h"),
-            InlineKeyboardButton("Last 7d", callback_data=f"{HISTORY_PERIOD}7d"),
-            InlineKeyboardButton("Last 30d", callback_data=f"{HISTORY_PERIOD}30d"),
+            InlineKeyboardButton(t("history.periods.last_24h", lang), callback_data=f"{HISTORY_PERIOD}24h"),
+            InlineKeyboardButton(t("history.periods.last_7d", lang), callback_data=f"{HISTORY_PERIOD}7d"),
+            InlineKeyboardButton(t("history.periods.last_30d", lang), callback_data=f"{HISTORY_PERIOD}30d"),
         ]
     ]
 
@@ -205,7 +209,7 @@ def build_history_keyboard(signals, selected_pair=None):
     # Add 'Show All' button if a pair is selected
     if selected_pair:
         keyboard.append(
-            [InlineKeyboardButton("Show All", callback_data=f"{HISTORY_PERIOD}all")]
+            [InlineKeyboardButton(t("history.show_all", lang), callback_data=f"{HISTORY_PERIOD}all")]
         )
 
     export_buttons = []
@@ -213,18 +217,18 @@ def build_history_keyboard(signals, selected_pair=None):
         export_buttons.extend(
             [
                 InlineKeyboardButton(
-                    "Export CSV", callback_data=f"{EXPORT_CSV}{selected_pair}"
+                    t("history.export.csv", lang), callback_data=f"{EXPORT_CSV}{selected_pair}"
                 ),
                 InlineKeyboardButton(
-                    "Export JSON", callback_data=f"{EXPORT_JSON}{selected_pair}"
+                    t("history.export.json", lang), callback_data=f"{EXPORT_JSON}{selected_pair}"
                 ),
             ]
         )
     else:
         export_buttons.extend(
             [
-                InlineKeyboardButton("Export CSV", callback_data=f"{EXPORT_CSV}all"),
-                InlineKeyboardButton("Export JSON", callback_data=f"{EXPORT_JSON}all"),
+                InlineKeyboardButton(t("history.export.csv", lang), callback_data=f"{EXPORT_CSV}all"),
+                InlineKeyboardButton(t("history.export.json", lang), callback_data=f"{EXPORT_JSON}all"),
             ]
         )
 
@@ -234,13 +238,14 @@ def build_history_keyboard(signals, selected_pair=None):
     return keyboard
 
 
-def format_signal_history(signals, max_signals=10):
+def format_signal_history(signals, max_signals=10, lang="en"):
     """
     Format the signal history for display.
 
     Args:
         signals: List of signals
         max_signals: Maximum number of signals to display
+        lang: Language code for translations
 
     Returns:
         Formatted message string
@@ -286,12 +291,12 @@ def format_signal_history(signals, max_signals=10):
         message += line + "\n\n"
 
     if len(signals) == max_signals:
-        message += f"_Showing {max_signals} most recent signals._"
+        message += t("history.showing_recent", lang, count=max_signals)
 
     return message
 
 
-async def safe_edit_message(query, text, reply_markup=None):
+async def safe_edit_message(query, text, reply_markup=None, lang="en"):
     """
     Safely edit a message, handling common Telegram API errors.
 
@@ -299,6 +304,7 @@ async def safe_edit_message(query, text, reply_markup=None):
         query: The callback query
         text: The new text content
         reply_markup: Optional keyboard markup
+        lang: Language code for translations
     """
     try:
         await query.edit_message_text(
@@ -316,7 +322,7 @@ async def safe_edit_message(query, text, reply_markup=None):
                 await query.edit_message_text(text=text, reply_markup=reply_markup)
             except Exception:
                 # Last resort - acknowledge the interaction but don't change anything
-                await query.answer("Couldn't update message")
+                await query.answer(t("history.update_failed", lang))
         else:
             # For any other errors, log but continue
             logger.error(f"Error editing message: {str(e)}")
@@ -324,10 +330,10 @@ async def safe_edit_message(query, text, reply_markup=None):
                 await query.edit_message_text(text=text, reply_markup=reply_markup)
             except Exception as inner_e:
                 logger.error(f"Second attempt to edit message failed: {str(inner_e)}")
-                await query.answer("Couldn't update message")
+                await query.answer(t("history.update_failed", lang))
     except Exception as e:
         logger.error(f"Unexpected error editing message: {str(e)}")
-        await query.answer("Couldn't update message")
+        await query.answer(t("history.update_failed", lang))
 
 
 async def handle_export(
@@ -350,26 +356,28 @@ async def handle_export(
         format_type: Export format ('csv' or 'json')
         currency_pair: Optional currency pair to filter by
     """
+    lang = get_user_language(user_id)
+    
     try:
         query = update.callback_query
         message_id = query.message.message_id
         chat_id = query.message.chat_id
 
-        await query.answer(f"Preparing {format_type.upper()} export...")
+        await query.answer(t("history.export.preparing", lang, format=format_type.upper()))
 
         if currency_pair:
             signals = get_user_signal_history(
                 user_id, limit=100, currency_pair=currency_pair
             )
-            description = f"for {currency_pair}"
+            description = t("history.export.for_pair", lang, pair=currency_pair)
         else:
             signals = get_user_signal_history(user_id, limit=100)
-            description = "for all pairs"
+            description = t("history.export.for_all", lang)
 
         if not signals:
             await context.bot.send_message(
                 chat_id=chat_id,
-                text=f"No signal data available {description} to export.",
+                text=t("history.export.no_data", lang, description=description),
                 reply_to_message_id=message_id,
             )
             return
@@ -383,7 +391,7 @@ async def handle_export(
                 chat_id=chat_id,
                 document=file,
                 filename=os.path.basename(filepath),
-                caption=f"📊 Signal history {description} exported as {format_type.upper()}",
+                caption=t("history.export.caption", lang, description=description, format=format_type.upper()),
                 reply_to_message_id=message_id,
             )
 
@@ -393,5 +401,5 @@ async def handle_export(
             logger.error(f"Error removing temporary export file {filepath}: {str(e)}")
 
     except Exception as e:
-        error_message = f"Failed to export signal history as {format_type.upper()}"
+        error_message = t("history.export.error", lang, format=format_type.upper())
         await handle_error(update, "export_error", error_message, exception=e)

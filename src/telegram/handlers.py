@@ -22,6 +22,7 @@ from src.database.operations import (
 )
 from src.core.preferences import INDICATOR_PARAMS
 from src.telegram.signals.detection import createSignalJob
+from src.i18n import t, get_user_language
 
 from src.analysis.utils.helpers import input_sanity_check_text, check_signal_limit_by_id
 from src.core.preferences import get_formatted_preferences
@@ -49,15 +50,17 @@ async def manage_signals(update: Update, context: ContextTypes.DEFAULT_TYPE):
     /manage_signals - The entry point to display signals for the user with inline buttons.
     """
     user_id = update.effective_user.id
+    lang = get_user_language(user_id)
 
     await update.message.reply_text(
-        text="Manage your signals:", reply_markup=build_signal_list_keyboard(user_id)
+        text=t("signals.manage_title", lang), 
+        reply_markup=build_signal_list_keyboard(user_id, lang)
     )
 
     return CHOOSING_ACTION
 
 
-def build_signal_list_keyboard(user_id: int) -> InlineKeyboardMarkup:
+def build_signal_list_keyboard(user_id: int, lang: str = "en") -> InlineKeyboardMarkup:
     """
     Builds a dynamic inline keyboard listing all signals for a user:
       - Each row: [<Pair> (<freq>m)] [Delete <Pair>]
@@ -66,6 +69,7 @@ def build_signal_list_keyboard(user_id: int) -> InlineKeyboardMarkup:
 
     Args:
         user_id: Telegram user ID
+        lang: Language code for translations
 
     Returns:
         InlineKeyboardMarkup with signal management options
@@ -82,21 +86,22 @@ def build_signal_list_keyboard(user_id: int) -> InlineKeyboardMarkup:
                 f"{pair} {freq}m chart {'✅' if str(is_with_chart) == '1' else '❌'}"
             )
             del_button = InlineKeyboardButton(
-                text=f"Delete {pair}", callback_data=f"delete_signal_{pair}"
+                text=t("signals.delete", lang, pair=pair), 
+                callback_data=f"delete_signal_{pair}"
             )
             keyboard.append(
                 [InlineKeyboardButton(display_text, callback_data="no_op"), del_button]
             )
     else:
         keyboard.append(
-            [InlineKeyboardButton("No signals found", callback_data="no_op")]
+            [InlineKeyboardButton(t("signals.no_signals", lang), callback_data="no_op")]
         )
 
     keyboard.append(
-        [InlineKeyboardButton("➕ Add New Signal", callback_data="add_signal")]
+        [InlineKeyboardButton(t("signals.add_new", lang), callback_data="add_signal")]
     )
 
-    keyboard.append([InlineKeyboardButton("Done", callback_data="signal_menu_done")])
+    keyboard.append([InlineKeyboardButton(t("common.done", lang), callback_data="signal_menu_done")])
 
     return InlineKeyboardMarkup(keyboard)
 
@@ -117,6 +122,7 @@ async def handle_signal_menu_callback(
     query = update.callback_query
     data = query.data
     user_id = query.from_user.id
+    lang = get_user_language(user_id)
 
     logger.info(f"handle_signal_menu_callback -> callback_data = {data}")
     await query.answer()
@@ -136,25 +142,21 @@ async def handle_signal_menu_callback(
             del auto_signal_jobs[job_key]
 
         await query.edit_message_text(
-            text="Signal deleted. Updated list:",
-            reply_markup=build_signal_list_keyboard(user_id),
+            text=t("signals.deleted", lang),
+            reply_markup=build_signal_list_keyboard(user_id, lang),
         )
         return CHOOSING_ACTION
 
     elif data == "add_signal":
         await query.edit_message_text(
-            "Please enter your desired signal in the format: \n\n"
-            "`SYMBOL INTERVAL [with_chart]`\n\n"
-            "Example: `BTCUSDT 60` or `ETHUSDT 15 with_chart`\n\n"
-            "SYMBOL should be a valid trading pair (e.g., BTCUSDT).\n"
-            "INTERVAL should be in minutes (e.g., 5, 15, 60)."
+            t("signals.add_prompt", lang),
+            parse_mode="Markdown"
         )
         return TYPING_SIGNAL_DATA
 
     elif data == "signal_menu_done":
         n_signals = len(get_all_user_signal_requests(user_id))
-        signal_text = f"signal{plural_helper(n_signals)}"
-        await query.edit_message_text(f"You have {n_signals} active {signal_text}.")
+        await query.edit_message_text(t("signals.active_count", lang, count=n_signals))
         return ConversationHandler.END
 
     return CHOOSING_ACTION
@@ -172,12 +174,13 @@ async def handle_signal_text_input(update: Update, context: ContextTypes.DEFAULT
         Conversation state
     """
     user_id = update.effective_user.id
+    lang = get_user_language(user_id)
     text = update.message.text.strip().upper()
 
     parse_result = input_sanity_check_text(text)
     if not parse_result["is_valid"]:
         await update.message.reply_text(
-            f"Invalid input: {parse_result['error_message']}. Try again or /cancel."
+            t("signals.invalid_input", lang, error=parse_result['error_message'])
         )
         return TYPING_SIGNAL_DATA
 
@@ -185,7 +188,8 @@ async def handle_signal_text_input(update: Update, context: ContextTypes.DEFAULT
     if not limit_ok:
         await update.message.reply_text(limit_msg)
         await update.message.reply_text(
-            text="Current signals:", reply_markup=build_signal_list_keyboard(user_id)
+            text=t("signals.manage_title", lang), 
+            reply_markup=build_signal_list_keyboard(user_id, lang)
         )
         return CHOOSING_ACTION
 
@@ -195,13 +199,13 @@ async def handle_signal_text_input(update: Update, context: ContextTypes.DEFAULT
 
     await createSignalJob(symbol, period_minutes, is_with_chart, update, context)
     await update.message.reply_text(
-        text="Signal created! Current signals:",
-        reply_markup=build_signal_list_keyboard(user_id),
+        text=t("signals.created", lang),
+        reply_markup=build_signal_list_keyboard(user_id, lang),
     )
     return CHOOSING_ACTION
 
 
-def get_indicator_selection_keyboard(user_id, menu_id=None):
+def get_indicator_selection_keyboard(user_id, menu_id=None, lang="en"):
     """
     Create an inline keyboard for selecting indicators with a checkmark for selected ones.
 
@@ -209,6 +213,7 @@ def get_indicator_selection_keyboard(user_id, menu_id=None):
         user_id: Telegram user ID
         menu_id: Optional unique identifier for this preference menu instance
         (was created to provide multiple menus being opened at the same time)
+        lang: Language code for translations
 
     Returns:
         InlineKeyboardMarkup with indicator selection options and the menu_id
@@ -229,49 +234,49 @@ def get_indicator_selection_keyboard(user_id, menu_id=None):
     keyboard = [
         [
             InlineKeyboardButton(
-                f"{'✔️ ' if selected['order_blocks'] else ''}Order Blocks",
+                f"{'✔️ ' if selected['order_blocks'] else ''}{t('preferences.indicators.order_blocks', lang)}",
                 callback_data=create_callback("indicator_order_blocks"),
             ),
             InlineKeyboardButton(
-                f"{'✔️ ' if selected['fvgs'] else ''}FVGs",
+                f"{'✔️ ' if selected['fvgs'] else ''}{t('preferences.indicators.fvgs', lang)}",
                 callback_data=create_callback("indicator_fvgs"),
             ),
         ],
         [
             InlineKeyboardButton(
-                f"{'✔️ ' if selected['liquidity_levels'] else ''}Liquidity Levels",
+                f"{'✔️ ' if selected['liquidity_levels'] else ''}{t('preferences.indicators.liquidity_levels', lang)}",
                 callback_data=create_callback("indicator_liquidity_levels"),
             ),
             InlineKeyboardButton(
-                f"{'✔️ ' if selected['breaker_blocks'] else ''}Breaker Blocks",
+                f"{'✔️ ' if selected['breaker_blocks'] else ''}{t('preferences.indicators.breaker_blocks', lang)}",
                 callback_data=create_callback("indicator_breaker_blocks"),
             ),
         ],
         [
             InlineKeyboardButton(
-                f"{'✔️ ' if selected['show_legend'] else ''}Show Legend",
+                f"{'✔️ ' if selected['show_legend'] else ''}{t('preferences.indicators.show_legend', lang)}",
                 callback_data=create_callback("indicator_show_legend"),
             ),
             InlineKeyboardButton(
-                f"{'✔️ ' if selected['show_volume'] else ''}Show Volume",
+                f"{'✔️ ' if selected['show_volume'] else ''}{t('preferences.indicators.show_volume', lang)}",
                 callback_data=create_callback("indicator_show_volume"),
             ),
         ],
         [
             InlineKeyboardButton(
-                f"{'✔️ ' if selected['liquidity_pools'] else ''}Liquidity Pools",
+                f"{'✔️ ' if selected['liquidity_pools'] else ''}{t('preferences.indicators.liquidity_pools', lang)}",
                 callback_data=create_callback("indicator_liquidity_pools"),
             ),
         ],
         [
             InlineKeyboardButton(
-                f"{'🌙 ' if selected['dark_mode'] else '☀️ '}{'Dark Mode' if selected['dark_mode'] else 'Light Mode'}",
+                f"{'🌙 ' if selected['dark_mode'] else '☀️ '}{t('preferences.indicators.dark_mode', lang) if selected['dark_mode'] else t('preferences.indicators.light_mode', lang)}",
                 callback_data=create_callback("indicator_dark_mode"),
             ),
         ],
         [
             InlineKeyboardButton(
-                "Done", callback_data=create_callback("indicator_done")
+                t("common.done", lang), callback_data=create_callback("indicator_done")
             ),
         ],
     ]
@@ -293,6 +298,7 @@ async def handle_indicator_selection(update, _):
     await query.answer()
 
     user_id = query.from_user.id
+    lang = get_user_language(user_id)
 
     try:
         data_parts = query.data.split(":")
@@ -330,8 +336,9 @@ async def handle_indicator_selection(update, _):
         if menu_id in _menu_preferences:
             del _menu_preferences[menu_id]
 
+        indicators_str = ', '.join(selected_pretty) if selected_pretty else t("preferences.none_selected", lang)
         await query.edit_message_text(
-            f"You selected: {', '.join(selected_pretty) or 'None'}"
+            t("preferences.selected", lang, indicators=indicators_str)
         )
         return
 
@@ -354,20 +361,21 @@ async def handle_indicator_selection(update, _):
 
     _menu_preferences[menu_id] = preferences
 
-    new_markup, _ = get_indicator_selection_keyboard(user_id, menu_id)
+    new_markup, _ = get_indicator_selection_keyboard(user_id, menu_id, lang)
 
     await query.edit_message_reply_markup(reply_markup=new_markup)
 
     return CHOOSING_ACTION
 
 
-def get_parameter_keyboard(user_id, menu_id=None):
+def get_parameter_keyboard(user_id, menu_id=None, lang="en"):
     """
     Create an inline keyboard for adjusting indicator parameters.
 
     Args:
         user_id: Telegram user ID
         menu_id: Optional unique identifier for this parameter menu instance
+        lang: Language code for translations
 
     Returns:
         InlineKeyboardMarkup with parameter setting options and the menu_id
@@ -394,69 +402,10 @@ def get_parameter_keyboard(user_id, menu_id=None):
         )
 
     keyboard.append(
-        [InlineKeyboardButton("Save", callback_data=f"param:{menu_id}:save")]
+        [InlineKeyboardButton(t("common.save", lang), callback_data=f"param:{menu_id}:save")]
     )
 
     return InlineKeyboardMarkup(keyboard), menu_id
-
-
-async def handle_parameter_input(update, context):
-    """
-    Handle user input for parameter values.
-
-    Args:
-        update: Telegram update object
-        context: Telegram context object
-
-    Returns:
-        Conversation state
-    """
-    user_id = update.effective_user.id
-    user_text = update.message.text.strip()
-
-    if user_id not in _param_edit_states:
-        await update.message.reply_text(
-            "Sorry, I don't have an active parameter editing session. "
-            "Please use /select_indicators to start over."
-        )
-        return ConversationHandler.END
-
-    param_info = _param_edit_states[user_id]
-    param_name = param_info["param"]
-    menu_id = param_info["menu_id"]
-
-    try:
-        if param_name == "atr_period":
-            new_value = int(user_text)
-        else:  # fvg_min_size or other float params
-            new_value = float(user_text)
-
-        param_config = INDICATOR_PARAMS[param_name]
-        if new_value < param_config["min"] or new_value > param_config["max"]:
-            await update.message.reply_text(
-                f"Value must be between {param_config['min']} and {param_config['max']}. "
-                "Please try again."
-            )
-            return TYPING_PARAM_VALUE
-
-        _menu_preferences[menu_id][param_name] = new_value
-
-        # Clear the edit state
-        del _param_edit_states[user_id]
-
-        param_markup = get_parameter_keyboard(user_id, menu_id)
-        await update.message.reply_text(
-            f"{INDICATOR_PARAMS[param_name]['display_name']} set to {new_value}.",
-            reply_markup=param_markup,
-        )
-
-        return CHOOSING_ACTION
-
-    except (ValueError, TypeError):
-        await update.message.reply_text(
-            f"Invalid input. Please enter a valid number for {INDICATOR_PARAMS[param_name]['display_name']}."
-        )
-        return TYPING_PARAM_VALUE
 
 
 async def select_indicators(update, _):
@@ -471,11 +420,12 @@ async def select_indicators(update, _):
         None
     """
     user_id = update.effective_user.id
+    lang = get_user_language(user_id)
 
-    keyboard, _ = get_indicator_selection_keyboard(user_id)
+    keyboard, _ = get_indicator_selection_keyboard(user_id, lang=lang)
 
     await update.message.reply_text(
-        "Please choose the indicators you'd like to include:",
+        t("preferences.select_prompt", lang),
         reply_markup=keyboard,
     )
 
@@ -495,6 +445,7 @@ async def handle_parameter_selection(update, _):
     await query.answer()
 
     user_id = query.from_user.id
+    lang = get_user_language(user_id)
 
     try:
         data_parts = query.data.split(":")
@@ -520,7 +471,7 @@ async def handle_parameter_selection(update, _):
         if menu_id in _param_preferences:
             del _param_preferences[menu_id]
 
-        await query.edit_message_text("Parameter settings saved successfully!")
+        await query.edit_message_text(t("parameters.saved", lang))
         return
 
     elif action.startswith("edit_"):
@@ -531,18 +482,18 @@ async def handle_parameter_selection(update, _):
         current_value = preferences.get(param_name, param_info["default"])
 
         await query.edit_message_text(
-            f"Enter a new value for {param_info['display_name']}:\n\n"
-            f"Current value: {current_value}\n"
-            f"Valid range: {param_info['min']} to {param_info['max']} (step: {param_info['step']})\n\n"
-            f"Reply with a number to set the new value."
+            t("parameters.edit_prompt", lang,
+              param=param_info['display_name'],
+              current=current_value,
+              min=param_info['min'],
+              max=param_info['max'],
+              step=param_info['step'])
         )
 
         return TYPING_PARAM_VALUE
 
     # If we got here, something unexpected happened
-    await query.edit_message_text(
-        "Sorry, I couldn't process that action. Please try again with /parameters."
-    )
+    await query.edit_message_text(t("parameters.errors.process_failed", lang))
     return
 
 
@@ -558,13 +509,11 @@ async def handle_parameter_input(update, context):
         Conversation state
     """
     user_id = update.effective_user.id
+    lang = get_user_language(user_id)
     user_text = update.message.text.strip()
 
     if user_id not in _param_edit_states:
-        await update.message.reply_text(
-            "Sorry, I don't have an active parameter editing session. "
-            "Please use /parameters to start over."
-        )
+        await update.message.reply_text(t("parameters.errors.no_session", lang))
         return ConversationHandler.END
 
     param_info = _param_edit_states[user_id]
@@ -580,8 +529,9 @@ async def handle_parameter_input(update, context):
         param_config = INDICATOR_PARAMS[param_name]
         if new_value < param_config["min"] or new_value > param_config["max"]:
             await update.message.reply_text(
-                f"Value must be between {param_config['min']} and {param_config['max']}. "
-                "Please try again."
+                t("parameters.errors.out_of_range", lang,
+                  min=param_config['min'],
+                  max=param_config['max'])
             )
             return TYPING_PARAM_VALUE
 
@@ -589,9 +539,11 @@ async def handle_parameter_input(update, context):
 
         del _param_edit_states[user_id]
 
-        param_markup, _ = get_parameter_keyboard(user_id, menu_id)
+        param_markup, _ = get_parameter_keyboard(user_id, menu_id, lang)
         await update.message.reply_text(
-            f"{INDICATOR_PARAMS[param_name]['display_name']} set to {new_value}.",
+            t("parameters.value_set", lang,
+              param=INDICATOR_PARAMS[param_name]['display_name'],
+              value=new_value),
             reply_markup=param_markup,
         )
 
@@ -599,7 +551,8 @@ async def handle_parameter_input(update, context):
 
     except (ValueError, TypeError):
         await update.message.reply_text(
-            f"Invalid input. Please enter a valid number for {INDICATOR_PARAMS[param_name]['display_name']}."
+            t("parameters.errors.invalid_number", lang,
+              param=INDICATOR_PARAMS[param_name]['display_name'])
         )
         return TYPING_PARAM_VALUE
 
@@ -616,11 +569,12 @@ async def show_parameters(update, _):
         Conversation state
     """
     user_id = update.effective_user.id
+    lang = get_user_language(user_id)
 
-    keyboard, _ = get_parameter_keyboard(user_id)
+    keyboard, _ = get_parameter_keyboard(user_id, lang=lang)
 
     await update.message.reply_text(
-        "Configure indicator parameters:",
+        t("parameters.configure_title", lang),
         reply_markup=keyboard,
     )
 

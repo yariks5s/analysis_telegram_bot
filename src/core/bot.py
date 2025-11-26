@@ -55,6 +55,10 @@ from src.telegram.commands.db_commands import (
     describe_table_command,
 )
 from src.telegram.commands.status_commands import rate_limit_command
+from src.telegram.commands.language_commands import (
+    language_command,
+    handle_language_callback,
+)
 from src.telegram.tutorial import (
     start_command,
     tutorial_command,
@@ -62,6 +66,7 @@ from src.telegram.tutorial import (
     CHOOSING_TUTORIAL_ACTION,
 )
 from src.core.utils import logger
+from src.i18n import load_translations
 from src.core.error_handler import global_error_handler
 from src.core.logging_utils import log_message_decorator
 from src.core.rate_limiter import rate_limit
@@ -201,6 +206,10 @@ def setup_handlers(app):
     app.add_handler(CommandHandler("start", rate_limit()(start_command)))
     app.add_handler(CommandHandler("tutorial", rate_limit()(tutorial_command)))
 
+    # Language selection command
+    app.add_handler(CommandHandler("language", rate_limit()(language_command)))
+    app.add_handler(CallbackQueryHandler(handle_language_callback, pattern=r"^lang_set:"))
+
     tutorial_conv_handler = ConversationHandler(
         entry_points=[
             CallbackQueryHandler(handle_tutorial_callback, pattern=r"^tutorial_")
@@ -224,6 +233,9 @@ def main():
 
     # Initialize database
     init_db()
+
+    # Load translations for i18n support
+    load_translations()
 
     # Get token from environment
     TOKEN = os.getenv("API_TELEGRAM_KEY")
