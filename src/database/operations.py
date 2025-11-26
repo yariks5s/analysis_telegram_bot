@@ -20,7 +20,7 @@ def init_db() -> None:
     create_tables()
 
 
-def get_user_preferences(user_id: int) -> Dict[str, Union[bool, int, float]]:
+def get_user_preferences(user_id: int) -> Dict[str, Union[bool, int, float, str]]:
     """
     Retrieve the user's indicator preferences from the database.
 
@@ -47,6 +47,7 @@ def get_user_preferences(user_id: int) -> Dict[str, Union[bool, int, float]]:
             "liquidity_pools": bool(row[7]) if len(row) > 7 else True,
             "dark_mode": bool(row[8]) if len(row) > 8 else False,
             "tutorial_stage": int(row[11]) if len(row) > 11 else 0,
+            "language": str(row[12]) if len(row) > 12 and row[12] else "en",
         }
 
         # Handle indicator parameters if they exist in the database
@@ -77,6 +78,7 @@ def get_user_preferences(user_id: int) -> Dict[str, Union[bool, int, float]]:
             "liquidity_pools": False,
             "dark_mode": False,
             "tutorial_stage": 0,
+            "language": "en",
         }
 
         prefs["atr_period"] = INDICATOR_PARAMS["atr_period"]["default"]
@@ -124,7 +126,7 @@ def update_user_preferences(user_id: int, preferences: Dict[str, Any]) -> None:
                 UPDATE user_preferences
                 SET order_blocks = ?, fvgs = ?, liquidity_levels = ?, breaker_blocks = ?,
                     show_legend = ?, show_volume = ?, liquidity_pools = ?, dark_mode = ?,
-                    atr_period = ?, fvg_min_size = ?, tutorial_stage = ?
+                    atr_period = ?, fvg_min_size = ?, tutorial_stage = ?, language = ?
                 WHERE user_id = ?
             """,
                 (
@@ -139,6 +141,7 @@ def update_user_preferences(user_id: int, preferences: Dict[str, Any]) -> None:
                     preferences["atr_period"],
                     preferences["fvg_min_size"],
                     preferences.get("tutorial_stage", 0),
+                    preferences.get("language", "en"),
                     user_id,
                 ),
             )
@@ -148,8 +151,8 @@ def update_user_preferences(user_id: int, preferences: Dict[str, Any]) -> None:
                 INSERT INTO user_preferences (
                     user_id, order_blocks, fvgs, liquidity_levels, breaker_blocks,
                     show_legend, show_volume, liquidity_pools, dark_mode,
-                    atr_period, fvg_min_size, tutorial_stage
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    atr_period, fvg_min_size, tutorial_stage, language
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     user_id,
@@ -164,12 +167,53 @@ def update_user_preferences(user_id: int, preferences: Dict[str, Any]) -> None:
                     preferences["atr_period"],
                     preferences["fvg_min_size"],
                     preferences.get("tutorial_stage", 0),
+                    preferences.get("language", "en"),
                 ),
             )
 
         conn.commit()
     except sqlite3.Error as e:
         logger.error(f"Database error while updating preferences: {e}")
+    finally:
+        conn.close()
+
+
+def update_user_language(user_id: int, language: str) -> None:
+    """
+    Update the user's language preference.
+
+    Args:
+        user_id: Telegram user ID
+        language: Language code (en, ru, uk, de, fr, nl)
+    """
+    try:
+        conn = sqlite3.connect(DATABASE_PATH)
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT 1 FROM user_preferences WHERE user_id = ?", (user_id,))
+        exists = cursor.fetchone()
+
+        if exists:
+            cursor.execute(
+                "UPDATE user_preferences SET language = ? WHERE user_id = ?",
+                (language, user_id),
+            )
+        else:
+            # Create default preferences with the specified language
+            cursor.execute(
+                """
+                INSERT INTO user_preferences (
+                    user_id, order_blocks, fvgs, liquidity_levels, breaker_blocks,
+                    show_legend, show_volume, liquidity_pools, dark_mode,
+                    atr_period, fvg_min_size, tutorial_stage, language
+                ) VALUES (?, 0, 0, 0, 0, 1, 1, 0, 0, 14, 0.0005, 0, ?)
+            """,
+                (user_id, language),
+            )
+
+        conn.commit()
+    except sqlite3.Error as e:
+        logger.error(f"Database error while updating language: {e}")
     finally:
         conn.close()
 
