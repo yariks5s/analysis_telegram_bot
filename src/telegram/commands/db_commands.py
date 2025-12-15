@@ -3,6 +3,8 @@ from telegram.ext import ContextTypes
 from back_tester.db_operations import ClickHouseDB
 import logging
 
+from src.i18n import t, get_user_language
+
 logger = logging.getLogger(__name__)
 
 # Initialize database connection
@@ -15,12 +17,11 @@ async def execute_sql_command(update: Update, context: ContextTypes.DEFAULT_TYPE
     Usage: /sql <query>
     Example: /sql SELECT * FROM trades LIMIT 5
     """
+    user_id = update.effective_user.id
+    lang = get_user_language(user_id)
+
     if not context.args:
-        await update.message.reply_text(
-            "Please provide a SQL query.\n"
-            "Usage: /sql <query>\n"
-            "Example: /sql SELECT * FROM trades LIMIT 5"
-        )
+        await update.message.reply_text(t("database.sql.no_query", lang))
         return
 
     # Join all arguments to form the complete query
@@ -39,9 +40,7 @@ async def execute_sql_command(update: Update, context: ContextTypes.DEFAULT_TYPE
             return
 
         if not result:
-            await update.message.reply_text(
-                "Query executed successfully. No results returned."
-            )
+            await update.message.reply_text(t("database.sql.success_no_results", lang))
             return
 
         # Convert result to string
@@ -54,14 +53,14 @@ async def execute_sql_command(update: Update, context: ContextTypes.DEFAULT_TYPE
             formatted_result = str(result)
 
         # Format the message
-        message = f"Query Results:\n\n{formatted_result}"
+        message = t("database.sql.results", lang, results=formatted_result)
 
         # Send the formatted message
         await update.message.reply_text(message)
 
     except Exception as e:
         logger.error(f"Error executing SQL query: {str(e)}")
-        await update.message.reply_text(f"❌ Error executing query: {str(e)}")
+        await update.message.reply_text(t("database.sql.error", lang, error=str(e)))
 
 
 async def show_tables_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -69,17 +68,20 @@ async def show_tables_command(update: Update, context: ContextTypes.DEFAULT_TYPE
     Command handler to show available tables.
     Usage: /tables
     """
+    user_id = update.effective_user.id
+    lang = get_user_language(user_id)
+
     try:
         tables = db.get_available_tables()
         if isinstance(tables, str):  # Error occurred
-            await update.message.reply_text(f"❌ Error: {tables}")
+            await update.message.reply_text(t("database.tables.error", lang, error=tables))
             return
 
         if not tables:
-            await update.message.reply_text("No tables found in the database.")
+            await update.message.reply_text(t("database.tables.empty", lang))
             return
 
-        message = "Available tables:\n\n"
+        message = t("database.tables.title", lang)
         for table in tables:
             message += f"• {table}\n"
 
@@ -87,7 +89,7 @@ async def show_tables_command(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     except Exception as e:
         logger.error(f"Error getting tables: {str(e)}")
-        await update.message.reply_text(f"❌ Error: {str(e)}")
+        await update.message.reply_text(t("database.tables.error", lang, error=str(e)))
 
 
 async def describe_table_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -96,12 +98,11 @@ async def describe_table_command(update: Update, context: ContextTypes.DEFAULT_T
     Usage: /schema <table_name>
     Example: /schema trades
     """
+    user_id = update.effective_user.id
+    lang = get_user_language(user_id)
+
     if not context.args:
-        await update.message.reply_text(
-            "Please provide a table name.\n"
-            "Usage: /schema <table_name>\n"
-            "Example: /schema trades"
-        )
+        await update.message.reply_text(t("database.schema.no_table", lang))
         return
 
     table_name = context.args[0]
@@ -109,16 +110,14 @@ async def describe_table_command(update: Update, context: ContextTypes.DEFAULT_T
     try:
         schema = db.get_table_schema(table_name)
         if isinstance(schema, str):  # Error occurred
-            await update.message.reply_text(f"❌ Error: {schema}")
+            await update.message.reply_text(t("database.schema.error", lang, error=schema))
             return
 
         if not schema:
-            await update.message.reply_text(
-                f"No schema found for table '{table_name}'."
-            )
+            await update.message.reply_text(t("database.schema.not_found", lang, table=table_name))
             return
 
-        message = f"Schema for table '{table_name}':\n\n"
+        message = t("database.schema.title", lang, table=table_name)
         for column in schema:
             message += f"• {column['name']}: {column['type']}\n"
             if column["default"]:
@@ -128,4 +127,4 @@ async def describe_table_command(update: Update, context: ContextTypes.DEFAULT_T
 
     except Exception as e:
         logger.error(f"Error getting table schema: {str(e)}")
-        await update.message.reply_text(f"❌ Error: {str(e)}")
+        await update.message.reply_text(t("database.schema.error", lang, error=str(e)))

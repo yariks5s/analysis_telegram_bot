@@ -257,13 +257,168 @@ cd reports/examples
 9. **Track drawdowns carefully** - Maximum drawdown is often more important than returns
 10. **Test over multiple time periods** - Market conditions change over time
 
+### 10. Adaptive Learning System (`adaptive_learning.py`) ⭐ NEW
+
+Self-learning capabilities that automatically adjust signal weights based on performance:
+- **Signal Performance Tracking** - Track each signal with its contributing indicators
+- **Adaptive Weight Adjustment** - Automatically adjust weights based on what works
+- **Indicator Attribution** - Identify which indicators contribute to wins/losses
+- **Learning Analytics** - Detailed reports on indicator and regime performance
+
+```python
+from back_tester.adaptive_learning import SelfLearningBacktester
+
+# Create self-learning backtester
+learner = SelfLearningBacktester(
+    storage_path="./data/learning",
+    auto_adjust_weights=True,
+    adjustment_frequency=50  # Adjust weights every 50 signals
+)
+
+# Get adaptive weights (these improve over time)
+weights = learner.get_current_weights()
+
+# Run backtest with learning enabled
+final_balance, trades, _ = backtest_strategy(
+    symbol="BTCUSDT",
+    interval="1h",
+    candles=500,
+    enable_learning=True,
+    learner=learner,
+)
+
+# View performance analytics
+learner.print_status()
+
+# Get detailed indicator performance
+indicator_perf = learner.tracker.get_indicator_performance()
+print(indicator_perf)
+
+# Identify what works
+strong = learner.tracker.identify_strong_indicators()
+weak = learner.tracker.identify_weak_indicators()
+print(f"Strong indicators: {strong}")
+print(f"Weak indicators: {weak}")
+```
+
+
+### Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    BACKTESTING FLOW                             │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌─────────────┐    ┌───────────────┐    ┌─────────────────┐    │
+│  │ Data Fetch  │───▶│Signal Generate│───▶│  Trade Execute  │    │
+│  └─────────────┘    └───────────────┘    └─────────────────┘    │
+│                            │                      │             │
+│                            ▼                      ▼             │
+│                   ┌──────────────┐    ┌─────────────────┐       │
+│                   │  Weights     │    │ Record Outcome  │       │
+│                   │  (18 total)  │    └─────────────────┘       │
+│                   └──────────────┘              │               │
+│                           ▲                     │               │
+│                           │                     ▼               │
+│                   ┌───────────────────────────────────┐         │
+│                   │     SELF-LEARNING SYSTEM          │         │
+│                   │  ┌─────────────────────────────┐  │         │
+│                   │  │ SignalPerformanceTracker    │  │         │
+│                   │  │ - Track indicator contrib   │  │         │
+│                   │  │ - Record signal outcomes    │  │         │
+│                   │  └─────────────────────────────┘  │         │
+│                   │               │                   │         │
+│                   │               ▼                   │         │
+│                   │  ┌─────────────────────────────┐  │         │
+│                   │  │ AdaptiveWeightAdjuster      │  │         │
+│                   │  │ - Calculate adjustments     │  │         │
+│                   │  │ - Apply momentum learning   │  │         │
+│                   │  └─────────────────────────────┘  │         │
+│                   └───────────────────────────────────┘         │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 11. Enhanced Metrics (`enhanced_metrics.py`) ⭐ NEW
+
+Comprehensive, informative metrics with indicator-level breakdown:
+- **Trade Attribution** - Track which indicators contributed to each trade
+- **Regime Analysis** - Performance breakdown by market regime
+- **Exit Type Analysis** - Understand where trades close (TP1, TP2, TP3, SL)
+- **Actionable Insights** - Get recommendations for improvement
+
+```python
+from back_tester.enhanced_metrics import EnhancedMetricsCalculator
+
+# Create metrics calculator
+calc = EnhancedMetricsCalculator()
+
+# After running backtests, print detailed report
+calc.print_detailed_report(initial_balance=10000, final_balance=10500)
+
+# Get comprehensive metrics
+metrics = calc.calculate_comprehensive_metrics(10000, 10500)
+print(f"Indicator Performance: {metrics['indicator_performance']}")
+print(f"Regime Performance: {metrics['regime_performance']}")
+print(f"Recommendations: {metrics['insights']['recommendations']}")
+```
+
+## How the Self-Learning System Works
+
+The self-learning system creates a feedback loop that improves signal quality over time:
+
+1. **Signal Generation** - When a signal is generated, the system records which indicators contributed to it
+2. **Outcome Tracking** - When the trade closes (TP1, TP2, TP3, stop loss, or end of period), the outcome is recorded
+3. **Attribution Analysis** - The system analyzes which indicators are associated with winning vs losing trades
+4. **Weight Adjustment** - Weights for consistently underperforming indicators are reduced, while weights for strong performers are increased
+5. **Continuous Improvement** - Over many trades, the system converges on optimal weights for current market conditions
+
+### Key Components
+
+| Component | Description |
+|-----------|-------------|
+| `SignalPerformanceTracker` | Tracks all signals with their outcomes and indicator contributions |
+| `AdaptiveWeightAdjuster` | Calculates and applies weight adjustments based on performance |
+| `LearningMetricsAnalyzer` | Generates reports and recommendations |
+| `SelfLearningBacktester` | Integrates all components for easy use |
+
+### Example Workflow
+
+```python
+# Step 1: Initialize the learning system
+from back_tester import SelfLearningBacktester, backtest_strategy
+
+learner = SelfLearningBacktester(auto_adjust_weights=True)
+
+# Step 2: Run multiple backtests to build data
+for symbol in ["BTCUSDT", "ETHUSDT", "BNBUSDT"]:
+    backtest_strategy(
+        symbol=symbol,
+        interval="1h",
+        enable_learning=True,
+        learner=learner
+    )
+
+# Step 3: View what the system learned
+report = learner.get_performance_report()
+print(f"Win Rate: {report['summary']['recent_win_rate']:.1f}%")
+print(f"Strong Indicators: {report['indicator_analysis']['strong_indicators']}")
+print(f"Weak Indicators: {report['indicator_analysis']['weak_indicators']}")
+
+# Step 4: Get updated weights for future use
+new_weights = learner.get_current_weights()
+print(f"Optimized weights: {new_weights}")
+```
+
 ## Next Steps for Improvement
 
-1. Implement machine learning for signal enhancement
-2. Add cross-validation for more robust parameter testing
-3. Implement portfolio-level backtesting for multiple assets
-4. Add regime switching capabilities based on market conditions
-5. Develop adaptive strategy selection based on market regime
+1. ~~Implement machine learning for signal enhancement~~ ✅ Done
+2. ~~Add self-learning weight adjustment~~ ✅ Done  
+3. ~~Implement indicator performance tracking~~ ✅ Done
+4. Add cross-validation for more robust parameter testing
+5. Implement portfolio-level backtesting for multiple assets
+6. Add regime switching capabilities based on market conditions
+7. Develop adaptive strategy selection based on market regime
 
 ## Backtesting Launcher Script
 

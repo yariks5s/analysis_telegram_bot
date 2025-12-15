@@ -27,6 +27,7 @@ class UserPreference:
     atr_period: int = 14
     fvg_min_size: float = 0.0005
     tutorial_stage: int = 0  # 0 = not started, 1+ = tutorial progress
+    language: str = "en"  # User's preferred language (en, ru, uk, de, fr, nl)
 
 
 @dataclass
@@ -89,7 +90,8 @@ def create_tables():
             dark_mode BOOLEAN DEFAULT 0,
             atr_period INTEGER DEFAULT 14,
             fvg_min_size REAL DEFAULT 0.0005,
-            tutorial_stage INTEGER DEFAULT 0
+            tutorial_stage INTEGER DEFAULT 0,
+            language VARCHAR DEFAULT 'en'
         )
         """
         )

@@ -1,0 +1,433 @@
+# English translations for CryptoBot
+# This is the primary language file - all keys should be defined here
+
+common:
+  done: "Done"
+  cancel: "Cancel"
+  save: "Save"
+  back: "Back"
+  continue: "Continue"
+  skip: "Skip"
+  finish: "Finish"
+  yes: "Yes"
+  no: "No"
+  error: "Error"
+  success: "Success"
+  loading: "Loading..."
+  no_data: "No data available"
+  
+language:
+  select_prompt: "🌐 Select your preferred language:"
+  changed: "✅ Language changed to English"
+  current: "Current language: English 🇬🇧"
+
+# Tutorial messages
+tutorial:
+  welcome:
+    title: "🎉 Welcome to CryptoBot!"
+    content: |
+      I'm your personal crypto market analysis assistant. I can help you analyze cryptocurrency charts with advanced technical indicators.
+      
+      This short tutorial will show you how to use my main features. You can skip the tutorial or come back to it anytime with the /tutorial command.
+  
+  chart:
+    title: "📊 Chart Analysis"
+    content: |
+      The basic command to get a chart analysis is:
+      
+      <code>/chart SYMBOL LENGTH INTERVAL TOLERANCE</code>
+      
+      For example: <code>/chart BTCUSDT 48 1h 0.05</code>
+      
+      This gives you a 48-candle, 1-hour chart for BTC/USDT with a tolerance of 0.05 for detecting liquidity levels.
+      
+      Try it out or continue to learn more features!
+  
+  preferences:
+    title: "⚙️ Customizing Indicators"
+    content: |
+      You can customize which indicators appear on your charts with the <code>/preferences</code> command.
+      
+      This opens an interactive menu where you can enable or disable:
+      • Order Blocks
+      • Fair Value Gaps (FVGs)
+      • Liquidity Levels
+      • Breaker Blocks
+      • And change display options
+      
+      Your preferences will be saved for future chart requests.
+  
+  signals:
+    title: "🔔 Automated Signals"
+    content: |
+      Want to receive automatic notifications? Set up signal alerts with:
+      
+      <code>/create_signal SYMBOL MINUTES [CHART]</code>
+      
+      For example: <code>/create_signal BTCUSDT 60 true</code>
+      
+      This will send you a notification with a chart every 60 minutes for BTC/USDT.
+      
+      You can manage your signals with the <code>/manage_signals</code> command.
+  
+  parameters:
+    title: "🔧 Advanced Parameters"
+    content: |
+      Fine-tune indicator parameters with the <code>/parameters</code> command.
+      
+      You can adjust:
+      • ATR Period: for calculating Average True Range
+      • FVG Min Size: minimum size for Fair Value Gaps
+      
+      These settings affect how indicators are calculated and displayed.
+  
+  completed:
+    title: "🚀 Tutorial Completed!"
+    content: |
+      Great job! You've completed the CryptoBot tutorial.
+      
+      Remember, you can always get help with:
+      • <code>/help</code> - General help information
+      • <code>/help COMMAND</code> - Help for a specific command
+      
+      Ready to start? Try <code>/chart BTCUSDT 48 1h 0.05</code> to see BTC/USDT analysis!
+  
+  buttons:
+    continue: "Continue"
+    skip_tutorial: "Skip Tutorial"
+    skip_to_end: "Skip to End"
+    complete: "Complete Tutorial"
+    view_commands: "View Available Commands"
+    back_to_tutorial: "Back to Tutorial"
+  
+  welcome_back:
+    title: "Welcome back to CryptoBot!"
+    content: |
+      You've already completed the tutorial. What would you like to do?
+      
+      • Get a chart with <code>/chart BTCUSDT 48 1h 0.05</code>
+      • Set preferences with <code>/preferences</code>
+      • Create signals with <code>/create_signal</code>
+      • Review the tutorial with <code>/tutorial</code>
+  
+  commands_list:
+    title: "Available Commands:"
+    content: |
+      <code>/chart</code> - Get a chart with indicators
+      <code>/text_result</code> - Get a text analysis
+      <code>/preferences</code> - Set indicator preferences
+      <code>/parameters</code> - Fine-tune indicator settings
+      <code>/create_signal</code> - Set up automatic signals
+      <code>/manage_signals</code> - Manage your signal alerts
+      <code>/help</code> - Get help with commands
+      <code>/tutorial</code> - Revisit this tutorial
+      <code>/language</code> - Change language
+  
+  happy_trading: "Happy trading! 📈\n\nUse <code>/help</code> anytime you need assistance."
+
+# Signal management
+signals:
+  manage_title: "Manage your signals:"
+  no_signals: "No signals found"
+  add_new: "➕ Add New Signal"
+  delete: "Delete {pair}"
+  deleted: "Signal deleted. Updated list:"
+  created: "Signal created! Current signals:"
+  active_count: "You have {count} active signal(s)."
+  
+  add_prompt: |
+    Please enter your desired signal in the format: 
+    
+    `SYMBOL INTERVAL [with_chart]`
+    
+    Example: `BTCUSDT 60` or `ETHUSDT 15 with_chart`
+    
+    SYMBOL should be a valid trading pair (e.g., BTCUSDT).
+    INTERVAL should be in minutes (e.g., 5, 15, 60).
+  
+  invalid_input: "Invalid input: {error}. Try again or /cancel."
+  limit_reached: "You have reached the maximum number of signals ({limit})."
+  
+  usage:
+    create: "Usage: /create_signal <symbol> <period_in_minutes> [<is_with_chart>], you've sent {count} argument(s)."
+    delete: "Usage: /delete_signal <symbol>"
+  
+  errors:
+    unexpected: "❌ An unexpected error occurred."
+    invalid_symbol: "❌ Invalid symbol: {symbol}"
+
+# Indicator preferences
+preferences:
+  select_prompt: "Please choose the indicators you'd like to include:"
+  selected: "You selected: {indicators}"
+  none_selected: "None"
+  
+  indicators:
+    order_blocks: "Order Blocks"
+    fvgs: "FVGs"
+    liquidity_levels: "Liquidity Levels"
+    breaker_blocks: "Breaker Blocks"
+    liquidity_pools: "Liquidity Pools"
+    show_legend: "Show Legend"
+    show_volume: "Show Volume"
+    dark_mode: "Dark Mode"
+    light_mode: "Light Mode"
+
+# Parameters
+parameters:
+  configure_title: "Configure indicator parameters:"
+  saved: "Parameter settings saved successfully!"
+  value_set: "{param} set to {value}."
+  
+  edit_prompt: |
+    Enter a new value for {param}:
+    
+    Current value: {current}
+    Valid range: {min} to {max} (step: {step})
+    
+    Reply with a number to set the new value.
+  
+  errors:
+    invalid_number: "Invalid input. Please enter a valid number for {param}."
+    out_of_range: "Value must be between {min} and {max}. Please try again."
+    no_session: "Sorry, I don't have an active parameter editing session. Please use /parameters to start over."
+    process_failed: "Sorry, I couldn't process that action. Please try again with /parameters."
+
+# Help messages
+help:
+  title: "CryptoBot Help"
+  main: |
+    Here are the main commands you can use:
+    
+    <b>/chart &lt;symbol&gt; &lt;length&gt; &lt;interval&gt; &lt;tolerance&gt;</b>
+    <b>/text_result &lt;symbol&gt; &lt;length&gt; &lt;interval&gt; &lt;tolerance&gt;</b>
+    <b>/history &lt;symbol&gt; &lt;length&gt; &lt;interval&gt; &lt;tolerance&gt; &lt;timestamp&gt;</b>
+    <b>/preferences</b>
+    <b>/create_signal &lt;symbol&gt; &lt;minutes&gt; [&lt;show_chart&gt;]</b>
+    <b>/delete_signal &lt;symbol&gt;</b>
+    <b>/manage_signals</b>
+    <b>/sql &lt;query&gt;</b>
+    <b>/tables</b>
+    <b>/schema &lt;table_name&gt;</b>
+    <b>/language</b>
+    <b>/help &lt;command&gt;</b>
+    
+    Type <code>/help &lt;command&gt;</code> to get detailed help for a specific command.
+    
+    Example: <code>/help chart</code>
+    
+    For more details, see the README or contact the maintainer (@yarik_is_working).
+  
+  commands:
+    parameters: |
+      <b>/parameters</b>
+      Open an interactive menu to customize indicator parameters.
+      
+      Available parameters:
+      - ATR Period: Adjust the period used for Average True Range calculations (1-50)
+      - FVG Min Size: Set the minimum size ratio for Fair Value Gaps (0.0001-0.01)
+      
+      Click on any parameter to modify its value.
+    
+    chart: |
+      <b>/chart &lt;symbol&gt; &lt;length&gt; &lt;interval&gt; &lt;tolerance&gt;</b>
+      Get a candlestick chart with all enabled indicators.
+      
+      - <b>symbol</b>: The trading pair, e.g. BTCUSDT
+      - <b>length</b>: Amount of candles to analyze (e.g. 48)
+      - <b>interval</b>: Candle interval (e.g. 1h, 15m)
+      - <b>tolerance</b>: Sensitivity for liquidity level detection (0-1, e.g. 0.05 = more levels, 0.2 = fewer, only strongest)
+      
+      Example: <code>/chart BTCUSDT 48 1h 0.05</code>
+      
+      The chart will include all indicators you have enabled in your preferences.
+    
+    text_result: |
+      <b>/text_result &lt;symbol&gt; &lt;length&gt; &lt;interval&gt; &lt;tolerance&gt;</b>
+      Get a text summary of all detected indicators for the specified symbol and timeframe.
+      
+      Example: <code>/text_result ETHUSDT 24 15m 0.03</code>
+    
+    history: |
+      <b>/history &lt;symbol&gt; &lt;length&gt; &lt;interval&gt; &lt;tolerance&gt; &lt;timestamp&gt;</b>
+      Get a candlestick chart for historical data at a specified timestamp.
+      
+      - <b>symbol</b>: The trading pair, e.g. BTCUSDT
+      - <b>length</b>: Number of candles to analyze
+      - <b>interval</b>: Candle interval (e.g., 1h, 15m)
+      - <b>tolerance</b>: Sensitivity for liquidity level detection (0-1)
+      - <b>timestamp</b>: Unix epoch seconds for the end of the period
+      
+      Example: <code>/history BTCUSDT 48 1h 0.05 1700000000</code>
+    
+    preferences: |
+      <b>/preferences</b>
+      Open an interactive menu to select which indicators to use and chart options.
+      
+      Available options:
+      - Technical indicators (Order Blocks, FVGs, Liquidity Levels, etc.)
+      - Display settings (Show Legend, Show Volume)
+      - Theme selection (Light/Dark mode)
+    
+    create_signal: |
+      <b>/create_signal &lt;symbol&gt; &lt;minutes&gt; [&lt;show_chart&gt;]</b>
+      Start receiving auto-signals for a pair at a given frequency (in minutes).
+      
+      - <b>symbol</b>: The trading pair, e.g. BTCUSDT
+      - <b>minutes</b>: Frequency in minutes to receive signals
+      - <b>show_chart</b> (optional): true/false, whether to include a chart with each signal (default: false)
+      
+      Example: <code>/create_signal BTCUSDT 60 true</code>
+      
+      You can have up to 10 active signal jobs per user.
+    
+    delete_signal: |
+      <b>/delete_signal &lt;symbol&gt;</b>
+      Stop auto-signals for a pair.
+      
+      Example: <code>/delete_signal BTCUSDT</code>
+    
+    manage_signals: |
+      <b>/manage_signals</b>
+      Open an interactive menu to view, add, or delete your signal jobs.
+      
+      You can have up to 10 active signal jobs per user.
+    
+    help: |
+      <b>/help</b>
+      Show the general help message.
+      
+      <b>/help &lt;command&gt;</b>
+      Show detailed help for a specific command.
+      
+      Example: <code>/help chart</code>
+    
+    sql: |
+      <b>/sql &lt;query&gt;</b>
+      Execute a custom SQL query against the database.
+      
+      Example queries:
+      - <code>/sql SELECT * FROM trades LIMIT 5</code>
+      - <code>/sql SELECT symbol, COUNT(*) as trades FROM trades GROUP BY symbol</code>
+      - <code>/sql SELECT AVG(profit_loss) as avg_profit FROM trades WHERE symbol = 'BTCUSDT'</code>
+      
+      Note: Results are limited to 50 rows for readability.
+    
+    tables: |
+      <b>/tables</b>
+      Show a list of all available tables in the database.
+      
+      Use this command to see what tables you can query with /sql.
+    
+    schema: |
+      <b>/schema &lt;table_name&gt;</b>
+      Show the schema (structure) of a specific table.
+      
+      Example: <code>/schema trades</code>
+      
+      This will show you all columns and their data types in the specified table.
+    
+    language: |
+      <b>/language</b>
+      Change the bot's language.
+      
+      Supported languages:
+      - 🇬🇧 English
+      - 🇷🇺 Русский (Russian)
+      - 🇺🇦 Українська (Ukrainian)
+      - 🇩🇪 Deutsch (German)
+      - 🇫🇷 Français (French)
+      - 🇳🇱 Nederlands (Dutch)
+
+# Error messages
+errors:
+  network: "Network error occurred. Please try again later."
+  data_fetch: "Failed to fetch data. Please check the symbol and try again."
+  data_processing: "Error processing data. Please try with different parameters."
+  chart_generation: "Error generating chart. Please try again with different settings."
+  invalid_input: "Invalid input provided. Please check your command syntax."
+  database: "Database operation failed. Please try again."
+  timeout: "Operation timed out. Please try again."
+  api_limit: "API rate limit reached. Please try again later."
+  permission: "You don't have permission to perform this action."
+  unknown: "An unexpected error occurred. Please try again later."
+  
+  global: |
+    ❌ An unexpected error occurred while processing your request. Please try again later.
+    
+    If you think this is a bug, please report it here: https://github.com/yariks5s/analysis_telegram_bot/issues
+  
+  preferences_failed: "Failed to retrieve user preferences. Please try setting your preferences again using /preferences."
+  analyze_failed: "Failed to analyze data. Please check your inputs and try again."
+  chart_send_failed: "Failed to send chart. Please try again."
+  signal_generation_failed: "Could not generate price prediction signal. Sending chart without analysis."
+  analysis_not_available: "Analysis not available"
+  invalid_timestamp: "❌ Invalid timestamp. Must be a Unix epoch timestamp in the past."
+  historical_usage: "Invalid command parameters. Usage: /history <symbol> <length> <interval> <tolerance> <timestamp>"
+
+# Rate limit status
+rate_limit:
+  title: "**Rate Limit Status**"
+  remaining: "• Remaining: {remaining}/{limit} requests{suffix}"
+  reset_in: "• Reset in: {seconds} seconds"
+  reduced_notice: "ℹ️ Your rate limit is temporarily reduced due to detected high-frequency activity. This will automatically return to normal after a cooling period."
+  footer: "The system uses rate limiting to ensure fair API usage for all users."
+  suspicious_suffix: " (reduced due to suspicious activity)"
+
+# Database commands
+database:
+  sql:
+    no_query: |
+      Please provide a SQL query.
+      Usage: /sql <query>
+      Example: /sql SELECT * FROM trades LIMIT 5
+    results: "Query Results:\n\n{results}"
+    success_no_results: "Query executed successfully. No results returned."
+    error: "❌ Error executing query: {error}"
+  
+  tables:
+    title: "Available tables:\n\n"
+    empty: "No tables found in the database."
+    error: "❌ Error: {error}"
+  
+  schema:
+    no_table: |
+      Please provide a table name.
+      Usage: /schema <table_name>
+      Example: /schema trades
+    title: "Schema for table '{table}':\n\n"
+    not_found: "No schema found for table '{table}'."
+    error: "❌ Error: {error}"
+
+# Signal history
+history:
+  title: "📜 *Your Signal History*"
+  filter_prompt: "\n\nFilter by time period or currency pair:"
+  no_signals: "No signal history found. Signals will be recorded when they are generated."
+  
+  periods:
+    last_24h: "Last 24h"
+    last_7d: "Last 7d"
+    last_30d: "Last 30d"
+  
+  filtered_title: "📜 *Signal History - Last {period}*"
+  pair_title: "📜 *Signal History - {pair}*"
+  
+  no_signals_period: "No signals found in the last {period}."
+  no_signals_pair: "No signals found for {pair}."
+  
+  show_all: "Show All"
+  showing_recent: "_Showing {count} most recent signals._"
+  
+  export:
+    csv: "Export CSV"
+    json: "Export JSON"
+    preparing: "Preparing {format} export..."
+    no_data: "No signal data available {description} to export."
+    caption: "📊 Signal history {description} exported as {format}"
+    for_pair: "for {pair}"
+    for_all: "for all pairs"
+    error: "Failed to export signal history as {format}"
+  
+  update_failed: "Couldn't update message"
+

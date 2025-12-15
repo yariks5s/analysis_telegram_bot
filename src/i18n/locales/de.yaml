@@ -1,0 +1,364 @@
+# German translations for CryptoBot
+# Deutsche Übersetzungen für CryptoBot
+
+common:
+  done: "Fertig"
+  cancel: "Abbrechen"
+  save: "Speichern"
+  back: "Zurück"
+  continue: "Weiter"
+  skip: "Überspringen"
+  finish: "Beenden"
+  yes: "Ja"
+  no: "Nein"
+  error: "Fehler"
+  success: "Erfolgreich"
+  loading: "Laden..."
+  no_data: "Keine Daten verfügbar"
+
+language:
+  select_prompt: "🌐 Wählen Sie Ihre bevorzugte Sprache:"
+  changed: "✅ Sprache auf Deutsch geändert"
+  current: "Aktuelle Sprache: Deutsch 🇩🇪"
+
+tutorial:
+  welcome:
+    title: "🎉 Willkommen bei CryptoBot!"
+    content: |
+      Ich bin Ihr persönlicher Assistent für Krypto-Marktanalysen. Ich kann Ihnen helfen, Kryptowährungs-Charts mit fortgeschrittenen technischen Indikatoren zu analysieren.
+      
+      Dieses kurze Tutorial zeigt Ihnen, wie Sie meine Hauptfunktionen nutzen können. Sie können das Tutorial überspringen oder jederzeit mit dem Befehl /tutorial darauf zurückkommen.
+
+  chart:
+    title: "📊 Chart-Analyse"
+    content: |
+      Der grundlegende Befehl für eine Chart-Analyse ist:
+      
+      <code>/chart SYMBOL LÄNGE INTERVALL TOLERANZ</code>
+      
+      Zum Beispiel: <code>/chart BTCUSDT 48 1h 0.05</code>
+      
+      Dies gibt Ihnen ein 48-Kerzen, 1-Stunden-Chart für BTC/USDT mit einer Toleranz von 0.05 für die Erkennung von Liquiditätsniveaus.
+      
+      Probieren Sie es aus oder fahren Sie fort, um mehr zu erfahren!
+
+  preferences:
+    title: "⚙️ Indikatoren anpassen"
+    content: |
+      Sie können mit dem Befehl <code>/preferences</code> anpassen, welche Indikatoren auf Ihren Charts erscheinen.
+      
+      Dies öffnet ein interaktives Menü, in dem Sie aktivieren oder deaktivieren können:
+      • Order Blocks
+      • Fair Value Gaps (FVGs)
+      • Liquiditätsniveaus
+      • Breaker Blocks
+      • Und Anzeigeoptionen ändern
+      
+      Ihre Einstellungen werden für zukünftige Anfragen gespeichert.
+
+  signals:
+    title: "🔔 Automatische Signale"
+    content: |
+      Möchten Sie automatische Benachrichtigungen erhalten? Richten Sie Signal-Alarme ein mit:
+      
+      <code>/create_signal SYMBOL MINUTEN [CHART]</code>
+      
+      Zum Beispiel: <code>/create_signal BTCUSDT 60 true</code>
+      
+      Dies sendet Ihnen alle 60 Minuten eine Benachrichtigung mit Chart für BTC/USDT.
+      
+      Sie können Ihre Signale mit dem Befehl <code>/manage_signals</code> verwalten.
+
+  parameters:
+    title: "🔧 Erweiterte Parameter"
+    content: |
+      Feinabstimmung der Indikator-Parameter mit dem Befehl <code>/parameters</code>.
+      
+      Sie können anpassen:
+      • ATR-Periode: für die Berechnung der Average True Range
+      • FVG Min. Größe: minimale Größe für Fair Value Gaps
+      
+      Diese Einstellungen beeinflussen, wie Indikatoren berechnet und angezeigt werden.
+
+  completed:
+    title: "🚀 Tutorial abgeschlossen!"
+    content: |
+      Großartig! Sie haben das CryptoBot-Tutorial abgeschlossen.
+      
+      Denken Sie daran, Sie können jederzeit Hilfe bekommen mit:
+      • <code>/help</code> - Allgemeine Hilfe
+      • <code>/help BEFEHL</code> - Hilfe für einen bestimmten Befehl
+      
+      Bereit anzufangen? Probieren Sie <code>/chart BTCUSDT 48 1h 0.05</code> für eine BTC/USDT-Analyse!
+
+  buttons:
+    continue: "Weiter"
+    skip_tutorial: "Tutorial überspringen"
+    skip_to_end: "Zum Ende springen"
+    complete: "Tutorial abschließen"
+    view_commands: "Befehle anzeigen"
+    back_to_tutorial: "Zurück zum Tutorial"
+
+  welcome_back:
+    title: "Willkommen zurück bei CryptoBot!"
+    content: |
+      Sie haben das Tutorial bereits abgeschlossen. Was möchten Sie tun?
+      
+      • Ein Chart erhalten: <code>/chart BTCUSDT 48 1h 0.05</code>
+      • Einstellungen festlegen: <code>/preferences</code>
+      • Signale erstellen: <code>/create_signal</code>
+      • Tutorial wiederholen: <code>/tutorial</code>
+
+  commands_list:
+    title: "Verfügbare Befehle:"
+    content: |
+      <code>/chart</code> - Chart mit Indikatoren erhalten
+      <code>/text_result</code> - Textanalyse erhalten
+      <code>/preferences</code> - Indikator-Einstellungen
+      <code>/parameters</code> - Indikator-Feineinstellungen
+      <code>/create_signal</code> - Automatische Signale einrichten
+      <code>/manage_signals</code> - Signale verwalten
+      <code>/help</code> - Hilfe erhalten
+      <code>/tutorial</code> - Tutorial wiederholen
+      <code>/language</code> - Sprache ändern
+
+  happy_trading: "Viel Erfolg beim Trading! 📈\n\nVerwenden Sie <code>/help</code> für Hilfe."
+
+signals:
+  manage_title: "Signale verwalten:"
+  no_signals: "Keine Signale gefunden"
+  add_new: "➕ Neues Signal hinzufügen"
+  delete: "{pair} löschen"
+  deleted: "Signal gelöscht. Aktualisierte Liste:"
+  created: "Signal erstellt! Aktuelle Signale:"
+  active_count: "Sie haben {count} aktive(s) Signal(e)."
+
+  add_prompt: |
+    Bitte geben Sie Ihr gewünschtes Signal im Format ein:
+    
+    `SYMBOL INTERVALL [with_chart]`
+    
+    Beispiel: `BTCUSDT 60` oder `ETHUSDT 15 with_chart`
+    
+    SYMBOL sollte ein gültiges Handelspaar sein (z.B. BTCUSDT).
+    INTERVALL sollte in Minuten angegeben werden (z.B. 5, 15, 60).
+
+  invalid_input: "Ungültige Eingabe: {error}. Versuchen Sie es erneut oder /cancel."
+  limit_reached: "Sie haben die maximale Anzahl von Signalen erreicht ({limit})."
+
+  usage:
+    create: "Verwendung: /create_signal <symbol> <minuten> [<mit_chart>], Sie haben {count} Argument(e) gesendet."
+    delete: "Verwendung: /delete_signal <symbol>"
+
+  errors:
+    unexpected: "❌ Ein unerwarteter Fehler ist aufgetreten."
+    invalid_symbol: "❌ Ungültiges Symbol: {symbol}"
+
+preferences:
+  select_prompt: "Bitte wählen Sie die Indikatoren, die Sie einschließen möchten:"
+  selected: "Sie haben gewählt: {indicators}"
+  none_selected: "Keine"
+
+  indicators:
+    order_blocks: "Order Blocks"
+    fvgs: "FVGs"
+    liquidity_levels: "Liquiditätsniveaus"
+    breaker_blocks: "Breaker Blocks"
+    liquidity_pools: "Liquiditätspools"
+    show_legend: "Legende anzeigen"
+    show_volume: "Volumen anzeigen"
+    dark_mode: "Dunkelmodus"
+    light_mode: "Hellmodus"
+
+parameters:
+  configure_title: "Indikator-Parameter konfigurieren:"
+  saved: "Parameter-Einstellungen erfolgreich gespeichert!"
+  value_set: "{param} auf {value} gesetzt."
+
+  edit_prompt: |
+    Geben Sie einen neuen Wert für {param} ein:
+    
+    Aktueller Wert: {current}
+    Gültiger Bereich: {min} bis {max} (Schritt: {step})
+    
+    Antworten Sie mit einer Zahl, um den neuen Wert festzulegen.
+
+  errors:
+    invalid_number: "Ungültige Eingabe. Bitte geben Sie eine gültige Zahl für {param} ein."
+    out_of_range: "Der Wert muss zwischen {min} und {max} liegen. Bitte versuchen Sie es erneut."
+    no_session: "Entschuldigung, ich habe keine aktive Bearbeitungssitzung. Bitte verwenden Sie /parameters, um neu zu beginnen."
+    process_failed: "Entschuldigung, ich konnte diese Aktion nicht verarbeiten. Bitte versuchen Sie es erneut mit /parameters."
+
+help:
+  title: "CryptoBot Hilfe"
+  main: |
+    Hier sind die Hauptbefehle, die Sie verwenden können:
+    
+    <b>/chart &lt;symbol&gt; &lt;länge&gt; &lt;intervall&gt; &lt;toleranz&gt;</b>
+    <b>/text_result &lt;symbol&gt; &lt;länge&gt; &lt;intervall&gt; &lt;toleranz&gt;</b>
+    <b>/history &lt;symbol&gt; &lt;länge&gt; &lt;intervall&gt; &lt;toleranz&gt; &lt;zeitstempel&gt;</b>
+    <b>/preferences</b>
+    <b>/create_signal &lt;symbol&gt; &lt;minuten&gt; [&lt;mit_chart&gt;]</b>
+    <b>/delete_signal &lt;symbol&gt;</b>
+    <b>/manage_signals</b>
+    <b>/sql &lt;abfrage&gt;</b>
+    <b>/tables</b>
+    <b>/schema &lt;tabellenname&gt;</b>
+    <b>/language</b>
+    <b>/help &lt;befehl&gt;</b>
+    
+    Geben Sie <code>/help &lt;befehl&gt;</code> für detaillierte Hilfe ein.
+    
+    Beispiel: <code>/help chart</code>
+    
+    Für mehr Details siehe README oder kontaktieren Sie den Maintainer (@yarik_is_working).
+
+  commands:
+    parameters: |
+      <b>/parameters</b>
+      Öffnen Sie ein interaktives Menü zur Anpassung der Indikator-Parameter.
+
+    chart: |
+      <b>/chart &lt;symbol&gt; &lt;länge&gt; &lt;intervall&gt; &lt;toleranz&gt;</b>
+      Erhalten Sie ein Kerzen-Chart mit allen aktivierten Indikatoren.
+      
+      Beispiel: <code>/chart BTCUSDT 48 1h 0.05</code>
+
+    text_result: |
+      <b>/text_result &lt;symbol&gt; &lt;länge&gt; &lt;intervall&gt; &lt;toleranz&gt;</b>
+      Erhalten Sie eine Textzusammenfassung aller erkannten Indikatoren.
+      
+      Beispiel: <code>/text_result ETHUSDT 24 15m 0.03</code>
+
+    history: |
+      <b>/history &lt;symbol&gt; &lt;länge&gt; &lt;intervall&gt; &lt;toleranz&gt; &lt;zeitstempel&gt;</b>
+      Erhalten Sie ein Kerzen-Chart für historische Daten zu einem bestimmten Zeitstempel.
+      
+      Beispiel: <code>/history BTCUSDT 48 1h 0.05 1700000000</code>
+
+    preferences: |
+      <b>/preferences</b>
+      Öffnen Sie ein interaktives Menü zur Auswahl der Indikatoren und Chart-Optionen.
+
+    create_signal: |
+      <b>/create_signal &lt;symbol&gt; &lt;minuten&gt; [&lt;mit_chart&gt;]</b>
+      Beginnen Sie, automatische Signale für ein Paar mit einer bestimmten Frequenz zu erhalten.
+      
+      Beispiel: <code>/create_signal BTCUSDT 60 true</code>
+
+    delete_signal: |
+      <b>/delete_signal &lt;symbol&gt;</b>
+      Stoppen Sie automatische Signale für ein Paar.
+
+    manage_signals: |
+      <b>/manage_signals</b>
+      Öffnen Sie ein interaktives Menü zum Anzeigen, Hinzufügen oder Löschen Ihrer Signale.
+
+    help: |
+      <b>/help</b>
+      Zeigen Sie die allgemeine Hilfemeldung an.
+
+    sql: |
+      <b>/sql &lt;abfrage&gt;</b>
+      Führen Sie eine SQL-Abfrage gegen die Datenbank aus.
+
+    tables: |
+      <b>/tables</b>
+      Zeigen Sie eine Liste aller verfügbaren Tabellen in der Datenbank.
+
+    schema: |
+      <b>/schema &lt;tabellenname&gt;</b>
+      Zeigen Sie das Schema einer bestimmten Tabelle.
+
+    language: |
+      <b>/language</b>
+      Ändern Sie die Sprache des Bots.
+
+errors:
+  network: "Netzwerkfehler aufgetreten. Bitte versuchen Sie es später erneut."
+  data_fetch: "Daten konnten nicht abgerufen werden. Bitte überprüfen Sie das Symbol und versuchen Sie es erneut."
+  data_processing: "Fehler bei der Datenverarbeitung. Bitte versuchen Sie es mit anderen Parametern."
+  chart_generation: "Fehler bei der Chart-Generierung. Bitte versuchen Sie es mit anderen Einstellungen."
+  invalid_input: "Ungültige Eingabe. Bitte überprüfen Sie die Befehlssyntax."
+  database: "Datenbankoperation fehlgeschlagen. Bitte versuchen Sie es erneut."
+  timeout: "Zeitüberschreitung. Bitte versuchen Sie es erneut."
+  api_limit: "API-Ratenlimit erreicht. Bitte versuchen Sie es später erneut."
+  permission: "Sie haben keine Berechtigung für diese Aktion."
+  unknown: "Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es später erneut."
+
+  global: |
+    ❌ Bei der Verarbeitung Ihrer Anfrage ist ein unerwarteter Fehler aufgetreten. Bitte versuchen Sie es später erneut.
+    
+    Wenn Sie denken, dass dies ein Fehler ist, melden Sie ihn hier: https://github.com/yariks5s/analysis_telegram_bot/issues
+
+  preferences_failed: "Einstellungen konnten nicht abgerufen werden. Bitte setzen Sie sie erneut über /preferences."
+  analyze_failed: "Daten konnten nicht analysiert werden. Bitte überprüfen Sie Ihre Eingaben und versuchen Sie es erneut."
+  chart_send_failed: "Chart konnte nicht gesendet werden. Bitte versuchen Sie es erneut."
+  signal_generation_failed: "Preisvorhersage-Signal konnte nicht generiert werden. Sende Chart ohne Analyse."
+  analysis_not_available: "Analyse nicht verfügbar"
+  invalid_timestamp: "❌ Ungültiger Zeitstempel. Muss ein Unix-Zeitstempel in der Vergangenheit sein."
+  historical_usage: "Ungültige Parameter. Verwendung: /history <symbol> <länge> <intervall> <toleranz> <zeitstempel>"
+
+rate_limit:
+  title: "**Ratenlimit-Status**"
+  remaining: "• Verbleibend: {remaining}/{limit} Anfragen{suffix}"
+  reset_in: "• Zurücksetzung in: {seconds} Sekunden"
+  reduced_notice: "ℹ️ Ihr Ratenlimit wurde aufgrund erkannter hochfrequenter Aktivität vorübergehend reduziert. Es wird nach einer Abkühlphase automatisch wieder normal."
+  footer: "Das System verwendet Ratenlimits, um eine faire API-Nutzung für alle Benutzer zu gewährleisten."
+  suspicious_suffix: " (reduziert wegen verdächtiger Aktivität)"
+
+database:
+  sql:
+    no_query: |
+      Bitte geben Sie eine SQL-Abfrage an.
+      Verwendung: /sql <abfrage>
+      Beispiel: /sql SELECT * FROM trades LIMIT 5
+    results: "Abfrageergebnisse:\n\n{results}"
+    success_no_results: "Abfrage erfolgreich ausgeführt. Keine Ergebnisse zurückgegeben."
+    error: "❌ Fehler bei der Abfrageausführung: {error}"
+
+  tables:
+    title: "Verfügbare Tabellen:\n\n"
+    empty: "Keine Tabellen in der Datenbank gefunden."
+    error: "❌ Fehler: {error}"
+
+  schema:
+    no_table: |
+      Bitte geben Sie einen Tabellennamen an.
+      Verwendung: /schema <tabellenname>
+      Beispiel: /schema trades
+    title: "Schema für Tabelle '{table}':\n\n"
+    not_found: "Kein Schema für Tabelle '{table}' gefunden."
+    error: "❌ Fehler: {error}"
+
+history:
+  title: "📜 *Ihre Signalhistorie*"
+  filter_prompt: "\n\nFiltern nach Zeitraum oder Währungspaar:"
+  no_signals: "Keine Signalhistorie gefunden. Signale werden bei ihrer Generierung aufgezeichnet."
+
+  periods:
+    last_24h: "Letzte 24h"
+    last_7d: "Letzte 7T"
+    last_30d: "Letzte 30T"
+
+  filtered_title: "📜 *Signalhistorie - Letzte {period}*"
+  pair_title: "📜 *Signalhistorie - {pair}*"
+
+  no_signals_period: "Keine Signale in den letzten {period} gefunden."
+  no_signals_pair: "Keine Signale für {pair} gefunden."
+
+  show_all: "Alle anzeigen"
+  showing_recent: "_Zeige {count} neueste Signale._"
+
+  export:
+    csv: "CSV exportieren"
+    json: "JSON exportieren"
+    preparing: "Bereite {format}-Export vor..."
+    no_data: "Keine Signaldaten {description} zum Exportieren verfügbar."
+    caption: "📊 Signalhistorie {description} als {format} exportiert"
+    for_pair: "für {pair}"
+    for_all: "für alle Paare"
+    error: "Signalhistorie konnte nicht als {format} exportiert werden"
+
+  update_failed: "Nachricht konnte nicht aktualisiert werden"
+
