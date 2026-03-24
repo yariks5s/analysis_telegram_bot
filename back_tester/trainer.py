@@ -45,22 +45,27 @@ logger.propagate = False
 db = ClickHouseDB()
 
 # --- Initial Weight Configuration ---
-# Updated for new weights including risk management signals
+# Updated for all 18 weights matching signal_detection.py
 weights = [
-    1.0,  # W_BULLISH_OB
-    1.0,  # W_BEARISH_OB
-    1.0,  # W_BULLISH_BREAKER
-    1.0,  # W_BEARISH_BREAKER
-    0.7,  # W_ABOVE_SUPPORT
-    0.7,  # W_BELOW_RESISTANCE
-    0.5,  # W_FVG_ABOVE
-    0.5,  # W_FVG_BELOW
-    0.8,  # W_TREND
-    1.2,  # W_SWEEP_HIGHS
-    1.2,  # W_SWEEP_LOWS
-    1.5,  # W_STRUCTURE_BREAK
-    0.6,  # W_PIN_BAR
-]  # Updated for new weights
+    1.0,  # W_BULLISH_OB (0)
+    1.0,  # W_BEARISH_OB (1)
+    1.0,  # W_BULLISH_BREAKER (2)
+    1.0,  # W_BEARISH_BREAKER (3)
+    0.7,  # W_ABOVE_SUPPORT (4)
+    0.7,  # W_BELOW_RESISTANCE (5)
+    0.5,  # W_FVG_ABOVE (6)
+    0.5,  # W_FVG_BELOW (7)
+    0.8,  # W_TREND (8)
+    1.2,  # W_SWEEP_HIGHS (9)
+    1.2,  # W_SWEEP_LOWS (10)
+    1.5,  # W_STRUCTURE_BREAK (11)
+    0.6,  # W_PIN_BAR (12)
+    0.6,  # W_ENGULFING (13)
+    1.2,  # W_LIQUIDITY_POOL_ABOVE (14)
+    1.2,  # W_LIQUIDITY_POOL_BELOW (15)
+    1.5,  # W_LIQUIDITY_POOL_ROUND (16)
+    0.6,  # W_RSI_EXTREME (17)
+]
 
 learning_rate = 0.05
 iterations = 1000
@@ -76,6 +81,15 @@ min_learning_rate = 0.001
 max_learning_rate = 0.1
 patience = 50
 history_size = 10
+
+# Weight names for tracking and logging
+WEIGHT_NAMES = [
+    "W_BULLISH_OB", "W_BEARISH_OB", "W_BULLISH_BREAKER", "W_BEARISH_BREAKER",
+    "W_ABOVE_SUPPORT", "W_BELOW_RESISTANCE", "W_FVG_ABOVE", "W_FVG_BELOW",
+    "W_TREND", "W_SWEEP_HIGHS", "W_SWEEP_LOWS", "W_STRUCTURE_BREAK",
+    "W_PIN_BAR", "W_ENGULFING", "W_LIQUIDITY_POOL_ABOVE", "W_LIQUIDITY_POOL_BELOW",
+    "W_LIQUIDITY_POOL_ROUND", "W_RSI_EXTREME"
+]
 
 
 class TrainingMetrics:
@@ -353,7 +367,8 @@ def evaluate_weights(
 
 
 def optimize_weights(
-    weights: List[float], iterations: int, learning_rate: float
+    weights: List[float], iterations: int, learning_rate: float,
+    test_pairs: Optional[List[str]] = None,
 ) -> List[float]:
     """Optimize weights using gradient descent with momentum"""
     best_weights = weights.copy()
@@ -363,7 +378,7 @@ def optimize_weights(
     iteration_id = str(uuid.uuid4())
 
     # Initial evaluation
-    fitness, metrics = evaluate_weights(best_weights, iteration_id=iteration_id)
+    fitness, metrics = evaluate_weights(best_weights, test_pairs=test_pairs, iteration_id=iteration_id)
     if fitness > best_fitness:
         best_fitness = fitness
         logger.info(f"Initial fitness: {fitness:.2f}")
@@ -389,7 +404,7 @@ def optimize_weights(
         test_weights = [max(0, min(2.0, w + p)) for w, p in zip(weights, perturbations)]
 
         # Evaluate fitness
-        fitness, metrics = evaluate_weights(test_weights, iteration_id=iteration_id)
+        fitness, metrics = evaluate_weights(test_weights, test_pairs=test_pairs, iteration_id=iteration_id)
 
         if fitness > best_fitness:
             best_fitness = fitness
@@ -440,9 +455,38 @@ def optimize_weights(
 
 
 if __name__ == "__main__":
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description="Train signal weights for CryptoBot")
+    parser.add_argument(
+        "--symbol", type=str, default=None, help="Focus training on this trading pair (default: all pairs)"
+    )
+    parser.add_argument(
+        "--interval", type=str, default="1h", help="Primary candle interval"
+    )
+    parser.add_argument(
+        "--iterations", type=int, default=1000, help="Number of training iterations"
+    )
+    parser.add_argument(
+        "--risk", type=float, default=1.0, help="Risk percentage per trade"
+    )
+    parser.add_argument(
+        "--learning-rate", type=float, default=0.05, help="Learning rate for weight updates"
+    )
+    args = parser.parse_args()
+
+    # Update global parameters from args
+    iterations = args.iterations
+    risk_percentage = args.risk
+    learning_rate = args.learning_rate
+
     # Train the model
     try:
-        best_weights = optimize_weights(weights, iterations, learning_rate)
+        symbol_label = f"{args.symbol} {args.interval}" if args.symbol else "all pairs"
+        logger.info(f"Starting weight optimization for {symbol_label}")
+        logger.info(f"Iterations: {iterations}, Risk: {risk_percentage}%, Learning rate: {learning_rate}")
+        
+        test_pairs = [args.symbol] if args.symbol else None
+        best_weights = optimize_weights(weights, iterations, learning_rate, test_pairs=test_pairs)
         logger.info(f"Training completed successfully")
 
         # Evaluate final performance
@@ -454,17 +498,22 @@ if __name__ == "__main__":
         weights_file = f"models/weights_{timestamp}.txt"
         os.makedirs("models", exist_ok=True)
 
+
         with open(weights_file, "w") as f:
             f.write(
-                f"# Optimized weights for {args.symbol} {args.interval} at {timestamp}\n"
+                f"# Optimized weights for {symbol_label} at {timestamp}\n"
             )
             f.write(f"# Fitness: {fitness:.4f}\n")
-            f.write(f"# Risk: {risk_percentage}\n\n")
+            f.write(f"# Risk: {risk_percentage}%\n")
+            f.write(f"# Iterations: {iterations}\n\n")
             for i, w in enumerate(best_weights):
-                f.write(f"W{i} = {w:.6f}\n")
+                name = WEIGHT_NAMES[i] if i < len(WEIGHT_NAMES) else f"W{i}"
+                f.write(f"{name} = {w:.6f}\n")
 
         logger.info(f"Weights saved to {weights_file}")
 
     except Exception as e:
         logger.error(f"Training failed: {str(e)}")
+        import traceback
+        traceback.print_exc()
         sys.exit(1)

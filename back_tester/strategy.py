@@ -1,30 +1,39 @@
 import os
 import sys
-from typing import List, Tuple, Optional, Dict
+from typing import List, Tuple, Optional, Dict, Any, Set
 import random
 from datetime import datetime, timedelta
 import uuid
+import logging
 
 project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-sys.path.append(project_dir)
+if project_dir not in sys.path:
+    sys.path.insert(0, project_dir)
 
 import pandas as pd  # type: ignore
 
-# These imports use the system path we added above
-from data_fetching_instruments import fetch_candles, analyze_data
-from signal_detection import (
+from src.analysis.utils.helpers import fetch_candles
+from src.telegram.signals.detection import (
+    analyze_data,
     generate_price_prediction_signal_proba,
     TradingSignal,
     calculate_position_size,
 )
-import sys
-import os
+from src.core.utils import create_true_preferences
 
-project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-if project_dir not in sys.path:
-    sys.path.append(project_dir)
-from utils import create_true_preferences
-from .db_operations import ClickHouseDB
+# Import self-learning modules (optional - graceful fallback if not available)
+try:
+    from .adaptive_learning import (
+        SelfLearningBacktester,
+        extract_indicator_contributions,
+        SignalOutcome
+    )
+    from .enhanced_metrics import EnhancedMetricsCalculator, TradeMetrics, create_trade_metrics
+    LEARNING_AVAILABLE = True
+except ImportError:
+    LEARNING_AVAILABLE = False
+
+logger = logging.getLogger(__name__)
 
 
 def backtest_strategy(
@@ -39,14 +48,22 @@ def backtest_strategy(
     use_trailing_stop: bool = True,
     trailing_stop_distance_percent: float = 0.5,  # Distance to maintain from highest price
     iteration_id: Optional[str] = None,
-    db: Optional[ClickHouseDB] = None,
+    db: Optional[Any] = None,
+    # Self-learning parameters
+    enable_learning: bool = False,
+    learner: Optional[Any] = None,  # SelfLearningBacktester instance
+    metrics_calculator: Optional[Any] = None,  # EnhancedMetricsCalculator instance
+    track_indicator_contributions: bool = True,
+    # Pattern filtering
+    disabled_patterns: Optional[Set[str]] = None,  # Set of pattern names to skip
 ) -> Tuple[float, list, Optional[str]]:
     """
-    Backtest a strategy with risk management:
+    Backtest a strategy with risk management and optional self-learning:
       - At each step, generate a signal with risk management parameters
       - Use position sizing based on risk percentage
       - Implement multiple take profit levels
       - Use dynamic stop loss and trailing stop loss
+      - Optionally track signal performance for self-learning
 
     Parameters:
       symbol: The trading pair symbol (e.g. "BTCUSDT")
@@ -59,6 +76,10 @@ def backtest_strategy(
       weights: List of weights for signal generation
       use_trailing_stop: Whether to enable trailing stop loss functionality
       trailing_stop_distance_percent: Distance in percentage to maintain from highest price reached
+      enable_learning: Whether to enable self-learning feedback loop
+      learner: SelfLearningBacktester instance for tracking signals
+      metrics_calculator: EnhancedMetricsCalculator for detailed metrics
+      track_indicator_contributions: Whether to track which indicators contributed to each signal
 
     Returns:
       final_balance: The simulated portfolio balance at the end
@@ -97,6 +118,27 @@ def backtest_strategy(
     entry_signal = None
     current_trade = None  # Store current trade details
     parent_trade_id = None  # Track parent trade for TP/SL entries
+    
+    # Self-learning tracking variables
+    current_signal_id = None
+    current_indicator_contributions = {}
+    current_market_context = {}
+    max_favorable_excursion = 0.0
+    max_adverse_excursion = 0.0
+    
+    # Initialize learning components if enabled
+    if enable_learning and LEARNING_AVAILABLE and learner is None:
+        learner = SelfLearningBacktester(
+            storage_path="./data/learning",
+            auto_adjust_weights=True,
+            adjustment_frequency=50
+        )
+        # Use adaptive weights if available
+        if not weights:
+            weights = learner.get_current_weights()
+    
+    if enable_learning and LEARNING_AVAILABLE and metrics_calculator is None:
+        metrics_calculator = EnhancedMetricsCalculator()
 
     # Use all indicators enabled by default in backtesting
     preferences = create_true_preferences()
@@ -313,6 +355,17 @@ def backtest_strategy(
                     }
                     db.insert_trade(trade_data)
 
+                # Record outcome for self-learning (TP3 - full target hit)
+                if enable_learning and LEARNING_AVAILABLE and learner and current_signal_id:
+                    learner.record_signal_exit(
+                        signal_id=current_signal_id,
+                        outcome="tp3",
+                        exit_price=current_price,
+                        profit_loss=profit,
+                        duration=i - entry_index
+                    )
+                    current_signal_id = None
+
                 position = 0
                 entry_price = None
                 entry_time = None
@@ -397,6 +450,17 @@ def backtest_strategy(
                     }
                     db.insert_trade(trade_data)
 
+                # Record outcome for self-learning (stop loss)
+                if enable_learning and LEARNING_AVAILABLE and learner and current_signal_id:
+                    learner.record_signal_exit(
+                        signal_id=current_signal_id,
+                        outcome="trailing_stop" if current_trade.get("trailing_stop_active", False) else "stop_loss",
+                        exit_price=current_price,
+                        profit_loss=loss,
+                        duration=i - entry_index
+                    )
+                    current_signal_id = None
+                
                 position = 0
                 entry_price = None
                 entry_time = None
@@ -406,7 +470,56 @@ def backtest_strategy(
                 parent_trade_id = None
 
         # Handle new signal
-        if signal == "Bullish" and position == 0 and trading_signal:
+        # Get confidence threshold from weights (index 18) or use default 0.3
+        confidence_threshold = weights[18] if len(weights) > 18 else 0.3
+        # Clamp confidence threshold to valid range [0.1, 0.9]
+        confidence_threshold = max(0.1, min(0.9, confidence_threshold))
+        
+        if signal == "Bullish" and position == 0 and trading_signal and confidence >= confidence_threshold:
+            # Check for disabled patterns
+            if disabled_patterns and reason:
+                reason_lower = reason.lower()
+                # Pattern keywords mapping (subset for quick check)
+                pattern_keywords = {
+                    "bullish order block": "Bullish Order Block",
+                    "bearish order block": "Bearish Order Block", 
+                    "bullish breaker block": "Bullish Breaker Block",
+                    "bearish breaker block": "Bearish Breaker Block",
+                    "breaker block": "Breaker Block",
+                    "order block": "Order Block",
+                    "fvg below": "FVG Below",
+                    "fvg above": "FVG Above",
+                    "unfilled fvg": "FVG",
+                    "near support": "Support Level",
+                    "near resistance": "Resistance Level",
+                    "swept through previous highs": "Liquidity Sweep (Highs)",
+                    "swept through previous lows": "Liquidity Sweep (Lows)",
+                    "broke structure upward": "Structure Break (Bullish)",
+                    "broke structure downward": "Structure Break (Bearish)",
+                    "broke structure": "Structure Break",
+                    "bullish pin bar": "Bullish Pin Bar",
+                    "bearish engulfing": "Bearish Engulfing",
+                    "pin bar": "Pin Bar",
+                    "engulfing": "Engulfing Pattern",
+                    "rsi oversold": "RSI Oversold",
+                    "rsi overbought": "RSI Overbought",
+                    "liquidity pool": "Liquidity Pool",
+                }
+                
+                # Detect patterns in reason
+                detected_patterns = []
+                for keyword, pattern_name in pattern_keywords.items():
+                    if keyword in reason_lower and pattern_name not in detected_patterns:
+                        detected_patterns.append(pattern_name)
+                
+                # Check if any disabled pattern is present
+                disabled_found = [p for p in detected_patterns if p in disabled_patterns]
+                
+                # Skip if majority of detected patterns are disabled
+                if disabled_found and len(disabled_found) >= len(detected_patterns) / 2:
+                    print(f"[Index {i}] {symbol}: SKIPPED - Disabled pattern(s): {', '.join(disabled_found)}")
+                    continue
+            
             # Validate price is reasonable
             if current_price < 0.00000001:  # Skip if price is too small
                 continue
@@ -436,9 +549,11 @@ def backtest_strategy(
             entry_signal = signal
             parent_trade_id = str(uuid.uuid4())  # Generate parent trade ID
 
-            # Store trade details
+            # Store trade details with trailing stop initialization
+            trailing_activation_price = float(trading_signal.take_profit_1)  # Activate at TP1
             current_trade = {
                 "stop_loss": float(trading_signal.stop_loss),
+                "initial_stop_loss": float(trading_signal.stop_loss),  # Store initial stop for comparison
                 "take_profit_1": float(trading_signal.take_profit_1),
                 "take_profit_2": float(trading_signal.take_profit_2),
                 "take_profit_3": float(trading_signal.take_profit_3),
@@ -448,6 +563,11 @@ def backtest_strategy(
                 "tp1_hit": False,
                 "tp2_hit": False,
                 "tp3_hit": False,
+                # Trailing stop fields
+                "highest_price": float(current_price),  # Track highest price reached
+                "trailing_stop_active": False,  # Whether trailing stop is active
+                "trailing_activation_price": trailing_activation_price,  # Price at which trailing stop activates
+                "trailing_stop_level": float(trading_signal.stop_loss),  # Current trailing stop level
             }
 
             trade_log.append(
@@ -456,14 +576,70 @@ def backtest_strategy(
                     "price": float(entry_price),
                     "index": int(i),
                     "signal": f"{signal} - {reason.splitlines()[0]}",
+                    "reason": reason,  # Full reason for pattern detection
                     "timestamp": current_time,
                     "amount": float(position),
                     "stop_loss": float(trading_signal.stop_loss),
                     "take_profit_1": float(trading_signal.take_profit_1),
                     "take_profit_2": float(trading_signal.take_profit_2),
                     "take_profit_3": float(trading_signal.take_profit_3),
+                    "symbol": symbol,
+                    "interval": interval,
                 }
             )
+            
+            # Track signal for self-learning
+            if enable_learning and LEARNING_AVAILABLE and learner:
+                # Parse reasons to extract indicator contributions
+                reasons_list = reason.split("\n- ") if reason else []
+                reasons_list = [r.strip("- \n") for r in reasons_list if r.strip()]
+                
+                # Extract bullish/bearish scores from reason string
+                bullish_score = 0.0
+                bearish_score = 0.0
+                if "Bullish Score:" in reason:
+                    try:
+                        bullish_part = reason.split("Bullish Score:")[1].split("|")[0]
+                        bullish_score = float(bullish_part.strip())
+                    except:
+                        pass
+                if "Bearish Score:" in reason:
+                    try:
+                        bearish_part = reason.split("Bearish Score:")[1].split("\n")[0]
+                        bearish_score = float(bearish_part.strip())
+                    except:
+                        pass
+                
+                current_indicator_contributions = extract_indicator_contributions(
+                    bullish_score, bearish_score, signal, reasons_list
+                )
+                
+                current_market_context = {
+                    "market_regime": trading_signal.market_conditions.get("market_regime", ""),
+                    "volatility": trading_signal.market_conditions.get("volatility", 0),
+                    "volume_ratio": trading_signal.market_conditions.get("volume_ratio", 1),
+                    "rsi": trading_signal.market_conditions.get("rsi", 50),
+                    "trend": "uptrend" if signal == "Bullish" else "downtrend"
+                }
+                
+                current_signal_id = str(uuid.uuid4())
+                max_favorable_excursion = 0.0
+                max_adverse_excursion = 0.0
+                
+                learner.record_signal_entry(
+                    signal_id=current_signal_id,
+                    symbol=symbol,
+                    interval=interval,
+                    signal_type=signal,
+                    entry_price=entry_price,
+                    stop_loss=float(trading_signal.stop_loss),
+                    tp1=float(trading_signal.take_profit_1),
+                    tp2=float(trading_signal.take_profit_2),
+                    tp3=float(trading_signal.take_profit_3),
+                    indicator_contributions=current_indicator_contributions,
+                    reasons=reasons_list,
+                    market_context=current_market_context
+                )
 
             # Store entry trade in database
             if db:
@@ -551,6 +727,20 @@ def backtest_strategy(
                 "parent_trade_id": parent_trade_id,
             }
             db.insert_trade(trade_data)
+        
+        # Record outcome for self-learning (end of period)
+        if enable_learning and LEARNING_AVAILABLE and learner and current_signal_id:
+            learner.record_signal_exit(
+                signal_id=current_signal_id,
+                outcome="end",
+                exit_price=final_price,
+                profit_loss=profit,
+                duration=len(df) - 1 - entry_index if entry_index else 0
+            )
+    
+    # Save learning state if enabled
+    if enable_learning and LEARNING_AVAILABLE and learner:
+        learner.save_state()
 
     return balance, trade_log, sub_iteration_id
 
@@ -570,7 +760,7 @@ if __name__ == "__main__":
         use_trailing_stop=True,
         trailing_stop_distance_percent=0.5,  # Keep trailing stop 0.5% below highest price
     )
-    print(f"Final Balance: {final_balance:.2f}")
+    print(f"Final Balance: {final_balance_ts:.2f}")
     print("Trade Log:")
-    for trade in trades:
+    for trade in trades_ts:
         print(trade)
