@@ -1,8 +1,13 @@
+import logging
+
 from telegram import Update
 from telegram.ext import ContextTypes
+
 from src.analysis.utils.helpers import check_signal_limit, input_sanity_check_analyzing
 from src.core.utils import plural_helper
 from src.telegram.signals.detection import createSignalJob, deleteSignalJob
+
+logger = logging.getLogger(__name__)
 
 
 async def create_signal_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -18,13 +23,14 @@ async def create_signal_command(update: Update, context: ContextTypes.DEFAULT_TY
     pair = await input_sanity_check_analyzing(True, args, update)
     if not pair:
         await update.message.reply_text(
-            f"Usage: /create_signal <symbol> <period_in_minutes> [<is_with_chart>], you've sent {len(args)} argument{plural_helper(len(args))}."
+            f"Usage: /create_signal <symbol> <period_in_minutes> [<is_with_chart>], "
+            f"you've sent {len(args)} argument{plural_helper(len(args))}."
         )
     else:
         try:
             await createSignalJob(pair[0], pair[1], pair[2], update, context)
         except Exception as e:
-            print(f"Unexpected error: {e}")
+            logger.error(f"Unexpected error creating signal: {e}")
             await update.message.reply_text("❌ An unexpected error occurred.")
 
 
@@ -36,27 +42,15 @@ async def delete_signal_command(update: Update, context: ContextTypes.DEFAULT_TY
     """
     args = context.args
 
-    # Check if args list is empty
     if not args:
-        await update.message.reply_text(f"Usage: /delete_signal <symbol>")
+        await update.message.reply_text("Usage: /delete_signal <symbol>")
         return
-
-    # Format and store the command in the update object for deleteSignalJob to parse
-    # The original command structure expected by deleteSignalJob is:
-    # "/delete_signal SYMBOL"
-
-    # We'll manually modify the update object's message text to match what deleteSignalJob expects
-    original_text = update.message.text
-    update.message.text = f"/delete_signal {args[0].upper()}"
 
     try:
         await deleteSignalJob(args[0].upper(), update)
     except ValueError as e:
-        print(f"Value error in delete_signal: {e}")
+        logger.error(f"Value error in delete_signal: {e}")
         await update.message.reply_text(f"❌ Invalid symbol: {str(e)}")
     except Exception as e:
-        print(f"Unexpected error in delete_signal: {e}")
+        logger.error(f"Unexpected error in delete_signal: {e}")
         await update.message.reply_text("❌ An unexpected error occurred.")
-    finally:
-        # Restore the original text in case it's needed elsewhere
-        update.message.text = original_text

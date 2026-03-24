@@ -265,7 +265,7 @@ def upsert_user_signal_request(user_id: int, signals_request: Dict[str, any]) ->
                 ),
             )
 
-            conn.commit()
+        conn.commit()
     except sqlite3.Error as e:
         logger.error(f"Database error: {e}")
     finally:
@@ -351,6 +351,7 @@ def get_signal_requests() -> List[Dict[str, any]]:
     Returns:
         List of all signal request configurations
     """
+    conn = None
     try:
         conn = sqlite3.connect(DATABASE_PATH)
         cursor = conn.cursor()
@@ -375,8 +376,10 @@ def get_signal_requests() -> List[Dict[str, any]]:
             )
     except sqlite3.Error as e:
         logger.error(f"Database error during job initialization: {e}")
+        signal_requests = []
     finally:
-        conn.close()
+        if conn:
+            conn.close()
 
     return signal_requests
 

@@ -17,6 +17,10 @@ BYBIT_API_SECRET = os.getenv("BYBIT_API_SECRET", "")
 
 DATABASE_PATH = "preferences.db"
 
+ADMIN_IDS = set(
+    int(x) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip().isdigit()
+)
+
 DEFAULT_SYMBOL = "BTCUSDT"
 DEFAULT_INTERVAL = "1h"
 DEFAULT_HOURS = 24
