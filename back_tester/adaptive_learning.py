@@ -11,17 +11,15 @@ The system learns from failures and automatically adjusts coefficients to improv
 """
 
 import os
-import sys
 import json
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Tuple, Any, Optional
+from typing import Dict, List, Any, Optional
 from dataclasses import dataclass, field, asdict
-from datetime import datetime, timedelta
+from datetime import datetime
 from collections import defaultdict
 import logging
 from enum import Enum
-import joblib
 
 logger = logging.getLogger(__name__)
 
@@ -249,7 +247,10 @@ class SignalPerformanceTracker:
                 signal.outcome = outcome
                 signal.exit_price = exit_price
                 signal.profit_loss = profit_loss
-                signal.profit_loss_percent = (exit_price - signal.entry_price) / signal.entry_price * 100
+                if signal.signal_type == "Bearish":
+                    signal.profit_loss_percent = (signal.entry_price - exit_price) / signal.entry_price * 100
+                else:
+                    signal.profit_loss_percent = (exit_price - signal.entry_price) / signal.entry_price * 100
                 signal.duration_candles = duration_candles
                 signal.max_favorable_excursion = max_favorable
                 signal.max_adverse_excursion = max_adverse
@@ -387,8 +388,8 @@ class AdaptiveWeightAdjuster:
                 with open(weights_file, 'r') as f:
                     data = json.load(f)
                     return data.get('weights', default_weights)
-            except:
-                pass
+            except Exception as e:
+                logger.warning(f"Failed to load weights from {weights_file}: {e}")
         return default_weights
     
     def _save_weights(self):
@@ -402,9 +403,7 @@ class AdaptiveWeightAdjuster:
                 'adjustment_count': len(self.adjustment_history)
             }, f, indent=2)
     
-    def calculate_weight_adjustments(self, 
-                                      recent_window: int = 100,
-                                      min_contribution_threshold: float = 0.1) -> Dict[str, float]:
+    def calculate_weight_adjustments(self, recent_window: int = 100) -> Dict[str, float]:
         """
         Calculate weight adjustments based on recent signal performance.
         

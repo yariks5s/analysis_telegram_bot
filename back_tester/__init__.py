@@ -14,12 +14,8 @@ __version__ = "1.1.0"
 
 # Core modules
 from .strategy import backtest_strategy
-from .performance_metrics import calculate_performance_metrics, generate_performance_report
 
-# Enhanced features
-from .enhanced_backtester import EnhancedBacktester, run_enhanced_backtest
-
-# Self-learning modules
+# Self-learning modules (optional — graceful fallback if dependencies missing)
 try:
     from .adaptive_learning import (
         SelfLearningBacktester,
@@ -42,14 +38,14 @@ except ImportError:
 __all__ = [
     # Core
     "backtest_strategy",
-    "calculate_performance_metrics",
-    "generate_performance_report",
-    "EnhancedBacktester",
-    "run_enhanced_backtest",
-    # Learning (if available)
-    "SelfLearningBacktester",
-    "SignalPerformanceTracker",
-    "AdaptiveWeightAdjuster",
-    "EnhancedMetricsCalculator",
     "LEARNING_AVAILABLE",
 ]
+
+if LEARNING_AVAILABLE:
+    __all__ += [
+        "SelfLearningBacktester",
+        "SignalPerformanceTracker",
+        "AdaptiveWeightAdjuster",
+        "LearningMetricsAnalyzer",
+        "EnhancedMetricsCalculator",
+    ]

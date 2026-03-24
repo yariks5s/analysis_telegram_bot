@@ -44,7 +44,8 @@ WEIGHT_NAMES = [
     "W_ABOVE_SUPPORT", "W_BELOW_RESISTANCE", "W_FVG_ABOVE", "W_FVG_BELOW",
     "W_TREND", "W_SWEEP_HIGHS", "W_SWEEP_LOWS", "W_STRUCTURE_BREAK",
     "W_PIN_BAR", "W_ENGULFING", "W_LIQUIDITY_POOL_ABOVE", "W_LIQUIDITY_POOL_BELOW",
-    "W_LIQUIDITY_POOL_ROUND", "W_RSI_EXTREME"
+    "W_LIQUIDITY_POOL_ROUND", "W_RSI_EXTREME",
+    "W_CONFIDENCE_THRESHOLD"  # Minimum confidence level to approve trades (0.0 - 1.0)
 ]
 
 # Candle settings per interval (increased for more trades)
@@ -80,12 +81,16 @@ class AggressiveLearner:
         initial_balance: float = 10000.0,
         learning_rate: float = 0.15,  # Much higher than typical 0.05
         lr_decay: float = 0.95,  # Decay rate per iteration (prevents overfitting)
+        disable_worst_patterns: bool = False,
+        worst_pattern_threshold: float = -100.0,  # Disable patterns with profit below this
     ):
         self.storage_path = storage_path
         self.initial_balance = initial_balance
         self.base_learning_rate = learning_rate
         self.learning_rate = learning_rate
         self.lr_decay = lr_decay
+        self.disable_worst_patterns = disable_worst_patterns
+        self.worst_pattern_threshold = worst_pattern_threshold
         
         os.makedirs(storage_path, exist_ok=True)
         
@@ -100,6 +105,85 @@ class AggressiveLearner:
             'win_profit': 0.0, 'loss_amount': 0.0,
             'appearances': 0
         })
+        
+        # Track detected patterns/structures performance
+        self.pattern_stats = defaultdict(lambda: {
+            'detections': 0,
+            'wins': 0,
+            'losses': 0,
+            'total_profit': 0.0,
+            'win_rate': 0.0
+        })
+        
+        # Load disabled patterns from previous runs
+        self.disabled_patterns = set()
+        if disable_worst_patterns:
+            self._load_disabled_patterns()
+        
+        # Pattern keywords to detect in reasons (matching actual signal detection output)
+        self.PATTERN_KEYWORDS = {
+            # Order Blocks (from detection.py: "Strong bullish order block found")
+            "bullish order block": "Bullish Order Block",
+            "bearish order block": "Bearish Order Block",
+            "order block": "Order Block",
+            
+            # Breaker Blocks (from detection.py: "Strong bullish breaker block found")
+            "bullish breaker block": "Bullish Breaker Block",
+            "bearish breaker block": "Bearish Breaker Block",
+            "breaker block": "Breaker Block",
+            
+            # FVG (from detection.py: "Unfilled FVG below current price")
+            "fvg below": "FVG Below",
+            "fvg above": "FVG Above",
+            "unfilled fvg": "FVG",
+            "fair value gap": "FVG",
+            
+            # Support/Resistance (from detection.py: "Price near support level at")
+            "near support": "Support Level",
+            "near resistance": "Resistance Level",
+            "support level": "Support Level",
+            "resistance level": "Resistance Level",
+            
+            # Liquidity Sweeps (from detection.py: "Price swept through previous highs")
+            "swept through previous highs": "Liquidity Sweep (Highs)",
+            "swept through previous lows": "Liquidity Sweep (Lows)",
+            "liquidity sweep": "Liquidity Sweep",
+            
+            # Structure Breaks (from detection.py: "Price broke structure upward")
+            "broke structure upward": "Structure Break (Bullish)",
+            "broke structure downward": "Structure Break (Bearish)",
+            "broke structure": "Structure Break",
+            "bos": "Break of Structure",
+            "choch": "Change of Character",
+            
+            # Candlestick Patterns
+            "bullish pin bar": "Bullish Pin Bar",
+            "bearish engulfing": "Bearish Engulfing",
+            "pin bar": "Pin Bar",
+            "engulfing": "Engulfing Pattern",
+            
+            # Liquidity Pools
+            "liquidity pool above": "Liquidity Pool Above",
+            "liquidity pool below": "Liquidity Pool Below",
+            "round number liquidity": "Round Number Liquidity",
+            "liquidity pool": "Liquidity Pool",
+            
+            # RSI (from detection.py: "RSI oversold at")
+            "rsi oversold": "RSI Oversold",
+            "rsi overbought": "RSI Overbought",
+            
+            # Trend (from detection.py: "Price is in an uptrend")
+            "in an uptrend": "Uptrend",
+            "in a downtrend": "Downtrend",
+            "uptrend": "Uptrend",
+            "downtrend": "Downtrend",
+            
+            # Other patterns
+            "mitigation": "Mitigation Block",
+            "imbalance": "Imbalance Zone",
+            "market regime": "Market Regime",
+            "volume ratio": "Volume Analysis"
+        }
         
         # Track overall performance
         self.iteration = 0
@@ -152,10 +236,108 @@ class AggressiveLearner:
             1.0,   # W_LIQUIDITY_POOL_BELOW
             1.2,   # W_LIQUIDITY_POOL_ROUND
             0.5,   # W_RSI_EXTREME - Often unreliable
+            0.3,   # W_CONFIDENCE_THRESHOLD - Min confidence to approve trade (0.0-1.0)
         ]
+    
+    def _load_disabled_patterns(self):
+        """Load worst-performing patterns from saved stats and disable them"""
+        weights_file = os.path.join(self.storage_path, "final_weights.json")
+        
+        if os.path.exists(weights_file):
+            try:
+                with open(weights_file, 'r') as f:
+                    data = json.load(f)
+                    pattern_stats = data.get('pattern_stats', {})
+                    
+                    # Patterns that are ALWAYS present (not specific signals) should be excluded
+                    always_present_patterns = {
+                        'Uptrend', 'Downtrend', 'Market Regime', 'Volume Analysis'
+                    }
+                    
+                    for pattern, stats in pattern_stats.items():
+                        # Skip always-present patterns
+                        if pattern in always_present_patterns:
+                            continue
+                            
+                        total_profit = stats.get('total_profit', 0)
+                        trades = stats.get('detections', 0) or stats.get('trades', 0)
+                        
+                        # Only disable if we have enough data (>5 trades) and pattern is losing
+                        if trades >= 5 and total_profit < self.worst_pattern_threshold:
+                            self.disabled_patterns.add(pattern)
+                    
+                    if self.disabled_patterns:
+                        print(f"{Colors.Y}⚠️  Disabled worst-performing patterns:{Colors.E}")
+                        for p in sorted(self.disabled_patterns):
+                            stats = pattern_stats.get(p, {})
+                            print(f"   ❌ {p}: ${stats.get('total_profit', 0):+.2f}")
+                        print()
+                    else:
+                        print(f"{Colors.G}✓ No patterns disabled (all above threshold ${self.worst_pattern_threshold}){Colors.E}\n")
+                        
+            except Exception as e:
+                print(f"{Colors.Y}Warning: Could not load pattern stats: {e}{Colors.E}")
+    
+    def _is_pattern_disabled(self, reason: str) -> Tuple[bool, List[str]]:
+        """Check if any disabled patterns are present in the signal reason"""
+        if not self.disabled_patterns:
+            return False, []
+        
+        detected = self._extract_patterns_from_reason(reason)
+        disabled_found = [p for p in detected if p in self.disabled_patterns]
+        
+        # Only block if the MAJORITY of detected patterns are disabled
+        # This prevents blocking signals that have both good and bad patterns
+        if len(disabled_found) > 0 and len(disabled_found) >= len(detected) / 2:
+            return True, disabled_found
+        
+        return False, disabled_found
+    
+    def _extract_patterns_from_reason(self, reason: str) -> List[str]:
+        """Extract detected patterns from the signal reason string"""
+        detected_patterns = []
+        reason_lower = reason.lower() if reason else ""
+        
+        for keyword, pattern_name in self.PATTERN_KEYWORDS.items():
+            if keyword in reason_lower:
+                if pattern_name not in detected_patterns:
+                    detected_patterns.append(pattern_name)
+        
+        return detected_patterns
+    
+    def _update_pattern_stats(self, patterns: List[str], is_win: bool, profit: float):
+        """Update pattern statistics after a trade"""
+        for pattern in patterns:
+            self.pattern_stats[pattern]['detections'] += 1
+            self.pattern_stats[pattern]['total_profit'] += profit
+            if is_win:
+                self.pattern_stats[pattern]['wins'] += 1
+            else:
+                self.pattern_stats[pattern]['losses'] += 1
+            
+            # Calculate win rate
+            total = self.pattern_stats[pattern]['wins'] + self.pattern_stats[pattern]['losses']
+            if total > 0:
+                self.pattern_stats[pattern]['win_rate'] = self.pattern_stats[pattern]['wins'] / total * 100
     
     def _save_weights(self):
         """Save current weights"""
+        # Calculate pattern stats with win rates
+        pattern_stats_with_rates = {}
+        for pattern, stats in self.pattern_stats.items():
+            total = stats['wins'] + stats['losses']
+            pattern_stats_with_rates[pattern] = {
+                **stats,
+                'win_rate': (stats['wins'] / total * 100) if total > 0 else 0.0,
+                'avg_profit': stats['total_profit'] / total if total > 0 else 0.0
+            }
+        
+        # Sort patterns by profit (worst first for easy identification)
+        sorted_patterns = dict(sorted(
+            pattern_stats_with_rates.items(),
+            key=lambda x: x[1]['total_profit']
+        ))
+        
         data = {
             'weights': self.weights,
             'weight_names': WEIGHT_NAMES,
@@ -166,6 +348,7 @@ class AggressiveLearner:
             'total_profit': self.total_profit,
             'timestamp': datetime.now().isoformat(),
             'indicator_stats': dict(self.indicator_stats),
+            'pattern_stats': sorted_patterns,  # NEW: Detected pattern performance
         }
         
         with open(os.path.join(self.storage_path, "final_weights.json"), 'w') as f:
@@ -186,24 +369,76 @@ class AggressiveLearner:
                 weights=self.weights,
                 use_trailing_stop=True,
                 trailing_stop_distance_percent=0.5,
+                disabled_patterns=self.disabled_patterns if self.disable_worst_patterns else None,
             )
             
             profit = final_balance - self.initial_balance
             entry_trades = [t for t in trades if t.get('type') == 'entry']
             
-            # Analyze exits
+            # Track patterns for each trade
+            # Group trades by sequence - each entry is followed by its exits until next entry
+            trade_groups = []
+            current_group = None
+            
+            for t in trades:
+                if t.get('type') == 'entry':
+                    # Save previous group if exists
+                    if current_group:
+                        trade_groups.append(current_group)
+                    # Start new group
+                    current_group = {'entry': t, 'exits': []}
+                elif current_group:
+                    # Add exit to current group
+                    current_group['exits'].append(t)
+            
+            # Don't forget the last group
+            if current_group:
+                trade_groups.append(current_group)
+            
+            # Analyze each trade group and extract patterns
             wins = 0
             losses = 0
-            for t in trades:
-                if t.get('type') in ['take_profit_1', 'take_profit_2', 'take_profit_3']:
+            detected_patterns_list = []
+            
+            for group in trade_groups:
+                entry = group.get('entry')
+                exits = group.get('exits', [])
+                
+                if not entry:
+                    continue
+                
+                # Extract patterns from entry signal/reason
+                # Try 'reason' first (full reason), then 'signal' (first line only)
+                reason = entry.get('reason', '') or entry.get('signal', '')
+                patterns = self._extract_patterns_from_reason(reason)
+                
+                # Calculate total profit for this trade group
+                trade_profit = sum(e.get('profit', 0) for e in exits)
+                is_win = trade_profit > 0
+                
+                # Determine if win or loss based on exit types
+                for e in exits:
+                    exit_type = e.get('type', '')
+                    if exit_type in ['take_profit_1', 'take_profit_2', 'take_profit_3']:
+                        is_win = True
+                        break
+                    elif exit_type == 'stop_loss':
+                        is_win = False
+                        break
+                
+                if trade_profit > 0:
                     wins += 1
-                elif t.get('type') == 'stop_loss':
+                elif trade_profit < 0:
                     losses += 1
-                elif t.get('type') == 'exit_end_of_period':
-                    if t.get('profit', 0) > 0:
-                        wins += 1
-                    else:
-                        losses += 1
+                
+                # Update pattern stats
+                if patterns:
+                    self._update_pattern_stats(patterns, is_win, trade_profit)
+                    detected_patterns_list.append({
+                        'patterns': patterns,
+                        'profit': trade_profit,
+                        'is_win': is_win
+                    })
             
             return {
                 'success': True,
@@ -212,6 +447,7 @@ class AggressiveLearner:
                 'wins': wins,
                 'losses': losses,
                 'win_rate': (wins / (wins + losses) * 100) if (wins + losses) > 0 else 0,
+                'detected_patterns': detected_patterns_list,
             }
             
         except Exception as e:
@@ -224,6 +460,9 @@ class AggressiveLearner:
         """
         if iteration_trades == 0:
             return
+        
+        # Index of confidence threshold weight
+        CONFIDENCE_IDX = 18
         
         # Strategy 1: Random perturbation with momentum
         # If profit was good, keep direction. If bad, try opposite.
@@ -239,22 +478,38 @@ class AggressiveLearner:
                 # Losing - try bigger changes
                 self.weights[i] += noise * 1.5
             
-            # Keep within bounds
-            self.weights[i] = max(0.2, min(2.5, self.weights[i]))
+            # Keep within bounds (different for confidence threshold)
+            if i == CONFIDENCE_IDX:
+                # Confidence threshold: 0.1 to 0.9
+                self.weights[i] = max(0.1, min(0.9, self.weights[i]))
+            else:
+                # Regular indicator weights: 0.2 to 2.5
+                self.weights[i] = max(0.2, min(2.5, self.weights[i]))
         
         # Strategy 2: Win rate based adjustment
         # If win rate is low, reduce all weights slightly (be more selective)
         # If win rate is high, can afford to increase weights
         if win_rate < 40:
             for i in range(len(self.weights)):
-                self.weights[i] *= 0.95  # Reduce by 5%
+                if i != CONFIDENCE_IDX:
+                    self.weights[i] *= 0.95  # Reduce by 5%
+                else:
+                    # Low win rate -> increase confidence threshold (be more selective)
+                    self.weights[i] = min(0.9, self.weights[i] + 0.02)
         elif win_rate > 60:
             for i in range(len(self.weights)):
-                self.weights[i] *= 1.02  # Increase by 2%
+                if i != CONFIDENCE_IDX:
+                    self.weights[i] *= 1.02  # Increase by 2%
+                else:
+                    # High win rate -> can lower confidence threshold (accept more trades)
+                    self.weights[i] = max(0.1, self.weights[i] - 0.01)
         
         # Re-clamp
         for i in range(len(self.weights)):
-            self.weights[i] = max(0.2, min(2.5, self.weights[i]))
+            if i == CONFIDENCE_IDX:
+                self.weights[i] = max(0.1, min(0.9, self.weights[i]))
+            else:
+                self.weights[i] = max(0.2, min(2.5, self.weights[i]))
     
     def run_iteration(self) -> Dict:
         """Run one complete iteration over all symbols and intervals"""
@@ -431,13 +686,75 @@ class AggressiveLearner:
             
             print(f"  {name:<25} {weight:.4f} {bar} {status}")
         
+        # Print detected pattern performance
+        if self.pattern_stats:
+            print(f"\n{Colors.BOLD}Detected Pattern Performance:{Colors.E}")
+            print(f"  (Sorted by total profit - worst performing first)")
+            print()
+            
+            # Sort patterns by profit
+            sorted_patterns = sorted(
+                self.pattern_stats.items(),
+                key=lambda x: x[1]['total_profit']
+            )
+            
+            for pattern, stats in sorted_patterns:
+                if stats['detections'] > 0:
+                    wr = stats['win_rate']
+                    total = stats['wins'] + stats['losses']
+                    
+                    if stats['total_profit'] < 0:
+                        color = Colors.R
+                        emoji = "🔴"
+                    elif stats['total_profit'] > 0:
+                        color = Colors.G
+                        emoji = "🟢"
+                    else:
+                        color = Colors.Y
+                        emoji = "⚪"
+                    
+                    print(f"  {emoji} {pattern:<25}: {total:>4} trades | {color}${stats['total_profit']:>+10.2f}{Colors.E} | {wr:>5.1f}% WR")
+            
+            print()
+            
+            # Highlight worst and best
+            if sorted_patterns:
+                worst = sorted_patterns[0]
+                best = sorted_patterns[-1]
+                
+                if worst[1]['total_profit'] < 0:
+                    print(f"  {Colors.R}⚠️  WORST PATTERN: {worst[0]} (${worst[1]['total_profit']:+.2f}){Colors.E}")
+                if best[1]['total_profit'] > 0:
+                    print(f"  {Colors.G}✓  BEST PATTERN:  {best[0]} (${best[1]['total_profit']:+.2f}){Colors.E}")
+        
         # Save
         self._save_weights()
         
-        # Also save as JSON for easy use
-        report_path = os.path.join(self.storage_path, "backtest_report.json")
-        with open(report_path, 'w') as f:
-            json.dump({
+        # Create reports directory if needed
+        reports_dir = os.path.join(self.storage_path, "reports")
+        os.makedirs(reports_dir, exist_ok=True)
+        
+        # Save report with timestamp
+        timestamp_str = datetime.now().strftime('%Y%m%d_%H%M%S')
+        report_path = os.path.join(reports_dir, f"backtest_report_{timestamp_str}.json")
+        
+        # Also save as "latest" for easy access
+        latest_path = os.path.join(self.storage_path, "backtest_report.json")
+        
+        # Prepare pattern stats for JSON (sorted by profit)
+        pattern_report = {}
+        for pattern, stats in sorted(self.pattern_stats.items(), key=lambda x: x[1]['total_profit']):
+            total = stats['wins'] + stats['losses']
+            pattern_report[pattern] = {
+                'trades': total,
+                'wins': stats['wins'],
+                'losses': stats['losses'],
+                'total_profit': round(stats['total_profit'], 2),
+                'win_rate': round(stats['win_rate'], 1),
+                'avg_profit': round(stats['total_profit'] / total, 2) if total > 0 else 0
+            }
+        
+        report_data = {
                 'timestamp': datetime.now().isoformat(),
                 'iterations': self.iteration,
                 'total_trades': self.total_trades,
@@ -446,9 +763,19 @@ class AggressiveLearner:
                 'profit_history': self.profit_history,
                 'final_weights': dict(zip(WEIGHT_NAMES, self.weights)),
                 'best_weights': dict(zip(WEIGHT_NAMES, self.best_weights)),
-            }, f, indent=2)
+            'detected_patterns': pattern_report,
+        }
+        
+        # Save timestamped report
+        with open(report_path, 'w') as f:
+            json.dump(report_data, f, indent=2)
+        
+        # Save as "latest" for easy access
+        with open(latest_path, 'w') as f:
+            json.dump(report_data, f, indent=2)
         
         print(f"\n{Colors.G}✓ Report saved to: {report_path}{Colors.E}")
+        print(f"{Colors.G}✓ Latest report: {latest_path}{Colors.E}")
         print(f"{Colors.G}✓ Weights saved to: {self.storage_path}/final_weights.json{Colors.E}")
 
 
@@ -461,6 +788,10 @@ def main():
                         help='How aggressively to change weights (default: 0.15)')
     parser.add_argument('--storage', type=str, default='./data/btc_eth_learning')
     parser.add_argument('--report-only', action='store_true')
+    parser.add_argument('--disable-worst-patterns', action='store_true',
+                        help='Disable recognition of worst-performing patterns')
+    parser.add_argument('--pattern-threshold', type=float, default=-100.0,
+                        help='Profit threshold below which patterns are disabled (default: -100)')
     
     args = parser.parse_args()
     
@@ -478,6 +809,8 @@ def main():
         storage_path=args.storage,
         initial_balance=args.balance,
         learning_rate=args.learning_rate,
+        disable_worst_patterns=args.disable_worst_patterns,
+        worst_pattern_threshold=args.pattern_threshold,
     )
     
     try:

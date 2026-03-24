@@ -49,7 +49,7 @@ WEIGHT_NAMES = [
 ]
 
 # Colors
-class C:
+class Colors:
     H = '\033[95m'
     B = '\033[94m'
     C = '\033[96m'
@@ -258,10 +258,10 @@ class IntensiveParameterOptimizer:
                 with open(params_file, 'r') as f:
                     data = json.load(f)
                     params = TradingParameters.from_dict(data)
-                    print(f"{C.G}✓ Loaded existing parameters from checkpoint{C.E}")
+                    print(f"{Colors.G}✓ Loaded existing parameters from checkpoint{Colors.E}")
                     return params
             except Exception as e:
-                print(f"{C.Y}Warning: Could not load params: {e}{C.E}")
+                print(f"{Colors.Y}Warning: Could not load params: {e}{Colors.E}")
         
         return TradingParameters.default()
     
@@ -423,9 +423,9 @@ class IntensiveParameterOptimizer:
         """Run one generation of evolutionary optimization"""
         self.generation += 1
         
-        print(f"\n{C.H}{'='*70}{C.E}")
-        print(f"{C.H} GENERATION {self.generation}{C.E}")
-        print(f"{C.H}{'='*70}{C.E}")
+        print(f"\n{Colors.H}{'='*70}{Colors.E}")
+        print(f"{Colors.H} GENERATION {self.generation}{Colors.E}")
+        print(f"{Colors.H}{'='*70}{Colors.E}")
         
         # Create population
         population = []
@@ -463,11 +463,11 @@ class IntensiveParameterOptimizer:
             fitness, metrics = self.evaluate_params(params)
             results.append((fitness, params, metrics))
             
-            color = C.G if fitness > self.best_fitness else (C.Y if fitness > self.best_fitness - 20 else C.R)
+            color = Colors.G if fitness > self.best_fitness else (Colors.Y if fitness > self.best_fitness - 20 else C.R)
             print(f"{color}Fitness: {fitness:.1f} | "
                   f"Profit: ${metrics.get('avg_profit', 0):.2f} | "
                   f"WR: {metrics.get('win_rate', 0):.1f}% | "
-                  f"TP1:{metrics.get('tp1_hits',0)} TP2:{metrics.get('tp2_hits',0)} TP3:{metrics.get('tp3_hits',0)} SL:{metrics.get('sl_hits',0)}{C.E}")
+                  f"TP1:{metrics.get('tp1_hits',0)} TP2:{metrics.get('tp2_hits',0)} TP3:{metrics.get('tp3_hits',0)} SL:{metrics.get('sl_hits',0)}{Colors.E}")
         
         # Sort by fitness
         results.sort(key=lambda x: x[0], reverse=True)
@@ -484,10 +484,10 @@ class IntensiveParameterOptimizer:
             self.best_fitness = gen_best_fitness
             self.best_params = copy.deepcopy(gen_best_params)
             
-            print(f"\n{C.G}{'★'*3} NEW BEST! Fitness: {gen_best_fitness:.1f} (+{improvement:.1f}) {'★'*3}{C.E}")
+            print(f"\n{Colors.G}{'★'*3} NEW BEST! Fitness: {gen_best_fitness:.1f} (+{improvement:.1f}) {'★'*3}{Colors.E}")
             
             # Show key parameters
-            print(f"\n{C.C}Key Parameters:{C.E}")
+            print(f"\n{Colors.C}Key Parameters:{Colors.E}")
             print(f"  ATR Multiplier: {gen_best_params.atr_multiplier:.2f}")
             print(f"  TP Ratios: {gen_best_params.tp1_ratio:.1f} / {gen_best_params.tp2_ratio:.1f} / {gen_best_params.tp3_ratio:.1f}")
             print(f"  Trailing Stop: {gen_best_params.trailing_stop_distance:.2f}% (activate at TP{gen_best_params.trailing_activation_tp})")
@@ -512,11 +512,11 @@ class IntensiveParameterOptimizer:
         self.start_time = datetime.now()
         end_time = self.start_time + timedelta(hours=max_hours)
         
-        print(f"\n{C.H}{'='*70}{C.E}")
-        print(f"{C.H}{'INTENSIVE PARAMETER OPTIMIZATION':^70}{C.E}")
-        print(f"{C.H}{'='*70}{C.E}")
+        print(f"\n{Colors.H}{'='*70}{Colors.E}")
+        print(f"{Colors.H}{'INTENSIVE PARAMETER OPTIMIZATION':^70}{Colors.E}")
+        print(f"{Colors.H}{'='*70}{Colors.E}")
         
-        print(f"\n{C.C}Configuration:{C.E}")
+        print(f"\n{Colors.C}Configuration:{Colors.E}")
         print(f"  Max Generations: {max_generations}")
         print(f"  Max Time: {max_hours} hours")
         print(f"  Population Size: {self.population_size}")
@@ -524,37 +524,37 @@ class IntensiveParameterOptimizer:
         print(f"  Symbols: {SYMBOLS}")
         print(f"  Intervals: {INTERVALS}")
         
-        print(f"\n{C.C}Optimizing:{C.E}")
+        print(f"\n{Colors.C}Optimizing:{Colors.E}")
         print(f"  • 18 Signal Weights")
         print(f"  • Stop Loss (ATR multiplier, min distance)")
         print(f"  • Take Profit Levels (TP1, TP2, TP3 R:R ratios)")
         print(f"  • Trailing Stop (distance, activation)")
         print(f"  • Risk Percentage")
         
-        print(f"\n{C.Y}Starting optimization... (Ctrl+C to stop and save){C.E}")
+        print(f"\n{Colors.Y}Starting optimization... (Ctrl+C to stop and save){Colors.E}")
         
         try:
             for gen in range(max_generations):
                 if datetime.now() >= end_time:
-                    print(f"\n{C.Y}Time limit reached{C.E}")
+                    print(f"\n{Colors.Y}Time limit reached{Colors.E}")
                     break
                 
                 best_params, best_fitness = self.train_generation()
                 
                 if target_fitness and best_fitness >= target_fitness:
-                    print(f"\n{C.G}Target fitness reached!{C.E}")
+                    print(f"\n{Colors.G}Target fitness reached!{Colors.E}")
                     break
                 
                 # Progress every 5 gens
                 if self.generation % 5 == 0:
                     elapsed = (datetime.now() - self.start_time).total_seconds() / 60
-                    print(f"\n{C.B}═══ Progress: Gen {self.generation} | "
+                    print(f"\n{Colors.B}═══ Progress: Gen {self.generation} | "
                           f"Best: {self.best_fitness:.1f} | "
                           f"Backtests: {self.total_backtests} | "
-                          f"Time: {elapsed:.1f}m ═══{C.E}")
+                          f"Time: {elapsed:.1f}m ═══{Colors.E}")
         
         except KeyboardInterrupt:
-            print(f"\n{C.Y}Optimization interrupted{C.E}")
+            print(f"\n{Colors.Y}Optimization interrupted{Colors.E}")
         
         self._print_final_report()
         return self.best_params, self.best_fitness
@@ -563,11 +563,11 @@ class IntensiveParameterOptimizer:
         """Print comprehensive final report"""
         elapsed = (datetime.now() - self.start_time).total_seconds()
         
-        print(f"\n{C.H}{'='*70}{C.E}")
-        print(f"{C.H}{'OPTIMIZATION COMPLETE':^70}{C.E}")
-        print(f"{C.H}{'='*70}{C.E}")
+        print(f"\n{Colors.H}{'='*70}{Colors.E}")
+        print(f"{Colors.H}{'OPTIMIZATION COMPLETE':^70}{Colors.E}")
+        print(f"{Colors.H}{'='*70}{Colors.E}")
         
-        print(f"\n{C.BOLD}Statistics:{C.E}")
+        print(f"\n{Colors.BOLD}Statistics:{Colors.E}")
         print(f"  Generations: {self.generation}")
         print(f"  Backtests: {self.total_backtests}")
         print(f"  Trades: {self.total_trades}")
@@ -576,45 +576,45 @@ class IntensiveParameterOptimizer:
         
         p = self.best_params
         
-        print(f"\n{C.BOLD}═══ OPTIMIZED PARAMETERS ═══{C.E}")
+        print(f"\n{Colors.BOLD}═══ OPTIMIZED PARAMETERS ═══{Colors.E}")
         
-        print(f"\n{C.C}Stop Loss:{C.E}")
+        print(f"\n{Colors.C}Stop Loss:{Colors.E}")
         print(f"  ATR Multiplier: {p.atr_multiplier:.2f}")
         print(f"  Min SL Distance: {p.min_sl_percent:.2f}%")
         
-        print(f"\n{C.C}Take Profit Levels:{C.E}")
+        print(f"\n{Colors.C}Take Profit Levels:{Colors.E}")
         print(f"  TP1 R:R Ratio: {p.tp1_ratio:.2f}")
         print(f"  TP2 R:R Ratio: {p.tp2_ratio:.2f}")
         print(f"  TP3 R:R Ratio: {p.tp3_ratio:.2f}")
         
-        print(f"\n{C.C}Trailing Stop:{C.E}")
+        print(f"\n{Colors.C}Trailing Stop:{Colors.E}")
         print(f"  Distance: {p.trailing_stop_distance:.2f}%")
         print(f"  Activation: TP{p.trailing_activation_tp}")
         
-        print(f"\n{C.C}Position Sizing:{C.E}")
+        print(f"\n{Colors.C}Position Sizing:{Colors.E}")
         print(f"  Risk per Trade: {p.risk_percentage:.2f}%")
         
-        print(f"\n{C.C}Signal Weights:{C.E}")
+        print(f"\n{Colors.C}Signal Weights:{Colors.E}")
         for name, weight in zip(WEIGHT_NAMES, p.weights):
             bar_len = int(weight * 8)
             bar = "█" * bar_len + "░" * (16 - bar_len)
             
             if weight > 1.5:
-                color, status = C.G, "STRONG"
+                color, status = Colors.G, "STRONG"
             elif weight < 0.6:
-                color, status = C.R, "WEAK"
+                color, status = Colors.R, "WEAK"
             else:
-                color, status = C.E, ""
+                color, status = Colors.E, ""
             
-            print(f"  {color}{name:<25} {weight:.3f} {bar} {status}{C.E}")
+            print(f"  {color}{name:<25} {weight:.3f} {bar} {status}{Colors.E}")
         
         # Save
         self._save_params(self.best_params, self.best_fitness, is_best=True)
-        print(f"\n{C.G}✓ Parameters saved to: {self.storage_path}/best_params.json{C.E}")
+        print(f"\n{Colors.G}✓ Parameters saved to: {self.storage_path}/best_params.json{Colors.E}")
         
         # Fitness trend
         if len(self.fitness_history) > 1:
-            print(f"\n{C.BOLD}Fitness Trend:{C.E}")
+            print(f"\n{Colors.BOLD}Fitness Trend:{Colors.E}")
             start = self.fitness_history[0]
             end = self.fitness_history[-1]
             change = end - start
@@ -647,10 +647,10 @@ def main():
             max_hours=args.hours,
             target_fitness=args.target_fitness
         )
-        print(f"\n{C.G}Optimization completed! Best fitness: {best_fitness:.1f}{C.E}")
+        print(f"\n{Colors.G}Optimization completed! Best fitness: {best_fitness:.1f}{Colors.E}")
         
     except Exception as e:
-        print(f"\n{C.R}Optimization failed: {e}{C.E}")
+        print(f"\n{Colors.R}Optimization failed: {e}{Colors.E}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

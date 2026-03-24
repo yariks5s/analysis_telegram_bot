@@ -367,7 +367,8 @@ def evaluate_weights(
 
 
 def optimize_weights(
-    weights: List[float], iterations: int, learning_rate: float
+    weights: List[float], iterations: int, learning_rate: float,
+    test_pairs: Optional[List[str]] = None,
 ) -> List[float]:
     """Optimize weights using gradient descent with momentum"""
     best_weights = weights.copy()
@@ -377,7 +378,7 @@ def optimize_weights(
     iteration_id = str(uuid.uuid4())
 
     # Initial evaluation
-    fitness, metrics = evaluate_weights(best_weights, iteration_id=iteration_id)
+    fitness, metrics = evaluate_weights(best_weights, test_pairs=test_pairs, iteration_id=iteration_id)
     if fitness > best_fitness:
         best_fitness = fitness
         logger.info(f"Initial fitness: {fitness:.2f}")
@@ -403,7 +404,7 @@ def optimize_weights(
         test_weights = [max(0, min(2.0, w + p)) for w, p in zip(weights, perturbations)]
 
         # Evaluate fitness
-        fitness, metrics = evaluate_weights(test_weights, iteration_id=iteration_id)
+        fitness, metrics = evaluate_weights(test_weights, test_pairs=test_pairs, iteration_id=iteration_id)
 
         if fitness > best_fitness:
             best_fitness = fitness
@@ -457,7 +458,7 @@ if __name__ == "__main__":
     # Parse command line arguments
     parser = argparse.ArgumentParser(description="Train signal weights for CryptoBot")
     parser.add_argument(
-        "--symbol", type=str, default="BTCUSDT", help="Primary trading pair for optimization"
+        "--symbol", type=str, default=None, help="Focus training on this trading pair (default: all pairs)"
     )
     parser.add_argument(
         "--interval", type=str, default="1h", help="Primary candle interval"
@@ -480,10 +481,12 @@ if __name__ == "__main__":
 
     # Train the model
     try:
-        logger.info(f"Starting weight optimization for {args.symbol} {args.interval}")
+        symbol_label = f"{args.symbol} {args.interval}" if args.symbol else "all pairs"
+        logger.info(f"Starting weight optimization for {symbol_label}")
         logger.info(f"Iterations: {iterations}, Risk: {risk_percentage}%, Learning rate: {learning_rate}")
         
-        best_weights = optimize_weights(weights, iterations, learning_rate)
+        test_pairs = [args.symbol] if args.symbol else None
+        best_weights = optimize_weights(weights, iterations, learning_rate, test_pairs=test_pairs)
         logger.info(f"Training completed successfully")
 
         # Evaluate final performance
@@ -498,7 +501,7 @@ if __name__ == "__main__":
 
         with open(weights_file, "w") as f:
             f.write(
-                f"# Optimized weights for {args.symbol} {args.interval} at {timestamp}\n"
+                f"# Optimized weights for {symbol_label} at {timestamp}\n"
             )
             f.write(f"# Fitness: {fitness:.4f}\n")
             f.write(f"# Risk: {risk_percentage}%\n")

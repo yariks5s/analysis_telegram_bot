@@ -1,31 +1,25 @@
 import os
 import sys
-from typing import List, Tuple, Optional, Dict, Any
+from typing import List, Tuple, Optional, Dict, Any, Set
 import random
 from datetime import datetime, timedelta
 import uuid
 import logging
 
 project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-sys.path.append(project_dir)
+if project_dir not in sys.path:
+    sys.path.insert(0, project_dir)
 
 import pandas as pd  # type: ignore
 
-# These imports use the system path we added above
-from data_fetching_instruments import fetch_candles, analyze_data
-from signal_detection import (
+from src.analysis.utils.helpers import fetch_candles
+from src.telegram.signals.detection import (
+    analyze_data,
     generate_price_prediction_signal_proba,
     TradingSignal,
     calculate_position_size,
 )
-import sys
-import os
-
-project_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-if project_dir not in sys.path:
-    sys.path.append(project_dir)
-from utils import create_true_preferences
-from .db_operations import ClickHouseDB
+from src.core.utils import create_true_preferences
 
 # Import self-learning modules (optional - graceful fallback if not available)
 try:
@@ -54,12 +48,14 @@ def backtest_strategy(
     use_trailing_stop: bool = True,
     trailing_stop_distance_percent: float = 0.5,  # Distance to maintain from highest price
     iteration_id: Optional[str] = None,
-    db: Optional[ClickHouseDB] = None,
+    db: Optional[Any] = None,
     # Self-learning parameters
     enable_learning: bool = False,
     learner: Optional[Any] = None,  # SelfLearningBacktester instance
     metrics_calculator: Optional[Any] = None,  # EnhancedMetricsCalculator instance
     track_indicator_contributions: bool = True,
+    # Pattern filtering
+    disabled_patterns: Optional[Set[str]] = None,  # Set of pattern names to skip
 ) -> Tuple[float, list, Optional[str]]:
     """
     Backtest a strategy with risk management and optional self-learning:
@@ -474,7 +470,56 @@ def backtest_strategy(
                 parent_trade_id = None
 
         # Handle new signal
-        if signal == "Bullish" and position == 0 and trading_signal:
+        # Get confidence threshold from weights (index 18) or use default 0.3
+        confidence_threshold = weights[18] if len(weights) > 18 else 0.3
+        # Clamp confidence threshold to valid range [0.1, 0.9]
+        confidence_threshold = max(0.1, min(0.9, confidence_threshold))
+        
+        if signal == "Bullish" and position == 0 and trading_signal and confidence >= confidence_threshold:
+            # Check for disabled patterns
+            if disabled_patterns and reason:
+                reason_lower = reason.lower()
+                # Pattern keywords mapping (subset for quick check)
+                pattern_keywords = {
+                    "bullish order block": "Bullish Order Block",
+                    "bearish order block": "Bearish Order Block", 
+                    "bullish breaker block": "Bullish Breaker Block",
+                    "bearish breaker block": "Bearish Breaker Block",
+                    "breaker block": "Breaker Block",
+                    "order block": "Order Block",
+                    "fvg below": "FVG Below",
+                    "fvg above": "FVG Above",
+                    "unfilled fvg": "FVG",
+                    "near support": "Support Level",
+                    "near resistance": "Resistance Level",
+                    "swept through previous highs": "Liquidity Sweep (Highs)",
+                    "swept through previous lows": "Liquidity Sweep (Lows)",
+                    "broke structure upward": "Structure Break (Bullish)",
+                    "broke structure downward": "Structure Break (Bearish)",
+                    "broke structure": "Structure Break",
+                    "bullish pin bar": "Bullish Pin Bar",
+                    "bearish engulfing": "Bearish Engulfing",
+                    "pin bar": "Pin Bar",
+                    "engulfing": "Engulfing Pattern",
+                    "rsi oversold": "RSI Oversold",
+                    "rsi overbought": "RSI Overbought",
+                    "liquidity pool": "Liquidity Pool",
+                }
+                
+                # Detect patterns in reason
+                detected_patterns = []
+                for keyword, pattern_name in pattern_keywords.items():
+                    if keyword in reason_lower and pattern_name not in detected_patterns:
+                        detected_patterns.append(pattern_name)
+                
+                # Check if any disabled pattern is present
+                disabled_found = [p for p in detected_patterns if p in disabled_patterns]
+                
+                # Skip if majority of detected patterns are disabled
+                if disabled_found and len(disabled_found) >= len(detected_patterns) / 2:
+                    print(f"[Index {i}] {symbol}: SKIPPED - Disabled pattern(s): {', '.join(disabled_found)}")
+                    continue
+            
             # Validate price is reasonable
             if current_price < 0.00000001:  # Skip if price is too small
                 continue
@@ -531,6 +576,7 @@ def backtest_strategy(
                     "price": float(entry_price),
                     "index": int(i),
                     "signal": f"{signal} - {reason.splitlines()[0]}",
+                    "reason": reason,  # Full reason for pattern detection
                     "timestamp": current_time,
                     "amount": float(position),
                     "stop_loss": float(trading_signal.stop_loss),
