@@ -1,131 +1,155 @@
+import sqlite3
+import logging
+
 from telegram import Update
 from telegram.ext import ContextTypes
-from back_tester.db_operations import ClickHouseDB
-import logging
+
+from src.core.config import DATABASE_PATH, ADMIN_IDS
 
 logger = logging.getLogger(__name__)
 
-# Initialize database connection
-db = ClickHouseDB()
+# Only SELECT queries are allowed through the /sql command
+_ALLOWED_STATEMENTS = ("SELECT",)
+
+
+def _is_admin(user_id: int) -> bool:
+    return bool(ADMIN_IDS) and user_id in ADMIN_IDS
 
 
 async def execute_sql_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Command handler to execute SQL queries.
+    Admin command to execute read-only SQL queries against the bot database.
     Usage: /sql <query>
-    Example: /sql SELECT * FROM trades LIMIT 5
+    Example: /sql SELECT * FROM user_preferences LIMIT 5
     """
+    user_id = update.effective_user.id
+    if not _is_admin(user_id):
+        await update.message.reply_text("❌ This command is restricted to admins.")
+        return
+
     if not context.args:
         await update.message.reply_text(
             "Please provide a SQL query.\n"
             "Usage: /sql <query>\n"
-            "Example: /sql SELECT * FROM trades LIMIT 5"
+            "Example: /sql SELECT * FROM user_preferences LIMIT 5"
         )
         return
 
-    # Join all arguments to form the complete query
-    query = " ".join(context.args)
+    query = " ".join(context.args).strip()
+
+    # Only allow SELECT statements to prevent data modification
+    if not query.upper().lstrip().startswith(_ALLOWED_STATEMENTS):
+        await update.message.reply_text(
+            "❌ Only SELECT queries are allowed."
+        )
+        return
 
     try:
-        # Add FORMAT TabSeparated if not already present
-        if "FORMAT" not in query.upper():
-            query = f"{query} FORMAT PrettyCompactMonoBlock"
+        conn = sqlite3.connect(DATABASE_PATH)
+        cursor = conn.cursor()
+        cursor.execute(query)
+        rows = cursor.fetchmany(50)  # cap at 50 rows
+        conn.close()
 
-        # Execute the query and get results
-        result = db.execute_query(query)
-
-        if isinstance(result, str) and result.startswith("Error:"):
-            await update.message.reply_text(f"❌ {result}")
+        if not rows:
+            await update.message.reply_text("Query returned no results.")
             return
 
-        if not result:
-            await update.message.reply_text(
-                "Query executed successfully. No results returned."
-            )
-            return
+        col_names = [description[0] for description in cursor.description]
+        header = " | ".join(col_names)
+        separator = "-" * len(header)
+        body = "\n".join(" | ".join(str(v) for v in row) for row in rows)
+        message = f"`{header}\n{separator}\n{body}`"
 
-        # Convert result to string
-        if isinstance(result, list):
-            # If result is a list of rows, join them with newlines
-            formatted_result = "\n".join(
-                "\t".join(str(val) for val in row) for row in result
-            )
-        else:
-            formatted_result = str(result)
+        # Telegram message limit is 4096 chars
+        if len(message) > 4000:
+            message = message[:4000] + "\n... (truncated)"
 
-        # Format the message
-        message = f"Query Results:\n\n{formatted_result}"
+        await update.message.reply_text(message, parse_mode="Markdown")
 
-        # Send the formatted message
-        await update.message.reply_text(message)
-
+    except sqlite3.Error as e:
+        logger.error(f"Error executing SQL query: {e}")
+        await update.message.reply_text(f"❌ Database error: {e}")
     except Exception as e:
-        logger.error(f"Error executing SQL query: {str(e)}")
-        await update.message.reply_text(f"❌ Error executing query: {str(e)}")
+        logger.error(f"Unexpected error executing SQL: {e}")
+        await update.message.reply_text(f"❌ Error: {e}")
 
 
 async def show_tables_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Command handler to show available tables.
+    Admin command to show available tables.
     Usage: /tables
     """
-    try:
-        tables = db.get_available_tables()
-        if isinstance(tables, str):  # Error occurred
-            await update.message.reply_text(f"❌ Error: {tables}")
-            return
+    user_id = update.effective_user.id
+    if not _is_admin(user_id):
+        await update.message.reply_text("❌ This command is restricted to admins.")
+        return
 
-        if not tables:
+    try:
+        conn = sqlite3.connect(DATABASE_PATH)
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+        rows = cursor.fetchall()
+        conn.close()
+
+        if not rows:
             await update.message.reply_text("No tables found in the database.")
             return
 
-        message = "Available tables:\n\n"
-        for table in tables:
-            message += f"• {table}\n"
-
+        message = "Available tables:\n\n" + "\n".join(f"• {row[0]}" for row in rows)
         await update.message.reply_text(message)
 
     except Exception as e:
-        logger.error(f"Error getting tables: {str(e)}")
-        await update.message.reply_text(f"❌ Error: {str(e)}")
+        logger.error(f"Error getting tables: {e}")
+        await update.message.reply_text(f"❌ Error: {e}")
 
 
 async def describe_table_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Command handler to show table schema.
+    Admin command to show table schema.
     Usage: /schema <table_name>
-    Example: /schema trades
+    Example: /schema user_preferences
     """
+    user_id = update.effective_user.id
+    if not _is_admin(user_id):
+        await update.message.reply_text("❌ This command is restricted to admins.")
+        return
+
     if not context.args:
         await update.message.reply_text(
             "Please provide a table name.\n"
             "Usage: /schema <table_name>\n"
-            "Example: /schema trades"
+            "Example: /schema user_preferences"
         )
         return
 
     table_name = context.args[0]
 
     try:
-        schema = db.get_table_schema(table_name)
-        if isinstance(schema, str):  # Error occurred
-            await update.message.reply_text(f"❌ Error: {schema}")
-            return
+        conn = sqlite3.connect(DATABASE_PATH)
+        cursor = conn.cursor()
+        cursor.execute(f"PRAGMA table_info({sqlite3.escape_string(table_name)})")
+        columns = cursor.fetchall()
+        conn.close()
 
-        if not schema:
+        if not columns:
             await update.message.reply_text(
                 f"No schema found for table '{table_name}'."
             )
             return
 
         message = f"Schema for table '{table_name}':\n\n"
-        for column in schema:
-            message += f"• {column['name']}: {column['type']}\n"
-            if column["default"]:
-                message += f"  Default: {column['default']}\n"
+        for col in columns:
+            # col: (cid, name, type, notnull, default_value, pk)
+            line = f"• {col[1]}: {col[2]}"
+            if col[4] is not None:
+                line += f" (default: {col[4]})"
+            if col[5]:
+                line += " [PK]"
+            message += line + "\n"
 
         await update.message.reply_text(message)
 
     except Exception as e:
-        logger.error(f"Error getting table schema: {str(e)}")
-        await update.message.reply_text(f"❌ Error: {str(e)}")
+        logger.error(f"Error getting table schema: {e}")
+        await update.message.reply_text(f"❌ Error: {e}")

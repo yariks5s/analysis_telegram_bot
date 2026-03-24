@@ -1,15 +1,15 @@
 import datetime
+import logging
 from telegram import Update  # type: ignore
 from telegram.ext import ContextTypes, CallbackContext  # type: ignore
 
-# These imports will need to be updated once all files are restructured
 from src.analysis.utils.helpers import (
     check_and_analyze,
     input_sanity_check_analyzing,
     input_sanity_check_historical,
 )
 from src.visualization.plot_builder import plot_price_chart
-from src.database.operations import get_user_preferences
+from src.database.operations import get_user_preferences, save_signal_history
 from src.telegram.signals.detection import generate_price_prediction_signal_proba
 from src.api.data_fetcher import fetch_candles, analyze_data
 from src.core.error_handler import handle_error
@@ -73,8 +73,6 @@ async def send_crypto_chart(update: Update, context: CallbackContext):
             )
 
             if trading_signal is not None:
-                from src.database.operations import save_signal_history
-
                 user_id = update.effective_user.id
                 currency_pair = df.attrs.get("symbol", "UNKNOWN")
 
@@ -103,7 +101,7 @@ async def send_crypto_chart(update: Update, context: CallbackContext):
                         f"Signal saved to history for user {user_id}, {currency_pair}"
                     )
                 except Exception as save_error:
-                    print(f"Error saving signal to history: {save_error}")
+                    logging.getLogger(__name__).error(f"Error saving signal to history: {save_error}")
 
         except Exception as e:
             await handle_error(
@@ -127,8 +125,6 @@ async def send_crypto_chart(update: Update, context: CallbackContext):
             return
 
         await update.message.reply_text(f"  {reason_str}")
-
-        df = df.reset_index(drop=True)
     except Exception as e:
         await handle_error(update, "unknown", exception=e)
 
@@ -180,8 +176,6 @@ async def send_text_data(update: Update, context: CallbackContext):
                 exception=e,
             )
             return
-
-        df = df.reset_index(drop=True)
     except Exception as e:
         await handle_error(update, "unknown", exception=e)
 

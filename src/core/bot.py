@@ -5,7 +5,6 @@ This is the main module for the Telegram bot, handling initialization, setup,
 and running the bot with all necessary handlers.
 """
 
-import asyncio
 import os
 import logging
 from dotenv import load_dotenv
@@ -75,6 +74,7 @@ logging.basicConfig(
 async def initialize_jobs_handler(application):
     """
     Initialize all user signal jobs from the database when the application starts.
+    Called via post_init so it receives the Application instance directly.
     """
     await initialize_jobs(application)
 
@@ -145,7 +145,10 @@ def setup_handlers(app):
         ],
         states={
             CHOOSING_ACTION: [
-                CallbackQueryHandler(handle_signal_menu_callback),
+                CallbackQueryHandler(
+                    handle_signal_menu_callback,
+                    pattern=r"^(no_op|delete_signal_|add_signal|signal_menu_done)",
+                ),
             ],
             TYPING_SIGNAL_DATA: [
                 MessageHandler(
@@ -153,7 +156,9 @@ def setup_handlers(app):
                 ),
             ],
         },
-        fallbacks=[],
+        fallbacks=[
+            CommandHandler("cancel", lambda u, c: ConversationHandler.END)
+        ],
     )
     app.add_handler(manage_signals_conv_handler)
 
@@ -228,8 +233,13 @@ def main():
     # Get token from environment
     TOKEN = os.getenv("API_TELEGRAM_KEY")
 
-    # Create bot application
-    app = ApplicationBuilder().token(TOKEN).build()
+    # Create bot application; post_init restores signal jobs once the app is ready
+    app = (
+        ApplicationBuilder()
+        .token(TOKEN)
+        .post_init(initialize_jobs_handler)
+        .build()
+    )
 
     # Register global error handler
     app.add_error_handler(global_error_handler)
@@ -237,12 +247,6 @@ def main():
     # Setup all handlers
     setup_handlers(app)
 
-    # Initialize jobs after the bot starts
-    app.job_queue.run_once(
-        lambda _: asyncio.create_task(initialize_jobs_handler(app)), when=0
-    )
-
     # Start the bot
     logger.info("Bot is starting...")
     app.run_polling()
-    logger.info("Bot started successfully")

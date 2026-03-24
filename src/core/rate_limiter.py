@@ -56,12 +56,13 @@ class BotRateLimiter:
         # Check if there are enough recent suspicious activities
         return len(self.suspicious_users.get(user_id, [])) >= SUSPICIOUS_THRESHOLD
 
-    def check_limits(self, user_id: int) -> bool:
+    def check_limits(self, user_id: int, cost: int = 1) -> bool:
         """
         Check if the user or global rate limits have been exceeded.
 
         Args:
             user_id: The ID of the user making the request
+            cost: How many tokens this request consumes
 
         Returns:
             bool: True if the request is allowed, False if rate limited
@@ -93,14 +94,15 @@ class BotRateLimiter:
             user_limit = USER_RATE_LIMIT // SUSPICIOUS_PENALTY
             logger.warning(f"Using reduced rate limit for suspicious user {user_id}")
 
-        if len(self.user_requests[user_id]) >= user_limit:
+        if len(self.user_requests[user_id]) + cost > user_limit:
             raise RateLimitExceeded(f"User rate limit exceeded. Try again later.")
 
-        if len(self.global_requests) >= GLOBAL_RATE_LIMIT:
+        if len(self.global_requests) + cost > GLOBAL_RATE_LIMIT:
             raise RateLimitExceeded(f"Global rate limit exceeded. Try again later.")
 
-        self.user_requests[user_id].append(current_time)
-        self.global_requests.append(current_time)
+        for _ in range(cost):
+            self.user_requests[user_id].append(current_time)
+            self.global_requests.append(current_time)
 
         return True
 
@@ -165,19 +167,23 @@ def rate_limit(cost: int = 1):
             user_id = update.effective_user.id if update.effective_user else 0
 
             try:
-                rate_limiter.check_limits(user_id)
+                rate_limiter.check_limits(user_id, cost)
 
                 # If we get here, the rate limit hasn't been exceeded
                 return await func(update, context)
 
             except RateLimitExceeded as e:
                 quota = rate_limiter.get_user_quota(user_id)
-                await update.message.reply_text(
+                msg = (
                     f"⚠️ {str(e)}\n"
                     f"Reset in {quota['reset_seconds']} seconds.\n"
                     f"Limit: {quota['limit']} requests per minute."
                 )
                 logger.warning(f"Rate limit exceeded for user {user_id}: {str(e)}")
+                if update.message:
+                    await update.message.reply_text(msg)
+                elif update.callback_query:
+                    await update.callback_query.answer(msg[:200], show_alert=True)
                 return None
 
         return wrapper

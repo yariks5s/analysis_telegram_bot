@@ -300,7 +300,7 @@ async def handle_indicator_selection(update, _):
         if len(data_parts) >= 3 and data_parts[0] == "indicator":
             menu_id = data_parts[1]
             action = data_parts[2]
-            logger.info(f"Processing parameter action: {action}, menu_id: {menu_id}")
+            logger.info(f"Processing indicator action: {action}, menu_id: {menu_id}")
         else:
             action = data_parts[0]
             menu_id = data_parts[1] if len(data_parts) > 1 else str(id(query))
@@ -398,65 +398,6 @@ def get_parameter_keyboard(user_id, menu_id=None):
     )
 
     return InlineKeyboardMarkup(keyboard), menu_id
-
-
-async def handle_parameter_input(update, context):
-    """
-    Handle user input for parameter values.
-
-    Args:
-        update: Telegram update object
-        context: Telegram context object
-
-    Returns:
-        Conversation state
-    """
-    user_id = update.effective_user.id
-    user_text = update.message.text.strip()
-
-    if user_id not in _param_edit_states:
-        await update.message.reply_text(
-            "Sorry, I don't have an active parameter editing session. "
-            "Please use /select_indicators to start over."
-        )
-        return ConversationHandler.END
-
-    param_info = _param_edit_states[user_id]
-    param_name = param_info["param"]
-    menu_id = param_info["menu_id"]
-
-    try:
-        if param_name == "atr_period":
-            new_value = int(user_text)
-        else:  # fvg_min_size or other float params
-            new_value = float(user_text)
-
-        param_config = INDICATOR_PARAMS[param_name]
-        if new_value < param_config["min"] or new_value > param_config["max"]:
-            await update.message.reply_text(
-                f"Value must be between {param_config['min']} and {param_config['max']}. "
-                "Please try again."
-            )
-            return TYPING_PARAM_VALUE
-
-        _menu_preferences[menu_id][param_name] = new_value
-
-        # Clear the edit state
-        del _param_edit_states[user_id]
-
-        param_markup = get_parameter_keyboard(user_id, menu_id)
-        await update.message.reply_text(
-            f"{INDICATOR_PARAMS[param_name]['display_name']} set to {new_value}.",
-            reply_markup=param_markup,
-        )
-
-        return CHOOSING_ACTION
-
-    except (ValueError, TypeError):
-        await update.message.reply_text(
-            f"Invalid input. Please enter a valid number for {INDICATOR_PARAMS[param_name]['display_name']}."
-        )
-        return TYPING_PARAM_VALUE
 
 
 async def select_indicators(update, _):

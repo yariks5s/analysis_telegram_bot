@@ -21,6 +21,7 @@ from src.database.operations import (
     get_chat_id_for_user,
     get_signal_requests,
     user_signal_request_exists,
+    save_signal_history,
 )
 
 # Imports with updated module paths
@@ -177,10 +178,12 @@ async def auto_signal_job(context):
 
     try:
         preferences = get_user_preferences(user_id)
-        if not any(preferences.values()):
+        indicator_keys = ("order_blocks", "fvgs", "liquidity_levels", "breaker_blocks", "liquidity_pools")
+        if not any(preferences.get(k) for k in indicator_keys):
             preferences = create_true_preferences()
+        candle_interval = _minutes_to_candle_interval(job_data.get("frequency_minutes", 60))
         (indicators, df) = await fetch_data_and_get_indicators(
-            currency_pair, 100, "1h", preferences
+            currency_pair, 100, candle_interval, preferences
         )
 
         if df is None or df.empty:
@@ -198,8 +201,6 @@ async def auto_signal_job(context):
         )
 
         if trading_signal is not None:
-            from src.database.operations import save_signal_history
-
             signal_data = {
                 "user_id": user_id,
                 "currency_pair": currency_pair,
@@ -219,7 +220,6 @@ async def auto_signal_job(context):
                 "timestamp": trading_signal.timestamp.isoformat(),
             }
 
-            # Save the signal to history
             try:
                 save_signal_history(signal_data)
                 logger.info(
@@ -243,9 +243,10 @@ async def auto_signal_job(context):
                 preferences.get("dark_mode", False),
             )
 
-            await context.bot.send_photo(
-                chat_id=chat_id, photo=open(chart_path, "rb"), caption=analysis_result
-            )
+            with open(chart_path, "rb") as f:
+                await context.bot.send_photo(
+                    chat_id=chat_id, photo=f, caption=analysis_result
+                )
         else:
             await context.bot.send_message(chat_id=chat_id, text=analysis_result)
 
@@ -393,6 +394,7 @@ async def createSignalJob(
             "is_with_chart": is_with_chart,
             "account_balance": account_balance,
             "risk_percentage": risk_percentage,
+            "frequency_minutes": period_minutes,
         },
     )
 
@@ -460,6 +462,7 @@ async def initialize_jobs(application):
             "is_with_chart": is_with_chart,
             "account_balance": account_balance,
             "risk_percentage": risk_percentage,
+            "frequency_minutes": frequency_minutes,
         }
         job_ref = application.job_queue.run_repeating(
             callback=auto_signal_job,
@@ -472,6 +475,24 @@ async def initialize_jobs(application):
         auto_signal_jobs[job_key] = job_ref
 
     logger.info("All user signal jobs have been initialized.")
+
+
+def _minutes_to_candle_interval(minutes: int) -> str:
+    """Map a repeat frequency in minutes to the closest valid candle interval."""
+    if minutes < 5:
+        return "1m"
+    elif minutes < 15:
+        return "5m"
+    elif minutes < 30:
+        return "15m"
+    elif minutes < 60:
+        return "30m"
+    elif minutes < 240:
+        return "1h"
+    elif minutes < 1440:
+        return "4h"
+    else:
+        return "1d"
 
 
 def detect_trend(df: pd.DataFrame, window: int = 20) -> str:
